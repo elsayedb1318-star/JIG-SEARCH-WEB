@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JIG SEARCH</title>
+<style>
+  :root{
+    --blue:#1a56db;
+    --blue-dark:#1442a8;
+    --bg:#eef1f6;
+    --card:#ffffff;
+    --border:#d9dee6;
+    --text:#1f2430;
+    --muted:#6b7280;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Tahoma, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .header{
+    width:100%;
+    background:var(--card);
+    padding:36px 20px 28px;
+    box-shadow:0 2px 10px rgba(20,30,60,.06);
+    border-bottom-left-radius:28px;
+    border-bottom-right-radius:28px;
+  }
+  .title{
+    text-align:center;
+    font-size:32px;
+    font-weight:800;
+    letter-spacing:1px;
+    color:var(--blue);
+    margin:0 0 24px;
+    font-family:Tahoma, Arial, sans-serif;
+  }
+  .search-box{
+    max-width:520px;
+    margin:0 auto;
+  }
+  input#q{
+    width:100%;
+    padding:16px 18px;
+    font-size:16px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    outline:none;
+    background:#fff;
+    text-align:right;
+  }
+  input#q:focus{
+    border-color:var(--blue);
+    box-shadow:0 0 0 3px rgba(26,86,219,.15);
+  }
+  button#searchBtn{
+    width:100%;
+    margin-top:14px;
+    padding:16px;
+    font-size:18px;
+    font-weight:600;
+    color:#fff;
+    background:var(--blue);
+    border:none;
+    border-radius:12px;
+    cursor:pointer;
+    transition:background .15s ease;
+  }
+  button#searchBtn:hover{ background:var(--blue-dark); }
+  button#searchBtn:disabled{ background:#9db4e8; cursor:default; }
+  .powered{
+    text-align:center;
+    color:var(--muted);
+    font-size:14px;
+    margin-top:16px;
+  }
+  .content{
+    width:100%;
+    max-width:640px;
+    padding:22px 16px 60px;
+  }
+  .status{
+    text-align:center;
+    color:var(--muted);
+    margin-top:24px;
+    font-size:15px;
+  }
+  .results{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-top:8px;
+  }
+  .result-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:14px 16px;
+    text-decoration:none;
+    color:var(--text);
+  }
+  .result-item:hover{ border-color:var(--blue); }
+  .file-icon{
+    flex:0 0 auto;
+    width:36px;height:36px;
+    border-radius:8px;
+    background:#fde8e8;
+    color:#c0392b;
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;
+  }
+  .file-name{
+    flex:1;
+    font-size:15px;
+    word-break:break-word;
+    text-align:right;
+  }
+  .load-more{
+    display:block;
+    margin:16px auto 0;
+    padding:10px 22px;
+    background:#fff;
+    border:1px solid var(--blue);
+    color:var(--blue);
+    border-radius:10px;
+    cursor:pointer;
+    font-size:14px;
+  }
+  .setup-warning{
+    max-width:640px;
+    margin:18px auto 0;
+    background:#fff7e6;
+    border:1px solid #ffd591;
+    color:#8a5b00;
+    border-radius:10px;
+    padding:14px 16px;
+    font-size:13.5px;
+    line-height:1.7;
+    text-align:right;
+  }
+  .setup-warning code{
+    background:#fff1d1;
+    padding:1px 5px;
+    border-radius:4px;
+    direction:ltr;
+    unicode-bidi:embed;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <h1 class="title">JIG SEARCH</h1>
+    <div class="search-box">
+      <input type="text" id="q" placeholder="connector or order number" />
+      <button id="searchBtn">بحث</button>
+    </div>
+    <div class="powered">Powered by Elsayed adel</div>
+  </div>
+
+  <div class="content">
+    <div id="setupWarning" class="setup-warning" style="display:none;"></div>
+    <div id="status" class="status"></div>
+    <div id="results" class="results"></div>
+    <button id="loadMoreBtn" class="load-more" style="display:none;">تحميل المزيد</button>
+  </div>
+
+<script>
+  // =========================================================
+  // إعدادات لازم تتظبط قبل ما الصفحة تشتغل:
+  // =========================================================
+  const API_KEY = "AIzaSyC7F7fO9WYl7Qzt0Zl45Mk04XlZuoOJ4uo"; // <-- حط الـ API Key هنا
+  const FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر من الرابط اللي بعتهولي
+  const PAGE_SIZE = 30;
+  // =========================================================
+
+  const qInput = document.getElementById('q');
+  const searchBtn = document.getElementById('searchBtn');
+  const statusEl = document.getElementById('status');
+  const resultsEl = document.getElementById('results');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  const setupWarning = document.getElementById('setupWarning');
+
+  let nextPageToken = null;
+  let currentQuery = "";
+
+  function checkSetup(){
+    if(!API_KEY || API_KEY === "YOUR_GOOGLE_API_KEY_HERE"){
+      setupWarning.style.display = "block";
+      setupWarning.innerHTML =
+        "⚠️ لسه محتاج تحط الـ Google API Key عشان البحث يشتغل.<br>" +
+        "افتح ملف الصفحة، دوّر على المتغيّر <code>API_KEY</code> في أول كود الـ JavaScript، وحطّ فيه الكود اللي جبته من Google Cloud Console.<br>" +
+        "وتأكد إن الفولدر نفسه معمول له مشاركة \"Anyone with the link – Viewer\".";
+      searchBtn.disabled = true;
+      return false;
+    }
+    setupWarning.style.display = "none";
+    searchBtn.disabled = false;
+    return true;
+  }
+
+  function escapeForDriveQuery(str){
+    return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
+  function fileIconLabel(mime, name){
+    if(mime === 'application/pdf' || name.toLowerCase().endsWith('.pdf')) return 'PDF';
+    return 'FILE';
+  }
+
+  async function runSearch(reset){
+    const term = qInput.value.trim();
+    if(!term){
+      statusEl.textContent = "اكتب اسم أو جزء من اسم الملف الأول";
+      return;
+    }
+    if(!checkSetup()) return;
+
+    if(reset){
+      currentQuery = term;
+      nextPageToken = null;
+      resultsEl.innerHTML = "";
+    }
+
+    statusEl.textContent = "بحث جاري...";
+    searchBtn.disabled = true;
+    loadMoreBtn.style.display = "none";
+
+    const safeTerm = escapeForDriveQuery(currentQuery);
+    const q = `'${FOLDER_ID}' in parents and trashed = false and mimeType = 'application/pdf' and name contains '${safeTerm}'`;
+
+    const url = new URL('https://www.googleapis.com/drive/v3/files');
+    url.searchParams.set('q', q);
+    url.searchParams.set('fields', 'nextPageToken, files(id, name, webViewLink, webContentLink, mimeType)');
+    url.searchParams.set('pageSize', PAGE_SIZE);
+    url.searchParams.set('key', API_KEY);
+    url.searchParams.set('supportsAllDrives', 'true');
+    url.searchParams.set('includeItemsFromAllDrives', 'true');
+    if(nextPageToken) url.searchParams.set('pageToken', nextPageToken);
+
+    try{
+      const res = await fetch(url.toString());
+      const data = await res.json();
+
+      if(data.error){
+        statusEl.textContent = "حصل خطأ: " + (data.error.message || "تأكد من الـ API Key وإعدادات المشاركة");
+        searchBtn.disabled = false;
+        return;
+      }
+
+      const files = data.files || [];
+      nextPageToken = data.nextPageToken || null;
+
+      if(reset && files.length === 0){
+        statusEl.textContent = "مفيش نتايج مطابقة";
+      } else {
+        statusEl.textContent = "";
+      }
+
+      files.forEach(f => {
+        const a = document.createElement('a');
+        a.className = 'result-item';
+        a.href = f.webViewLink || `https://drive.google.com/file/d/${f.id}/view`;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.innerHTML = `
+          <div class="file-icon">${fileIconLabel(f.mimeType, f.name)}</div>
+          <div class="file-name">${f.name}</div>
+        `;
+        resultsEl.appendChild(a);
+      });
+
+      loadMoreBtn.style.display = nextPageToken ? 'block' : 'none';
+    } catch(err){
+      statusEl.textContent = "حصل خطأ في الاتصال. تأكد من الإنترنت والإعدادات.";
+    } finally {
+      searchBtn.disabled = false;
+    }
+  }
+
+  searchBtn.addEventListener('click', () => runSearch(true));
+  qInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') runSearch(true); });
+  loadMoreBtn.addEventListener('click', () => runSearch(false));
+
+  checkSetup();
+</script>
+</body>
+</html>
