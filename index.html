@@ -183,7 +183,7 @@
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
   const FOLDER_CHUNK_SIZE = 20; // عدد الفولدرات في كل استعلام بحث واحد
-  const CACHE_KEY = 'jigsearch_folder_index_v1';
+  const CACHE_KEY = 'jigsearch_folder_index_v2';
   const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 ساعة
   // =========================================================
 
@@ -233,7 +233,10 @@
     return data;
   }
 
+  let skippedFolderCount = 0;
+
   // بيدور على كل الفولدرات الفرعية جوه فولدر معين، من كل المستويات (BFS)
+  // لو فولدر معين مش عنده صلاحية وصول، بيتخطاه ويكمل الباقي بدل ما يوقف
   async function crawlAllFolders(rootId, onProgress){
     const all = [rootId];
     let queue = [rootId];
@@ -242,12 +245,20 @@
       const nextQueue = [];
       for(const folderId of queue){
         let pageToken = null;
-        do{
-          const q = `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-          const data = await driveList(q, pageToken);
-          (data.files || []).forEach(f => { all.push(f.id); nextQueue.push(f.id); });
-          pageToken = data.nextPageToken || null;
-        } while(pageToken);
+        let keepGoing = true;
+        while(keepGoing){
+          try{
+            const q = `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+            const data = await driveList(q, pageToken);
+            (data.files || []).forEach(f => { all.push(f.id); nextQueue.push(f.id); });
+            pageToken = data.nextPageToken || null;
+            keepGoing = !!pageToken;
+          }catch(err){
+            // فولدر مش متاح الوصول له (صلاحيات، أو Shortcut معطوب) - نتخطاه ونكمل
+            skippedFolderCount++;
+            keepGoing = false;
+          }
+        }
       }
       queue = nextQueue;
       level++;
@@ -339,14 +350,19 @@
       const q = `(${parentsClause}) and mimeType = 'application/pdf' and trashed = false and name contains '${safeTerm}'`;
       const pageToken = chunkPageTokens[chunk.join(',')] || null;
 
-      const data = await driveList(q, pageToken);
-      const files = data.files || [];
-      collected = collected.concat(files);
+      try{
+        const data = await driveList(q, pageToken);
+        const files = data.files || [];
+        collected = collected.concat(files);
 
-      if(data.nextPageToken){
-        chunkPageTokens[chunk.join(',')] = data.nextPageToken;
-      } else {
-        pendingChunks.shift(); // خلصنا من الشنك ده
+        if(data.nextPageToken){
+          chunkPageTokens[chunk.join(',')] = data.nextPageToken;
+        } else {
+          pendingChunks.shift(); // خلصنا من الشنك ده
+        }
+      }catch(err){
+        // شنك فيه فولدر مش متاح - نتخطاه ونكمل باقي الشنكات
+        pendingChunks.shift();
       }
     }
     return collected;
@@ -403,4 +419,3 @@
 </script>
 </body>
 </html>
-
