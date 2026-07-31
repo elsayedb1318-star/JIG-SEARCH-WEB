@@ -504,7 +504,7 @@
         <line x1="55.5" y1="53.5" x2="76" y2="74" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
         <circle cx="58" cy="22" r="6.5" fill="#F5A524"/>
       </svg>
-      <h1 class="title">JIG SEARCH<small>بحث ملفات الجيجات</small></h1>
+      <h1 class="title">JIG SEARCH</h1>
     </div>
     <div class="search-box">
       <input type="text" id="q" placeholder="ابحث برقم الكونيكتور أو الأوردر..." />
@@ -539,9 +539,6 @@
       <div class="help-modal-body">
         <h3>الفكرة العامة</h3>
         <p>التطبيق يشمل كافه بيانات الجيكات من مختلف انواع الشركات، دون الحاجة لتسجيل دخول، مع اضافه اللوكيشن الخاص بالـ Spare Part في كل مصنع.</p>
-
-        <h3>أول استخدام</h3>
-        <p>التطبيق بيبدأ الفهرسة <strong>تلقائيًا من غير ما تدوس أي زرار</strong> أول ما تفتح الصفحة، لو مفيش فهرس محفوظ عندك قبل كده. بيمشي جوه كل الفولدرات ويجمع أسماء الملفات مرة واحدة، وده بياخد وقت حسب عدد الملفات، وبيتخزن عندك عشان مايتكررش كل مرة تفتح فيها التطبيق.</p>
 
         <h3>البحث</h3>
         <p>اكتب اسم الملف أو جزء منه ودوس "بحث". تقدر تكتب أكتر من كلمة مفصولة بمسافة، والتطبيق هيلاقي أي ملف اسمه فيه كل الكلمات دي مهما كان ترتيبها، وحتى لو الكلمة في نص الاسم مش أوله.</p>
@@ -578,7 +575,7 @@
   // =========================================================
   // إعدادات لازم تتظبط قبل ما الصفحة تشتغل:
   // =========================================================
-  const API_KEY = "AIzaSyC7F7fO9WYl7Qzt0Zl45Mk04XlZuoOJ4uo"; // <-- حط الـ API Key هنا
+  const PROXY_URL = "https://script.google.com/macros/s/AKfycbwY6w8FZsqEG1EDyEbzswMywIwZpE-9dNn-jKm6-UB3i8rcDUU1a8ziL6JW2vDrjdF9/exec";
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
   const CACHE_KEY = 'jigsearch_index_v6'; // شامل الفولدرات + أسماء ملفات PDF و Word و Excel و PowerPoint والصور
@@ -785,7 +782,7 @@
       return '❌ مشكلة في الاتصال بالإنترنت. اتأكد إن جهازك متصل بالنت وجرب تاني.';
     }
     if(category === 'permission'){
-      return '❌ مشكلة في الصلاحيات: التطبيق مش قادر يوصل للفولدر/الملفات. اتأكد إن الفولدر الرئيسي على Google Drive معمول له مشاركة "Anyone with the link – Viewer"، وإن الـ API Key لسه مفعّلة ومقيدة صح على Google Drive API ودومين الموقع.';
+      return '❌ مشكلة في الصلاحيات: التطبيق مش قادر يوصل للفولدر/الملفات. اتأكد إن الفولدر الرئيسي على Google Drive معمول له مشاركة "Anyone with the link – Viewer"، وإن الحساب اللي عمل الـ Deploy للـ Apps Script Proxy عنده صلاحية وصول على الفولدر.';
     }
     if(category === 'server'){
       return '❌ فيه ضغط أو مشكلة مؤقتة من خوادم Google Drive. استنى دقيقة وجرب تدوس تحديث تاني.';
@@ -794,11 +791,11 @@
   }
 
   function checkSetup(){
-    if(!API_KEY || API_KEY === "YOUR_GOOGLE_API_KEY_HERE"){
+    if(!PROXY_URL || PROXY_URL === "YOUR_APPS_SCRIPT_EXEC_URL_HERE"){
       setupWarning.style.display = "block";
       setupWarning.innerHTML =
-        "⚠️ لسه محتاج تحط الـ Google API Key عشان البحث يشتغل.<br>" +
-        "افتح ملف الصفحة، دوّر على المتغيّر <code>API_KEY</code>، وحطّ فيه الكود من Google Cloud Console.<br>" +
+        "⚠️ لسه محتاج تحط رابط الـ Apps Script Proxy عشان البحث يشتغل.<br>" +
+        "افتح ملف الصفحة، دوّر على المتغيّر <code>PROXY_URL</code>، وحطّ فيه رابط الـ Web app اللي عملته من Code.gs.<br>" +
         "وتأكد إن الفولدر معمول له مشاركة \"Anyone with the link – Viewer\".";
       searchBtn.disabled = true;
       return false;
@@ -833,13 +830,8 @@
 
   async function driveList(q, pageToken, retries){
     if(retries === undefined) retries = 3;
-    const url = new URL('https://www.googleapis.com/drive/v3/files');
+    const url = new URL(PROXY_URL);
     url.searchParams.set('q', q);
-    url.searchParams.set('fields', 'nextPageToken, files(id, name, webViewLink, mimeType)');
-    url.searchParams.set('pageSize', '1000');
-    url.searchParams.set('key', API_KEY);
-    url.searchParams.set('supportsAllDrives', 'true');
-    url.searchParams.set('includeItemsFromAllDrives', 'true');
     if(pageToken) url.searchParams.set('pageToken', pageToken);
     let res, data;
     try{
