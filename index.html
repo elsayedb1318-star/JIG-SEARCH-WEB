@@ -3,48 +3,154 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JIG SEARCH</title>
+<title>JIG SEARCH — بحث فوري في ملفات الجيجات</title>
+<meta name="description" content="جيج سيرش: محرك بحث سريع لملفات ومستندات الجيجات (PDF, Word, Excel, PowerPoint والصور) في كل المصانع، بدون تسجيل دخول، وبيشتغل بدون إنترنت بعد أول فهرسة.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#3452E1" id="metaThemeColor">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="JIG SEARCH — بحث فوري في ملفات الجيجات">
+<meta property="og:description" content="بحث سريع في كل ملفات وملفات الجيجات (PDF, Word, Excel, PowerPoint وصور) بكل المصانع من مكان واحد.">
+<meta property="og:image" content="og-image.png">
+<meta property="og:locale" content="ar_AR">
+<!-- حط رابط الموقع الحقيقي هنا لما يتنشر: <meta property="og:url" content="https://..."> -->
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="JIG SEARCH — بحث فوري في ملفات الجيجات">
+<meta name="twitter:description" content="بحث سريع في كل ملفات وملفات الجيجات (PDF, Word, Excel, PowerPoint وصور) بكل المصانع من مكان واحد.">
+<meta name="twitter:image" content="og-image.png">
+
+<!-- Favicons بأحجام متعددة -->
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1a56db">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+
 <style>
   :root{
-    --blue:#1a56db;
-    --blue-dark:#1442a8;
-    --bg:#eef1f6;
-    --card:#ffffff;
-    --border:#d9dee6;
-    --text:#1f2430;
-    --muted:#6b7280;
+    --brand:#3452E1;
+    --brand-600:#2A42C7;
+    --brand-100:#E7ECFF;
+    --accent:#F5A524;
+    --danger:#c0392b;
+
+    --bg-1:#EEF2FF;
+    --bg-2:#F5F3FF;
+    --surface:rgba(255,255,255,.62);
+    --surface-solid:#ffffff;
+    --border:rgba(100,116,150,.22);
+    --text:#161B29;
+    --muted:#64748B;
+
+    --shadow-sm:0 2px 10px rgba(31,45,90,.06);
+    --shadow-md:0 10px 30px rgba(31,45,90,.10);
+    --shadow-lg:0 18px 46px rgba(31,45,90,.14);
+
+    --radius-lg:26px;
+    --radius-md:18px;
+    --radius-sm:12px;
+    --blur:20px;
   }
+  html[data-theme="dark"]{
+    --brand:#6B86FF;
+    --brand-600:#8AA0FF;
+    --brand-100:rgba(107,134,255,.16);
+    --accent:#F7B84B;
+    --danger:#ff6b6b;
+
+    --bg-1:#0B1120;
+    --bg-2:#141C30;
+    --surface:rgba(28,37,58,.58);
+    --surface-solid:#1A2338;
+    --border:rgba(255,255,255,.10);
+    --text:#E7EAF2;
+    --muted:#93A0B4;
+
+    --shadow-sm:0 2px 10px rgba(0,0,0,.25);
+    --shadow-md:0 10px 30px rgba(0,0,0,.32);
+    --shadow-lg:0 18px 46px rgba(0,0,0,.4);
+  }
+  /* الألوان القديمة كانت --blue، فيه أكواد تانية محتاجاها لسه شغالة كـ alias */
+  :root{ --blue:var(--brand); --blue-dark:var(--brand-600); }
+
   *{box-sizing:border-box;}
+  html{ color-scheme:light; }
+  html[data-theme="dark"]{ color-scheme:dark; }
   body{
     margin:0;
     font-family:'Segoe UI', Tahoma, Arial, sans-serif;
-    background:var(--bg);
+    background:
+      radial-gradient(circle at 12% -8%, var(--brand-100), transparent 55%),
+      radial-gradient(circle at 100% 0%, rgba(245,165,36,.14), transparent 50%),
+      linear-gradient(180deg, var(--bg-1), var(--bg-2));
+    background-attachment:fixed;
     color:var(--text);
     min-height:100vh;
     display:flex;
     flex-direction:column;
     align-items:center;
+    transition:background-color .25s ease, color .25s ease;
   }
+
+  /* ===== Glassmorphism helper ===== */
+  .glass{
+    background:var(--surface);
+    -webkit-backdrop-filter:blur(var(--blur)) saturate(160%);
+    backdrop-filter:blur(var(--blur)) saturate(160%);
+    border:1px solid var(--border);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
+    .glass{ background:var(--surface-solid); }
+  }
+
+  /* ===== Ripple effect (بيتضاف تلقائيًا على كل الأزرار) ===== */
+  .ripple-host{ position:relative; overflow:hidden; }
+  .ripple{
+    position:absolute;
+    border-radius:50%;
+    transform:scale(0);
+    background:var(--ripple-color, rgba(15,23,42,.16));
+    animation:rippleAnim .6s ease-out forwards;
+    pointer-events:none;
+  }
+  @keyframes rippleAnim{ to{ transform:scale(2.6); opacity:0; } }
+
   .header{
     width:100%;
-    background:var(--card);
-    padding:36px 20px 28px;
-    box-shadow:0 2px 10px rgba(20,30,60,.06);
-    border-bottom-left-radius:28px;
-    border-bottom-right-radius:28px;
+    padding:32px 20px 26px;
+    box-shadow:var(--shadow-md);
+    border-radius:0 0 var(--radius-lg) var(--radius-lg);
+    border-top:none;
   }
+  .brand-lockup{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin:0 0 22px;
+  }
+  .brand-logo{ width:44px; height:44px; flex:0 0 auto; border-radius:12px; box-shadow:var(--shadow-sm); }
   .title{
     text-align:center;
-    font-size:32px;
+    font-size:28px;
     font-weight:800;
     letter-spacing:1px;
-    color:var(--blue);
-    margin:0 0 24px;
+    color:var(--text);
+    margin:0;
     font-family:Tahoma, Arial, sans-serif;
+  }
+  .title small{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    letter-spacing:2px;
+    color:var(--brand);
+    margin-top:2px;
   }
   .search-box{
     max-width:520px;
@@ -55,14 +161,19 @@
     padding:16px 18px;
     font-size:16px;
     border:1px solid var(--border);
-    border-radius:12px;
+    border-radius:var(--radius-md);
     outline:none;
-    background:#fff;
+    background:var(--surface);
+    -webkit-backdrop-filter:blur(var(--blur));
+    backdrop-filter:blur(var(--blur));
+    color:var(--text);
     text-align:right;
+    transition:border-color .15s ease, box-shadow .15s ease;
   }
+  input#q::placeholder{ color:var(--muted); }
   input#q:focus{
-    border-color:var(--blue);
-    box-shadow:0 0 0 3px rgba(26,86,219,.15);
+    border-color:var(--brand);
+    box-shadow:0 0 0 4px var(--brand-100);
   }
   button#searchBtn{
     width:100%;
@@ -71,42 +182,87 @@
     font-size:18px;
     font-weight:600;
     color:#fff;
-    background:var(--blue);
+    background:linear-gradient(135deg, var(--brand), var(--brand-600));
     border:none;
-    border-radius:12px;
+    border-radius:var(--radius-md);
     cursor:pointer;
-    transition:background .15s ease;
+    box-shadow:var(--shadow-sm);
+    transition:box-shadow .2s ease, transform .15s ease;
+    --ripple-color: rgba(255,255,255,.5);
   }
-  button#searchBtn:hover{ background:var(--blue-dark); }
-  button#searchBtn:disabled{ background:#9db4e8; cursor:default; }
+  button#searchBtn:hover{ box-shadow:var(--shadow-md); transform:translateY(-1px); }
+  button#searchBtn:active{ transform:translateY(0); }
+  button#searchBtn:disabled{ background:#9db4e8; cursor:default; box-shadow:none; transform:none; }
+
+  /* ===== Recent searches ===== */
+  .recent-searches{
+    display:none;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px;
+    max-width:520px;
+    margin:14px auto 0;
+    justify-content:center;
+  }
+  .recent-label{ font-size:12.5px; color:var(--muted); margin-inline-end:2px; }
+  .recent-chip{
+    font-size:13px;
+    padding:7px 14px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    -webkit-backdrop-filter:blur(var(--blur));
+    backdrop-filter:blur(var(--blur));
+    color:var(--text);
+    cursor:pointer;
+    transition:border-color .15s ease, transform .15s ease;
+    --ripple-color: rgba(52,82,225,.18);
+  }
+  .recent-chip:hover{ border-color:var(--brand); transform:translateY(-1px); }
+  .recent-clear{
+    font-size:12px;
+    padding:7px 12px;
+    border-radius:999px;
+    border:1px solid transparent;
+    background:transparent;
+    color:var(--muted);
+    cursor:pointer;
+  }
+  .recent-clear:hover{ color:var(--danger); }
+
   .powered{
     text-align:center;
     color:var(--muted);
-    font-size:14px;
+    font-size:13px;
     margin-top:16px;
   }
   .refresh-index-btn{
     display:block;
     margin:14px auto 0;
-    padding:8px 18px;
-    background:#fff;
+    padding:9px 18px;
+    background:var(--surface);
+    -webkit-backdrop-filter:blur(var(--blur));
+    backdrop-filter:blur(var(--blur));
     border:1px solid var(--border);
-    color:var(--blue);
-    border-radius:10px;
+    color:var(--brand);
+    border-radius:999px;
     cursor:pointer;
     font-size:13px;
+    transition:border-color .15s ease, transform .15s ease;
+    --ripple-color: rgba(52,82,225,.16);
   }
-  .refresh-index-btn:hover{ border-color:var(--blue); }
-  .refresh-index-btn:disabled{ opacity:.6; cursor:default; }
+  .refresh-index-btn:hover{ border-color:var(--brand); transform:translateY(-1px); }
+  .refresh-index-btn:disabled{ opacity:.6; cursor:default; transform:none; }
   .refresh-index-btn.stale{
-    border-color:#e8a33d;
-    background:#fff7ea;
+    border-color:var(--accent);
+    background:rgba(245,165,36,.12);
     color:#a86616;
     animation:staleGlow 1.8s ease-in-out infinite;
   }
+  html[data-theme="dark"] .refresh-index-btn.stale{ color:#ffcf87; }
   @keyframes staleGlow{
-    0%,100%{ box-shadow:0 0 0 0 rgba(232,163,61,.35); }
-    50%{ box-shadow:0 0 0 5px rgba(232,163,61,0); }
+    0%,100%{ box-shadow:0 0 0 0 rgba(245,165,36,.35); }
+    50%{ box-shadow:0 0 0 6px rgba(245,165,36,0); }
   }
   .stale-hint{
     display:block;
@@ -115,11 +271,15 @@
     font-size:12px;
     margin-top:6px;
   }
-  .help-btn{ color:#3a4152; }
+  html[data-theme="dark"] .stale-hint{ color:#ffcf87; }
+  .help-btn{ color:var(--text); }
+  .theme-toggle-btn{ color:var(--text); }
   .help-modal-overlay{
     position:fixed;
     inset:0;
-    background:rgba(20,25,35,.55);
+    background:rgba(15,20,35,.55);
+    -webkit-backdrop-filter:blur(6px);
+    backdrop-filter:blur(6px);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -127,15 +287,21 @@
     z-index:100;
   }
   .help-modal{
-    background:#fff;
-    border-radius:14px;
+    background:var(--surface);
+    -webkit-backdrop-filter:blur(24px) saturate(160%);
+    backdrop-filter:blur(24px) saturate(160%);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
     max-width:520px;
     width:100%;
     max-height:85vh;
     display:flex;
     flex-direction:column;
     overflow:hidden;
-    box-shadow:0 12px 40px rgba(0,0,0,.25);
+    box-shadow:var(--shadow-lg);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
+    .help-modal{ background:var(--surface-solid); }
   }
   .help-modal-header{
     display:flex;
@@ -147,29 +313,30 @@
   .help-modal-header h2{
     margin:0;
     font-size:17px;
-    color:var(--blue);
+    color:var(--brand);
   }
   .help-modal-close{
     border:none;
-    background:#f1f3f7;
-    color:#4a5468;
+    background:var(--brand-100);
+    color:var(--text);
     width:30px;height:30px;
-    border-radius:8px;
+    border-radius:10px;
     font-size:15px;
     cursor:pointer;
     flex:0 0 auto;
+    --ripple-color: rgba(15,23,42,.18);
   }
-  .help-modal-close:hover{ background:#e4e7ee; }
+  .help-modal-close:hover{ filter:brightness(.96); }
   .help-modal-body{
     padding:16px 18px 20px;
     overflow-y:auto;
     text-align:right;
     line-height:1.7;
     font-size:14px;
-    color:#2c3444;
+    color:var(--text);
   }
   .help-modal-body h3{
-    color:var(--blue);
+    color:var(--brand);
     font-size:15px;
     margin:16px 0 6px;
   }
@@ -185,20 +352,6 @@
     flex-wrap:wrap;
   }
   .secondary-actions .refresh-index-btn{ margin-top:0; }
-  .sde-link-btn{
-    display:inline-block;
-    margin:0;
-    padding:8px 18px;
-    background:#fff;
-    border:1px solid var(--border);
-    color:var(--blue);
-    border-radius:10px;
-    cursor:pointer;
-    font-size:13px;
-    text-decoration:none;
-    line-height:1.4;
-  }
-  .sde-link-btn:hover{ border-color:var(--blue); }
   .content{
     width:100%;
     max-width:640px;
@@ -215,7 +368,7 @@
     gap:10px;
   }
   .status.status-error{
-    color:#c0392b;
+    color:var(--danger);
     font-weight:600;
   }
   .results{
@@ -228,39 +381,43 @@
     display:flex;
     align-items:center;
     gap:12px;
-    background:var(--card);
+    background:var(--surface);
+    -webkit-backdrop-filter:blur(14px);
+    backdrop-filter:blur(14px);
     border:1px solid var(--border);
-    border-radius:12px;
+    border-radius:var(--radius-md);
     padding:14px 16px;
     text-decoration:none;
     color:var(--text);
+    box-shadow:var(--shadow-sm);
+    opacity:0;
+    transform:translateY(14px);
+    transition:opacity .38s ease, transform .38s ease, box-shadow .2s ease, border-color .2s ease;
   }
-  .result-item:hover{ border-color:var(--blue); }
+  .result-item.in{ opacity:1; transform:translateY(0); }
+  .result-item:hover{ border-color:var(--brand); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+  .result-item.in:hover{ transform:translateY(-2px); }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
+    .result-item{ background:var(--surface-solid); }
+  }
   .file-icon{
     flex:0 0 auto;
-    width:36px;height:36px;
-    border-radius:8px;
+    width:38px;height:38px;
+    border-radius:11px;
     background:#fde8e8;
-    color:#c0392b;
+    color:var(--danger);
     display:flex;align-items:center;justify-content:center;
     font-size:12px;font-weight:700;
   }
-  .file-icon.xls{
-    background:#e5f5ea;
-    color:#1e7b3e;
-  }
-  .file-icon.doc{
-    background:#e6edfb;
-    color:#1a56db;
-  }
-  .file-icon.ppt{
-    background:#fdeee0;
-    color:#c0611b;
-  }
-  .file-icon.img{
-    background:#f3e8fd;
-    color:#7e22ce;
-  }
+  .file-icon.xls{ background:#e5f5ea; color:#1e7b3e; }
+  .file-icon.doc{ background:#e6edfb; color:#1a56db; }
+  .file-icon.ppt{ background:#fdeee0; color:#c0611b; }
+  .file-icon.img{ background:#f3e8fd; color:#7e22ce; }
+  html[data-theme="dark"] .file-icon{ background:rgba(255,107,107,.16); }
+  html[data-theme="dark"] .file-icon.xls{ background:rgba(52,199,113,.16); color:#5fe0a0; }
+  html[data-theme="dark"] .file-icon.doc{ background:rgba(107,134,255,.18); color:#a9b8ff; }
+  html[data-theme="dark"] .file-icon.ppt{ background:rgba(247,184,75,.18); color:#f7b84b; }
+  html[data-theme="dark"] .file-icon.img{ background:rgba(190,120,255,.18); color:#d7aeff; }
   .file-name{
     flex:1;
     font-size:15px;
@@ -271,27 +428,31 @@
     display:block;
     margin:16px auto 0;
     padding:10px 22px;
-    background:#fff;
-    border:1px solid var(--blue);
-    color:var(--blue);
-    border-radius:10px;
+    background:var(--surface);
+    -webkit-backdrop-filter:blur(var(--blur));
+    backdrop-filter:blur(var(--blur));
+    border:1px solid var(--brand);
+    color:var(--brand);
+    border-radius:999px;
     cursor:pointer;
     font-size:14px;
+    --ripple-color: rgba(52,82,225,.18);
   }
   .setup-warning{
     max-width:640px;
     margin:18px auto 0;
-    background:#fff7e6;
-    border:1px solid #ffd591;
+    background:rgba(245,165,36,.12);
+    border:1px solid rgba(245,165,36,.4);
     color:#8a5b00;
-    border-radius:10px;
+    border-radius:var(--radius-md);
     padding:14px 16px;
     font-size:13.5px;
     line-height:1.7;
     text-align:right;
   }
+  html[data-theme="dark"] .setup-warning{ color:#ffd28a; }
   .setup-warning code{
-    background:#fff1d1;
+    background:rgba(245,165,36,.22);
     padding:1px 5px;
     border-radius:4px;
     direction:ltr;
@@ -301,35 +462,60 @@
     display:none;
     width:18px;
     height:18px;
-    border:3px solid #c9d4e8;
-    border-top-color:var(--blue);
+    border:3px solid var(--border);
+    border-top-color:var(--brand);
     border-radius:50%;
     animation:spin .7s linear infinite;
     flex:0 0 auto;
   }
   .spinner.active{ display:inline-block; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
-  .cache-note{
-    text-align:center;
-    color:#9aa3b2;
-    font-size:12.5px;
-    margin-top:-4px;
-    margin-bottom:8px;
+
+  @media (prefers-reduced-motion: reduce){
+    .result-item{ transition:none; opacity:1; transform:none; }
+    .refresh-index-btn.stale{ animation:none; }
+    .spinner{ animation:none; }
+    .ripple{ display:none; }
   }
 </style>
 </head>
 <body>
 
-  <div class="header">
-    <h1 class="title">JIG SEARCH</h1>
-    <div class="search-box">
-      <input type="text" id="q" placeholder="connector or order number" />
-      <button id="searchBtn">بحث</button>
+  <div class="header glass">
+    <div class="brand-lockup">
+      <svg class="brand-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="شعار JIG SEARCH">
+        <defs>
+          <linearGradient id="logoBg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#3B5BFA"/>
+            <stop offset="1" stop-color="#1B2F9E"/>
+          </linearGradient>
+          <radialGradient id="logoGlow" cx="0.78" cy="0.82" r="0.55">
+            <stop offset="0" stop-color="#F5A524" stop-opacity="0.55"/>
+            <stop offset="1" stop-color="#F5A524" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect x="3" y="3" width="94" height="94" rx="24" fill="url(#logoBg)"/>
+        <rect x="3" y="3" width="94" height="94" rx="24" fill="url(#logoGlow)"/>
+        <circle cx="41" cy="39" r="20" fill="none" stroke="#FFFFFF" stroke-width="7.2"/>
+        <line x1="41" y1="27" x2="41" y2="33" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+        <line x1="41" y1="45" x2="41" y2="51" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+        <line x1="29" y1="39" x2="35" y2="39" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+        <line x1="47" y1="39" x2="53" y2="39" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+        <line x1="55.5" y1="53.5" x2="76" y2="74" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="58" cy="22" r="6.5" fill="#F5A524"/>
+      </svg>
+      <h1 class="title">JIG SEARCH<small>بحث ملفات الجيجات</small></h1>
     </div>
+    <div class="search-box">
+      <input type="text" id="q" placeholder="ابحث برقم الكونيكتور أو الأوردر..." />
+      <button id="searchBtn" class="ripple-host">بحث</button>
+    </div>
+    <div id="recentSearches" class="recent-searches"></div>
     <div class="powered">Prepared by Elsayed adel</div>
     <div class="secondary-actions">
-      <button id="refreshIndexBtn" class="refresh-index-btn">🔄 اضغط لتحديث بيانات الملفات</button>
-      <button id="helpBtn" class="refresh-index-btn help-btn">📖 دليل الاستخدام</button>
+      <button id="refreshIndexBtn" class="refresh-index-btn ripple-host">🔄 اضغط لتحديث بيانات الملفات</button>
+      <button id="themeToggleBtn" class="refresh-index-btn theme-toggle-btn ripple-host">🌙 الوضع الداكن</button>
+      <button id="helpBtn" class="refresh-index-btn help-btn ripple-host">📖 دليل الاستخدام</button>
     </div>
     <span id="staleHint" class="stale-hint" style="display:none;"></span>
   </div>
@@ -355,7 +541,7 @@
         <p>التطبيق يشمل كافه بيانات الجيكات من مختلف انواع الشركات، دون الحاجة لتسجيل دخول، مع اضافه اللوكيشن الخاص بالـ Spare Part في كل مصنع.</p>
 
         <h3>أول استخدام</h3>
-        <p>دوس زرار <strong>"🔄 اضغط لتحديث بيانات الملفات"</strong> عشان التطبيق يمشي جوه كل الفولدرات ويجمع أسماء الملفات مرة واحدة. الخطوة دي بتاخد وقت حسب عدد الملفات، وبتحصل مرة واحدة بس مش كل مرة تفتح فيها التطبيق.</p>
+        <p>التطبيق بيبدأ الفهرسة <strong>تلقائيًا من غير ما تدوس أي زرار</strong> أول ما تفتح الصفحة، لو مفيش فهرس محفوظ عندك قبل كده. بيمشي جوه كل الفولدرات ويجمع أسماء الملفات مرة واحدة، وده بياخد وقت حسب عدد الملفات، وبيتخزن عندك عشان مايتكررش كل مرة تفتح فيها التطبيق.</p>
 
         <h3>البحث</h3>
         <p>اكتب اسم الملف أو جزء منه ودوس "بحث". تقدر تكتب أكتر من كلمة مفصولة بمسافة، والتطبيق هيلاقي أي ملف اسمه فيه كل الكلمات دي مهما كان ترتيبها، وحتى لو الكلمة في نص الاسم مش أوله.</p>
@@ -370,11 +556,20 @@
           <li>🔵🟢🟠 <strong>مستندات/شيتات/عروض جوجل النيتيف</strong> — بتتفتح مباشرة في تاب جديدة بالمتصفح بدل ما تتحمّل.</li>
         </ul>
 
+        <h3>ترتيب النتائج</h3>
+        <p>النتايج بتترتب أوتوماتيك: التطابق الكامل لاسم الملف الأول، بعده الملفات اللي بتبدأ بنفس اللي كتبته، بعدها اللي بتحتويه، وباقي النتايج في الآخر.</p>
+
+        <h3>بحث سابق</h3>
+        <p>آخر عمليات البحث بتظهر كـ "chips" تحت مربع البحث لما يكون فاضي، دوس على أي واحدة عشان تعيد نفس البحث فورًا. تقدر تمسحها كلها بزرار "✕ مسح".</p>
+
+        <h3>الوضع الداكن</h3>
+        <p>زرار "🌙 الوضع الداكن" بيبدّل شكل الواجهة، والاختيار بيتحفظ عندك في الجهاز.</p>
+
         <h3>تحديث البيانات</h3>
-        <p>الفهرس بيفضل ثابت لحد ما تدوس زرار التحديث بنفسك، فلو حد ضاف أو شال ملفات في Drive مش هتظهر عندك غير بعد التحديث. لو الفهرس بقاله أكتر من أسبوع، زرار التحديث هيبان بلون برتقالي وبينبض يفكّرك تحدّث.</p>
+        <p>الفهرس بيتحدث تلقائيًا <strong>مرة كل أسبوع</strong>: أول ما تفتح الصفحة وكان آخر تحديث فات عليه أكتر من 7 أيام، التطبيق بيحدّث نفسه في الخلفية من غير ما يوقف البحث - هتفضل تدور على البيانات المتاحة فورًا، وبمجرد ما التحديث يخلص بتتبدّل تلقائيًا. برضو تقدر تحدّث يدويًا في أي وقت بزرار "🔄 تحديث الفهرس"، ولو الفهرس بقاله أكتر من أسبوع الزرار هيبان بلون برتقالي وبينبض يفكّرك.</p>
 
         <h3>تثبيت التطبيق</h3>
-        <p>تقدر تثبّت الصفحة على شاشتك الرئيسية زي أي تطبيق (من قايمة المتصفح: "إضافة إلى الشاشة الرئيسية"). البحث بعد أول فهرسة بيشتغل من غير إنترنت، لكن تحميل الملفات وتحديث الفهرس محتاجين إنترنت.</p>
+        <p>تقدر تثبّت الصفحة على شاشتك الرئيسية زي أي تطبيق (من قايمة المتصفح: "إضافة إلى الشاشة الرئيسية"). البحث بعد أول فهرسة بيشتغل من غير إنترنت، لكن تحميل الملفات وتحديث الفهرس (سواء تلقائي أو يدوي) محتاجين إنترنت.</p>
       </div>
     </div>
   </div>
@@ -387,12 +582,13 @@
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
   const CACHE_KEY = 'jigsearch_index_v6'; // شامل الفولدرات + أسماء ملفات PDF و Word و Excel و PowerPoint والصور
-  const STALE_INDEX_MS = 7 * 24 * 60 * 60 * 1000; // لو الفهرس أقدم من أسبوع، نلمّح للمستخدم إنه يحدّثه
+  const STALE_INDEX_MS = 7 * 24 * 60 * 60 * 1000; // لو الفهرس أقدم من أسبوع، بيتحدث تلقائيًا في الخلفية أول ما حد يفتح الصفحة
   const DEBOUNCE_MS = 550;
-  // ملحوظة: مفيش وقت انتهاء صلاحية للفهرس دلوقتي.
-  // الفهرسة (فولدرات + أسماء ملفات) بتتم مرة واحدة وتتخزن، وتتحدث بس
-  // لما تدوس زرار "تحديث الفهرس" يدويًا. البحث بعد كده بيتم محليًا على
-  // الفهرس المخزن من غير أي طلبات إضافية لـ Google Drive.
+  // ملحوظة: الفهرسة (فولدرات + أسماء ملفات) بتتخزن محليًا وبتتحدث:
+  // (1) تلقائيًا في الخلفية أول ما حد يفتح الصفحة وكان آخر تحديث فات عليه
+  //     أكتر من أسبوع (STALE_INDEX_MS) - البحث فاضل شغال فورًا بالبيانات
+  //     القديمة لحد ما التحديث يخلص، (2) يدويًا بزرار "تحديث الفهرس".
+  // البحث نفسه بيتم محليًا على الفهرس المخزن من غير أي طلبات إضافية لـ Drive.
   // =========================================================
 
   const qInput = document.getElementById('q');
@@ -407,6 +603,107 @@
   const helpBtn = document.getElementById('helpBtn');
   const helpModalOverlay = document.getElementById('helpModalOverlay');
   const helpModalClose = document.getElementById('helpModalClose');
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
+  const recentSearchesEl = document.getElementById('recentSearches');
+
+  // ===== Ripple effect: بيتضاف تلقائيًا على أي زرار عليه كلاس ripple-host،
+  // شامل الأزرار اللي هتتضاف ديناميكيًا بعدين (زي recent-chip) =====
+  function spawnRipple(e){
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.width = ripple.style.height = size + 'px';
+    const x = (e.clientX !== undefined ? e.clientX - rect.left : rect.width / 2) - size / 2;
+    const y = (e.clientY !== undefined ? e.clientY - rect.top : rect.height / 2) - size / 2;
+    ripple.style.left = x + 'px';
+    ripple.style.top = y + 'px';
+    btn.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove());
+  }
+  function enableRipple(el){
+    el.classList.add('ripple-host');
+    el.addEventListener('click', spawnRipple);
+  }
+  document.querySelectorAll('.ripple-host').forEach(enableRipple);
+
+  // ===== Dark Mode: بيحترم اختيار المستخدم المحفوظ، وإلا بيتبع إعداد
+  // النظام (prefers-color-scheme) كافتراضي أول مرة =====
+  const THEME_KEY = 'jigsearch_theme';
+  const metaThemeColor = document.getElementById('metaThemeColor');
+  function getPreferredTheme(){
+    try{
+      const saved = localStorage.getItem(THEME_KEY);
+      if(saved === 'light' || saved === 'dark') return saved;
+    }catch(e){}
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    themeToggleBtn.textContent = theme === 'dark' ? '☀️ الوضع الفاتح' : '🌙 الوضع الداكن';
+    metaThemeColor.setAttribute('content', theme === 'dark' ? '#0B1120' : '#3452E1');
+  }
+  let currentTheme = getPreferredTheme();
+  applyTheme(currentTheme);
+  themeToggleBtn.addEventListener('click', () => {
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    try{ localStorage.setItem(THEME_KEY, currentTheme); }catch(e){}
+    applyTheme(currentTheme);
+  });
+
+  // ===== Recent Searches: بيحفظ آخر كام كلمة بحث محليًا وبيعرضهم كـ chips
+  // تحت مربع البحث لما يكون فاضي، عشان رجوع سريع لبحث سابق =====
+  const RECENT_KEY = 'jigsearch_recent_searches';
+  const RECENT_MAX = 8;
+  function getRecentSearches(){
+    try{ return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); }catch(e){ return []; }
+  }
+  function addRecentSearch(term){
+    term = term.trim();
+    if(!term) return;
+    let list = getRecentSearches().filter(t => t.toLowerCase() !== term.toLowerCase());
+    list.unshift(term);
+    if(list.length > RECENT_MAX) list = list.slice(0, RECENT_MAX);
+    try{ localStorage.setItem(RECENT_KEY, JSON.stringify(list)); }catch(e){}
+    renderRecentSearches();
+  }
+  function clearRecentSearches(){
+    try{ localStorage.removeItem(RECENT_KEY); }catch(e){}
+    renderRecentSearches();
+  }
+  function renderRecentSearches(){
+    const list = getRecentSearches();
+    recentSearchesEl.innerHTML = '';
+    if(!list.length || qInput.value.trim()){
+      recentSearchesEl.style.display = 'none';
+      return;
+    }
+    recentSearchesEl.style.display = 'flex';
+    const label = document.createElement('span');
+    label.className = 'recent-label';
+    label.textContent = 'بحث سابق:';
+    recentSearchesEl.appendChild(label);
+    list.forEach(term => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'recent-chip';
+      chip.textContent = term;
+      enableRipple(chip);
+      chip.addEventListener('click', () => {
+        qInput.value = term;
+        clearTimeout(debounceTimer);
+        runSearch();
+      });
+      recentSearchesEl.appendChild(chip);
+    });
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'recent-clear';
+    clearBtn.textContent = '✕ مسح';
+    clearBtn.addEventListener('click', clearRecentSearches);
+    recentSearchesEl.appendChild(clearBtn);
+  }
 
   function openHelpModal(){ helpModalOverlay.style.display = 'flex'; }
   function closeHelpModal(){ helpModalOverlay.style.display = 'none'; }
@@ -438,6 +735,38 @@
   let displayedCount = 0;
   let debounceTimer = null;
   let searchToken = 0; // بيتزود كل بحث جديد عشان نلغي نتيجة بحث قديم اتأخر
+  let autoRefreshInProgress = false;
+
+  // تحديث تلقائي أسبوعي: التطبيق ده صفحة ثابتة من غير سيرفر، فمفيش
+  // cron حقيقي يشتغل لوحده وهي مقفولة. عمليًا، أقرب حاجة لـ "تحديث تلقائي
+  // كل أسبوع" هي: أول ما حد يفتح الصفحة وكان آخر تحديث للفهرس فات عليه أكتر
+  // من 7 أيام، بنعمل إعادة فهرسة في الخلفية من غير ما نوقف البحث - المستخدم
+  // بيدور فورًا على البيانات القديمة المخزنة، وبمجرد ما التحديث يخلص بنستبدلها.
+  async function backgroundAutoRefresh(){
+    if(autoRefreshInProgress) return;
+    autoRefreshInProgress = true;
+    staleHint.style.display = 'block';
+    staleHint.textContent = '🔄 بيتم تحديث البيانات تلقائيًا في الخلفية...';
+    try{
+      skippedFolderCount = 0;
+      skippedByCategory = { permission: 0, network: 0, server: 0, unknown: 0 };
+      consecutiveRateErrors = 0;
+      CRAWL_CONCURRENCY = CRAWL_CONCURRENCY_DEFAULT;
+      const result = await crawlAllFoldersAndFiles(ROOT_FOLDER_ID, () => {});
+      allFolderIds = result.folderIds;
+      indexedFiles = result.files;
+      await saveCachedIndex(allFolderIds, indexedFiles);
+      clearIndexStale();
+      // لو المستخدم كان بيبحث فعلاً وقت ما التحديث خلص، نعيد البحث على البيانات الجديدة
+      if(qInput.value.trim()) runSearch();
+    }catch(err){
+      // التحديث التلقائي فشل (مفيش نت مثلاً) - البيانات القديمة تفضل شغالة عادي،
+      // وهيتم محاولة التحديث تاني في المرة الجاية اللي حد هيفتح فيها الصفحة
+      staleHint.textContent = '⚠️ التحديث التلقائي فشل - البيانات المعروضة قديمة، جرّب تدوس "تحديث الفهرس" يدويًا';
+    }finally{
+      autoRefreshInProgress = false;
+    }
+  }
 
   function setLoading(isLoading){
     spinnerEl.classList.toggle('active', !!isLoading);
@@ -744,8 +1073,9 @@
   }
 
   // بيرجع true لو الفهرس (فولدرات + ملفات) جاهز في الميموري.
-  // ملحوظة: مفيش فهرسة تلقائية أول مرة - لو مفيش فهرس محفوظ، بيطلب من
-  // المستخدم يدوس زرار "اضغط لتحديث بيانات الملفات" بنفسه.
+  // - أول استخدام (مفيش فهرس محفوظ خالص): بيعمل فهرسة تلقائية فورًا.
+  // - لو الفهرس المحفوظ عدّى عليه أكتر من أسبوع (STALE_INDEX_MS): البحث
+  //   بيشتغل فورًا بالبيانات القديمة، وفي نفس الوقت بيتحدث في الخلفية.
   async function ensureIndex(forceRefresh){
     if(allFolderIds && indexedFiles && !forceRefresh) return true;
 
@@ -755,13 +1085,18 @@
         allFolderIds = cached.folderIds;
         indexedFiles = cached.files;
         const age = Date.now() - (cached.ts || 0);
-        if(age > STALE_INDEX_MS) markIndexStale(age); else clearIndexStale();
+        if(age > STALE_INDEX_MS){
+          markIndexStale(age);
+          backgroundAutoRefresh(); // فاير آند فورجت: يحدّث في الخلفية من غير ما يعطّل البحث بالبيانات القديمة
+        } else {
+          clearIndexStale();
+        }
         setStatus(`(من الفهرس المخزن) ${allFolderIds.length} فولدر و ${indexedFiles.length} ملف PDF/Office/صور. اكتب كلمة البحث.`);
         return true;
       }
-      // مفيش فهرس محفوظ ومفيش طلب تحديث صريح - منعملش فهرسة تلقائية
-      setStatus('لسه مفيش بيانات محفوظة. دوس زرار "اضغط لتحديث بيانات الملفات" فوق الأول.');
-      return false;
+      // مفيش فهرس محفوظ خالص - أول مرة يتفتح فيها التطبيق - نعمل فهرسة
+      // تلقائية على طول من غير ما ننتظر ضغطة زرار من المستخدم
+      return ensureIndex(true);
     }
 
     setStatus("بيتم تجهيز فهرس الفولدرات والملفات... (هيتم مرة واحدة بس ويتخزن)");
@@ -826,6 +1161,30 @@
     return words.every(w => name.includes(w));
   }
 
+  // ===== ترتيب النتائج حسب قوة التطابق مع كلمة البحث كاملة:
+  // 0) تطابق كامل لاسم الملف (بغض النظر عن الامتداد)
+  // 1) اسم الملف بيبدأ بنفس كلمة البحث
+  // 2) اسم الملف بيحتوي كلمة البحث (كعبارة كاملة)
+  // 3) باقي النتائج (اتطابقت بس بتوزيع الكلمات مش بالعبارة الكاملة)
+  function relevanceTier(fileName, fullTerm){
+    const name = fileName.toLowerCase();
+    const term = fullTerm.toLowerCase();
+    const dot = name.lastIndexOf('.');
+    const baseName = dot > 0 ? name.slice(0, dot) : name;
+    if(name === term || baseName === term) return 0;
+    if(name.startsWith(term)) return 1;
+    if(name.includes(term)) return 2;
+    return 3;
+  }
+  function sortByRelevance(files, fullTerm){
+    return files
+      .map((f, i) => ({ f, i, tier: relevanceTier(f.name, fullTerm) }))
+      .sort((a, b) => a.tier - b.tier
+        || a.f.name.localeCompare(b.f.name, 'ar', { numeric: true })
+        || a.i - b.i)
+      .map(x => x.f);
+  }
+
   let currentFiles = [];
   let renderedCount = 0;
 
@@ -851,7 +1210,8 @@
 
   function renderFiles(files){
     const frag = document.createDocumentFragment();
-    files.forEach(f => {
+    const startIndex = displayedCount;
+    files.forEach((f, idx) => {
       const a = document.createElement('a');
       a.className = 'result-item';
       // ملفات جوجل نيتيف (شيت/مستند/عرض) والصور بتتفتح مباشرة في المتصفح
@@ -885,10 +1245,18 @@
 
       a.appendChild(iconDiv);
       a.appendChild(nameDiv);
+      // ظهور تدريجي متتابع (Animation) للنتايج الجديدة بس، من غير ما نعيد
+      // تحريك الكروت اللي ظاهرة أصلًا لو المستخدم عمل "تحميل المزيد"
+      a.style.transitionDelay = (Math.min((startIndex + idx), 12) * 30) + 'ms';
       frag.appendChild(a);
       displayedCount++;
     });
     resultsEl.appendChild(frag);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resultsEl.querySelectorAll('.result-item:not(.in)').forEach(el => el.classList.add('in'));
+      });
+    });
   }
 
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
@@ -914,9 +1282,11 @@
 
     const words = splitSearchWords(term);
     const matched = indexedFiles.filter(f => matchesAllWords(f.name, words));
+    const sorted = sortByRelevance(matched, term);
 
-    showResultsPage(matched, false);
+    showResultsPage(sorted, false);
     setStatus(matched.length ? `تم إيجاد ${matched.length} نتيجة` : "مفيش نتايج مطابقة");
+    addRecentSearch(term);
   }
 
   function scheduleSearch(){
@@ -936,8 +1306,10 @@
       renderedCount = 0;
       loadMoreBtn.style.display = "none";
       setStatus("");
+      renderRecentSearches();
       return;
     }
+    recentSearchesEl.style.display = 'none';
     scheduleSearch();
   });
 
@@ -956,6 +1328,7 @@
   });
 
   checkSetup();
+  renderRecentSearches();
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، من غير إعادة فهرسة تلقائية
   ensureIndex(false);
 
