@@ -323,14 +323,39 @@
     cursor:pointer;
   }
   .recent-chip:hover{ border-color:var(--blue); background:#e3eafc; }
-  .search-tools{
+  .advanced-search{
+    position:relative;
     max-width:520px;
     margin:12px auto 0;
     display:flex;
     justify-content:center;
-    gap:8px;
-    flex-wrap:wrap;
   }
+  .advanced-menu{
+    position:absolute;
+    top:calc(100% + 6px);
+    left:50%;
+    transform:translateX(-50%);
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:0 8px 24px rgba(20,30,60,.15);
+    overflow:hidden;
+    min-width:230px;
+    z-index:20;
+  }
+  .advanced-menu-item{
+    display:block;
+    width:100%;
+    text-align:right;
+    background:#fff;
+    border:none;
+    padding:12px 16px;
+    font-size:13.5px;
+    color:var(--text);
+    cursor:pointer;
+  }
+  .advanced-menu-item:hover{ background:#f1f3f7; }
+  .advanced-menu-item + .advanced-menu-item{ border-top:1px solid var(--border); }
   .tool-btn{
     background:#fff;
     border:1px solid var(--border);
@@ -419,10 +444,13 @@
     </div>
     <div class="powered">Prepared by Elsayed adel</div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
-    <div class="search-tools">
-      <button type="button" id="micBtn" class="tool-btn">🎤 بحث صوتي</button>
-      <button type="button" id="scanBtn" class="tool-btn">📷 مسح Barcode/QR</button>
-      <button type="button" id="ocrBtn" class="tool-btn">🔎 تصوير رقم (OCR)</button>
+    <div class="advanced-search">
+      <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ بحث متقدم</button>
+      <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
+        <button type="button" id="scanBtn" class="advanced-menu-item">📷 مسح Barcode/QR</button>
+        <button type="button" id="micBtn" class="advanced-menu-item">🎤 بحث صوتي</button>
+        <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 تصوير رقم (OCR)</button>
+      </div>
     </div>
     <div class="secondary-actions">
       <button id="refreshIndexBtn" class="refresh-index-btn">🔄 اضغط لتحديث بيانات الملفات</button>
@@ -474,7 +502,8 @@
         <p>اكتب اسم الملف أو جزء منه ودوس "بحث". تقدر تكتب أكتر من كلمة مفصولة بمسافة، والتطبيق هيلاقي أي ملف اسمه فيه كل الكلمات دي مهما كان ترتيبها، وحتى لو الكلمة في نص الاسم مش أوله.</p>
         <p>البحث بيتسامح مع أخطاء الكتابة البسيطة (زي كتابة "conetor" بدل "connector")، وبيفهم إن "Connector" و"كونكتور" و"كونكتورات" بيدّوا نفس النتايج.</p>
 
-        <h3>أدوات البحث الإضافية</h3>
+        <h3>بحث متقدم</h3>
+        <p>دوس زرار <strong>"⚙️ بحث متقدم"</strong> تحت مربع البحث عشان تفتح قايمة فيها:</p>
         <ul>
           <li>🎤 <strong>بحث صوتي</strong> — دوس الزرار وقول اسم أو رقم الملف، والبحث هيتم تلقائي.</li>
           <li>📷 <strong>مسح Barcode / QR</strong> — لو على الجيج كود QR، دوس الزرار ووجّه الكاميرا عليه وهيتحط في مربع البحث تلقائيًا.</li>
@@ -525,6 +554,8 @@
   const helpModalClose = document.getElementById('helpModalClose');
   const recentSearchesEl = document.getElementById('recentSearches');
   const homeTabsEl = document.getElementById('homeTabs');
+  const advancedSearchBtn = document.getElementById('advancedSearchBtn');
+  const advancedSearchMenu = document.getElementById('advancedSearchMenu');
   const micBtn = document.getElementById('micBtn');
   const scanBtn = document.getElementById('scanBtn');
   const ocrBtn = document.getElementById('ocrBtn');
@@ -1259,6 +1290,20 @@
     saveRecentSearch(term);
   }
 
+  // ===== قايمة "بحث متقدم" المنسدلة =====
+  function openAdvancedMenu(){ advancedSearchMenu.style.display = 'block'; }
+  function closeAdvancedMenu(){ advancedSearchMenu.style.display = 'none'; }
+  advancedSearchBtn.addEventListener('click', () => {
+    if(advancedSearchMenu.style.display === 'block') closeAdvancedMenu();
+    else openAdvancedMenu();
+  });
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest('.advanced-search')) closeAdvancedMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') closeAdvancedMenu();
+  });
+
   // ===== بحث صوتي =====
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognizer = null;
@@ -1274,6 +1319,7 @@
     recognizer.addEventListener('end', () => micBtn.classList.remove('active'));
   }
   micBtn.addEventListener('click', () => {
+    closeAdvancedMenu();
     if(!recognizer){ setStatus('البحث الصوتي مش مدعوم في المتصفح ده', true); return; }
     micBtn.classList.add('active');
     try{ recognizer.start(); }catch(e){ /* بدأ بالفعل */ }
@@ -1382,8 +1428,8 @@
     }
   });
 
-  scanBtn.addEventListener('click', () => openCamera('scan'));
-  ocrBtn.addEventListener('click', () => openCamera('ocr'));
+  scanBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('scan'); });
+  ocrBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('ocr'); });
 
   searchBtn.addEventListener('click', runSearch);
   qInput.addEventListener('keydown', (e) => {
