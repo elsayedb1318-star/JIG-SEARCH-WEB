@@ -366,7 +366,6 @@
     cursor:pointer;
   }
   .tool-btn:hover{ border-color:var(--blue); }
-  .tool-btn.active{ background:#e3eafc; border-color:var(--blue); }
   .home-tabs{
     display:flex;
     justify-content:center;
@@ -430,7 +429,20 @@
   .camera-actions{
     display:flex;
     justify-content:center;
+    gap:8px;
     padding:14px 16px 18px;
+  }
+  .camera-result{ padding:0 16px 16px; }
+  .camera-result-text{
+    width:100%;
+    box-sizing:border-box;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px;
+    font-size:14px;
+    font-family:inherit;
+    resize:vertical;
+    margin-bottom:4px;
   }
 </style>
 </head>
@@ -448,7 +460,6 @@
       <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ بحث متقدم</button>
       <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
         <button type="button" id="scanBtn" class="advanced-menu-item">📷 مسح Barcode/QR</button>
-        <button type="button" id="micBtn" class="advanced-menu-item">🎤 بحث صوتي</button>
         <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 تصوير رقم (OCR)</button>
       </div>
     </div>
@@ -483,7 +494,14 @@
       <canvas id="cameraCanvas" style="display:none;"></canvas>
       <div id="cameraStatus" class="camera-status"></div>
       <div class="camera-actions">
-        <button type="button" id="cameraCaptureBtn" class="tool-btn" style="display:none;">📸 التقاط وابحث</button>
+        <button type="button" id="cameraCaptureBtn" class="tool-btn" style="display:none;">📸 التقاط</button>
+      </div>
+      <div id="cameraResult" class="camera-result" style="display:none;">
+        <textarea id="cameraResultText" class="camera-result-text" rows="3"></textarea>
+        <div class="camera-actions">
+          <button type="button" id="cameraOpenLinkBtn" class="tool-btn" style="display:none;">🔗 افتح اللينك</button>
+          <button type="button" id="cameraSearchBtn" class="tool-btn">🔍 ابحث عن ده</button>
+        </div>
       </div>
     </div>
   </div>
@@ -505,11 +523,10 @@
         <h3>بحث متقدم</h3>
         <p>دوس زرار <strong>"⚙️ بحث متقدم"</strong> تحت مربع البحث عشان تفتح قايمة فيها:</p>
         <ul>
-          <li>🎤 <strong>بحث صوتي</strong> — دوس الزرار وقول اسم أو رقم الملف، والبحث هيتم تلقائي.</li>
-          <li>📷 <strong>مسح Barcode / QR</strong> — لو على الجيج كود QR، دوس الزرار ووجّه الكاميرا عليه وهيتحط في مربع البحث تلقائيًا.</li>
-          <li>🔎 <strong>تصوير رقم (OCR)</strong> — صوّر رقم مكتوب على الجيج، ودوس "التقاط وابحث"، والتطبيق هيقرا الرقم ويبحث عنه لوحده.</li>
+          <li>📷 <strong>مسح Barcode / QR</strong> — لو على الجيج كود QR، دوس الزرار ووجّه الكاميرا عليه. بعد ما يتقرا، هيديك اختيار تفتح اللينك مباشرة (لو الكود لينك) أو تبحث بمحتواه.</li>
+          <li>🔎 <strong>تصوير رقم (OCR)</strong> — صوّر رقم أو نص مكتوب على الجيج ودوس "التقاط". النص اللي هيتقرا هيظهر في مربع تقدر تعدّله أو تمسح منه أي جزء مش محتاجه، وبعدين دوس "ابحث عن ده".</li>
         </ul>
-        <p>الأدوات دي محتاجة إذن الكاميرا/المايك من المتصفح، ومحتاجة إنترنت أول مرة بس عشان تحمّل مكتبات القراءة.</p>
+        <p>الأدوات دي محتاجة إذن الكاميرا من المتصفح، ومحتاجة إنترنت أول مرة بس عشان تحمّل مكتبات القراءة.</p>
 
         <h3>آخر الملفات، الأكثر استخدامًا، والمفضلة</h3>
         <p>من التابات فوق النتايج تقدر تشوف آخر الملفات اللي فتحتها، أو الملفات الأكتر استخدامًا، أو الملفات المحفوظة في المفضلة. دوس أيقونة ⭐ جنب أي ملف عشان تحفظه في المفضلة. البيانات دي متخزنة على جهازك بس.</p>
@@ -556,7 +573,6 @@
   const homeTabsEl = document.getElementById('homeTabs');
   const advancedSearchBtn = document.getElementById('advancedSearchBtn');
   const advancedSearchMenu = document.getElementById('advancedSearchMenu');
-  const micBtn = document.getElementById('micBtn');
   const scanBtn = document.getElementById('scanBtn');
   const ocrBtn = document.getElementById('ocrBtn');
   const cameraModalOverlay = document.getElementById('cameraModalOverlay');
@@ -566,6 +582,10 @@
   const cameraCanvasEl = document.getElementById('cameraCanvas');
   const cameraStatusEl = document.getElementById('cameraStatus');
   const cameraCaptureBtn = document.getElementById('cameraCaptureBtn');
+  const cameraResultEl = document.getElementById('cameraResult');
+  const cameraResultTextEl = document.getElementById('cameraResultText');
+  const cameraOpenLinkBtn = document.getElementById('cameraOpenLinkBtn');
+  const cameraSearchBtn = document.getElementById('cameraSearchBtn');
 
   // ===== سجل الملفات المفتوحة، الأكثر استخدامًا، والمفضلة - كله محليًا في المتصفح =====
   const RECENT_FILES_KEY = 'jigsearch_recent_files_v1';
@@ -1304,27 +1324,6 @@
     if(e.key === 'Escape') closeAdvancedMenu();
   });
 
-  // ===== بحث صوتي =====
-  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognizer = null;
-  if(SpeechRecognitionCtor){
-    recognizer = new SpeechRecognitionCtor();
-    recognizer.lang = 'ar-EG';
-    recognizer.maxAlternatives = 1;
-    recognizer.addEventListener('result', (e) => {
-      qInput.value = e.results[0][0].transcript;
-      runSearch();
-    });
-    recognizer.addEventListener('error', () => setStatus('تعذر التعرف على الصوت، جرب تاني', true));
-    recognizer.addEventListener('end', () => micBtn.classList.remove('active'));
-  }
-  micBtn.addEventListener('click', () => {
-    closeAdvancedMenu();
-    if(!recognizer){ setStatus('البحث الصوتي مش مدعوم في المتصفح ده', true); return; }
-    micBtn.classList.add('active');
-    try{ recognizer.start(); }catch(e){ /* بدأ بالفعل */ }
-  });
-
   // ===== تحميل مكتبات خارجية عند الحاجة بس (Barcode/QR و OCR) عشان متأثرش على سرعة فتح الصفحة =====
   function loadScript(src){
     return new Promise((resolve, reject) => {
@@ -1343,8 +1342,27 @@
   let cameraStream = null;
   let scanRAF = null;
 
+  function looksLikeUrl(s){ return /^(https?:\/\/|www\.)/i.test(s.trim()); }
+
+  // بيعرض النتيجة (كود الباركود أو نص الـ OCR) في مربع قابل للتعديل، مع
+  // اختيار المستخدم يفتح اللينك (لو لينك) أو يبحث بالمحتوى (بعد ما يعدّله لو حب)
+  function showCameraResult(text, isUrl){
+    stopCameraStream();
+    cameraStatusEl.textContent = '';
+    cameraCaptureBtn.style.display = 'none';
+    cameraResultTextEl.value = text;
+    cameraOpenLinkBtn.style.display = isUrl ? 'inline-block' : 'none';
+    cameraResultEl.style.display = 'block';
+  }
+  function hideCameraResult(){
+    cameraResultEl.style.display = 'none';
+    cameraResultTextEl.value = '';
+  }
+
   async function openCamera(mode){
     cameraModalTitle.textContent = mode === 'scan' ? '📷 مسح Barcode / QR' : '🔎 تصوير الرقم (OCR)';
+    hideCameraResult();
+    cameraVideoEl.style.display = 'block';
     cameraCaptureBtn.style.display = mode === 'ocr' ? 'inline-block' : 'none';
     cameraCaptureBtn.disabled = false;
     cameraStatusEl.textContent = 'بيتم فتح الكاميرا...';
@@ -1369,7 +1387,7 @@
       catch(e){ cameraStatusEl.textContent = '❌ تعذر تحميل مكتبة قراءة الكود. اتأكد من الإنترنت.'; return; }
       scanQrLoop();
     } else {
-      cameraStatusEl.textContent = 'صوّب الكاميرا على الرقم ودوس "التقاط وابحث"';
+      cameraStatusEl.textContent = 'صوّب الكاميرا على الرقم ودوس "التقاط"';
     }
   }
 
@@ -1384,9 +1402,7 @@
         const imageData = ctx.getImageData(0, 0, cameraCanvasEl.width, cameraCanvasEl.height);
         const code = window.jsQR && window.jsQR(imageData.data, imageData.width, imageData.height);
         if(code && code.data){
-          qInput.value = code.data;
-          closeCamera();
-          runSearch();
+          showCameraResult(code.data, looksLikeUrl(code.data));
           return;
         }
       }
@@ -1395,11 +1411,17 @@
     scanRAF = requestAnimationFrame(tick);
   }
 
-  function closeCamera(){
+  // بتوقف الكاميرا والمسح من غير ما تقفل المودال (مستخدمة قبل ما نعرض النتيجة)
+  function stopCameraStream(){
     if(scanRAF){ cancelAnimationFrame(scanRAF); scanRAF = null; }
     if(cameraStream){ cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
-    cameraModalOverlay.style.display = 'none';
+    cameraVideoEl.style.display = 'none';
     cameraVideoEl.srcObject = null;
+  }
+  function closeCamera(){
+    stopCameraStream();
+    cameraModalOverlay.style.display = 'none';
+    hideCameraResult();
   }
   cameraModalClose.addEventListener('click', closeCamera);
   cameraModalOverlay.addEventListener('click', (e) => { if(e.target === cameraModalOverlay) closeCamera(); });
@@ -1414,18 +1436,28 @@
       await loadScript(TESSERACT_CDN);
       const { data } = await window.Tesseract.recognize(cameraCanvasEl, 'eng+ara');
       const text = ((data && data.text) || '').replace(/\s+/g, ' ').trim();
+      cameraCaptureBtn.disabled = false;
       if(!text){
         cameraStatusEl.textContent = 'مقدرناش نلاقي نص واضح، جرب تاني بإضاءة أحسن.';
-        cameraCaptureBtn.disabled = false;
         return;
       }
-      closeCamera();
-      qInput.value = text;
-      runSearch();
+      cameraStatusEl.textContent = 'صحّح أو امسح أي جزء مش محتاجه، بعدين دوس ابحث:';
+      showCameraResult(text, false);
     }catch(e){
       cameraStatusEl.textContent = '❌ تعذر تحليل الصورة. اتأكد من الإنترنت وجرب تاني.';
       cameraCaptureBtn.disabled = false;
     }
+  });
+
+  cameraOpenLinkBtn.addEventListener('click', () => {
+    const val = cameraResultTextEl.value.trim();
+    closeCamera();
+    if(val) window.open(val, '_blank', 'noopener');
+  });
+  cameraSearchBtn.addEventListener('click', () => {
+    const val = cameraResultTextEl.value.trim();
+    closeCamera();
+    if(val){ qInput.value = val; runSearch(); }
   });
 
   scanBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('scan'); });
