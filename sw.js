@@ -1,14 +1,73 @@
-// Service worker بسيط عشان يخلي الموقع قابل للتثبيت كـ PWA
-self.addEventListener('install', () => {
-  self.skipWaiting();
+// Service Worker لـ JIG SEARCH - بيخزّن هيكل التطبيق الأساسي (App Shell)
+// ومكتبات الباركود/OCR الخارجية بعد أول استخدام، عشان التطبيق يفتح ويشتغل
+// حتى من غير إنترنت. البحث نفسه بيتم محليًا على الفهرس المخزن في
+// IndexedDB جوه المتصفح، فمش محتاج إنترنت أصلاً بعد أول فهرسة.
+
+const CACHE_NAME = 'jigsearch-cache-v1';
+const APP_SHELL = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
-  );
+  const req = event.request;
+  if(req.method !== 'GET') return; // بس طلبات القراءة، عشان مانتدخلش في أي POST/PUT
+
+  const url = new URL(req.url);
+
+  // نفس أصل التطبيق (index.html وملفاته) - cache-first مع تحديث في الخلفية
+  // (يظهر فورًا من الكاش لو موجود، وفي نفس الوقت بيتحدث من النت لو متاح)
+  if(url.origin === self.location.origin){
+    event.respondWith(
+      caches.match(req).then((cached) => {
+        const networkFetch = fetch(req)
+          .then((res) => {
+            if(res && res.ok){
+              const clone = res.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+            }
+            return res;
+          })
+          .catch(() => cached);
+        return cached || networkFetch;
+      })
+    );
+    return;
+  }
+
+  // مكتبات CDN الخارجية (jsQR/ZXing/Tesseract) - network-first مع تخزين
+  // عشان تشتغل أوفلاين بعد أول استخدام. طلبات Google Drive API (بيانات
+  // بتتغيّر) بتتسيب من غير تخزين عشان النتايج تفضل محدّثة قد ما يكون فيه نت
+  if(url.hostname === 'cdn.jsdelivr.net'){
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if(res && res.ok){
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+  }
 });

@@ -8,6 +8,12 @@
 <meta name="theme-color" content="#1a56db">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  // بنطبّق الوضع الليلي بدري قبل ما الصفحة تترسم عشان مايحصلش وميض (flash) بلون غلط
+  try{
+    if(localStorage.getItem('jigsearch_theme') === 'dark') document.documentElement.classList.add('dark');
+  }catch(e){ /* تجاهل */ }
+</script>
 <style>
   :root{
     --blue:#1a56db;
@@ -18,6 +24,18 @@
     --text:#1f2430;
     --muted:#6b7280;
   }
+  html.dark{
+    --blue:#4c8dff;
+    --blue-dark:#3672d9;
+    --bg:#12151c;
+    --card:#1b1f29;
+    --border:#2b3142;
+    --text:#e7eaf1;
+    --muted:#9aa3b5;
+  }
+  html.dark body{ background:var(--bg); }
+  html.dark .file-icon{ background:#242a38; }
+  html.dark .search-highlight{ background:#5a4a12; color:#ffe9a8; }
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -99,6 +117,13 @@
   .refresh-index-btn:hover{ border-color:var(--blue); }
   .refresh-index-btn:disabled{ opacity:.6; cursor:default; }
   .help-btn{ color:#3a4152; }
+  html.dark .help-btn{ color:var(--text); }
+  .search-highlight{
+    background:#fff3b0;
+    color:inherit;
+    padding:0 1px;
+    border-radius:2px;
+  }
   .help-modal-overlay{
     position:fixed;
     inset:0;
@@ -350,6 +375,26 @@
     padding:6px 4px;
   }
   .recent-clear-all:hover{ color:#c0392b; }
+  .folder-filter-wrap{
+    max-width:520px;
+    margin:12px auto 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .folder-filter-label{ font-size:12.5px; color:var(--muted); }
+  .folder-filter-select{
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:7px 10px;
+    font-size:13px;
+    background:#fff;
+    color:var(--text);
+    max-width:260px;
+  }
+  html.dark .folder-filter-select{ background:var(--card); }
   .list-clear-all-wrap{
     display:flex;
     justify-content:center;
@@ -467,6 +512,29 @@
     padding:14px 16px 18px;
   }
   .camera-result{ padding:0 16px 16px; }
+  .preview-body{
+    text-align:center;
+    padding:8px 20px 4px;
+  }
+  .preview-icon{
+    width:56px;
+    height:56px;
+    margin:0 auto 12px;
+    font-size:15px;
+    display:flex;
+  }
+  .preview-name{
+    font-size:15.5px;
+    font-weight:600;
+    color:var(--text);
+    word-break:break-word;
+    margin-bottom:4px;
+  }
+  .preview-meta{
+    font-size:13px;
+    color:var(--muted);
+  }
+  .preview-actions{ flex-wrap:wrap; }
   .camera-result-text{
     width:100%;
     box-sizing:border-box;
@@ -490,6 +558,12 @@
     </div>
     <div class="powered">Prepared by Elsayed adel</div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
+    <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
+      <label for="folderFilterSelect" class="folder-filter-label">📁 فلترة حسب الفولدر:</label>
+      <select id="folderFilterSelect" class="folder-filter-select">
+        <option value="">كل الفولدرات</option>
+      </select>
+    </div>
     <div class="advanced-search">
       <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ بحث متقدم</button>
       <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
@@ -500,6 +574,7 @@
     <div class="secondary-actions">
       <button id="refreshIndexBtn" class="refresh-index-btn">🔄 اضغط لتحديث بيانات الملفات</button>
       <button id="helpBtn" class="refresh-index-btn help-btn">📖 دليل الاستخدام</button>
+      <button id="themeToggleBtn" class="refresh-index-btn help-btn">🌙 الوضع الليلي</button>
     </div>
   </div>
 
@@ -540,6 +615,25 @@
     </div>
   </div>
 
+  <div id="previewModalOverlay" class="camera-modal-overlay" style="display:none;">
+    <div class="camera-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="previewModalTitle">
+      <div class="help-modal-header">
+        <h2 id="previewModalTitle">معاينة الملف</h2>
+        <button id="previewModalClose" class="help-modal-close" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="preview-body">
+        <div id="previewIcon" class="file-icon preview-icon"></div>
+        <div id="previewName" class="preview-name"></div>
+        <div id="previewMeta" class="preview-meta"></div>
+      </div>
+      <div class="camera-actions preview-actions">
+        <button type="button" id="previewOpenBtn" class="tool-btn">📂 فتح</button>
+        <button type="button" id="previewDownloadBtn" class="tool-btn">⬇️ تحميل</button>
+        <button type="button" id="previewShareBtn" class="tool-btn">📤 مشاركة</button>
+      </div>
+    </div>
+  </div>
+
   <div id="helpModalOverlay" class="help-modal-overlay" style="display:none;">
     <div class="help-modal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
       <div class="help-modal-header">
@@ -566,15 +660,36 @@
         <p>من التابات فوق النتايج تقدر تشوف آخر الملفات اللي فتحتها، أو الملفات الأكتر استخدامًا، أو الملفات المحفوظة في المفضلة. دوس أيقونة ⭐ جنب أي ملف عشان تحفظه في المفضلة. البيانات دي متخزنة على جهازك بس.</p>
         <p>تقدر تمسح أي عنصر لوحده (🗑 جنب الملف، أو × جنب عملية بحث في "عمليات البحث الأخيرة")، أو تمسح القايمة كلها مرة واحدة من زرار "مسح الكل" فوق أو جوه كل تاب.</p>
 
+        <h3>معاينة الملف</h3>
+        <p>دوس على أي نتيجة عشان تفتح نافذة معاينة فيها اسم الملف ونوعه والفولدر بتاعه، وثلاث أزرار:</p>
+        <ul>
+          <li>📂 <strong>فتح</strong> — بيفتح الملف في تاب جديدة (معاينة PDF/Word/Excel/PowerPoint المدمجة من Drive).</li>
+          <li>⬇️ <strong>تحميل</strong> — بيحمّل نسخة من الملف على جهازك.</li>
+          <li>📤 <strong>مشاركة</strong> — بيفتح قايمة مشاركة الجهاز (أو بينسخ لينك الملف لو المتصفح مايدعمش المشاركة).</li>
+        </ul>
+
+        <h3>فلترة حسب الفولدر</h3>
+        <p>من قايمة <strong>"📁 فلترة حسب الفولدر"</strong> تحت مربع البحث تقدر تحدد فولدر معين من الفولدرات المباشرة جوه REBUILD JIG SEARCH، والبحث هيقتصر على الملفات جوه الفولدر ده بس. اختار "كل الفولدرات" عشان ترجع تبحث في كل حاجة.</p>
+
+        <h3>تمييز كلمة البحث</h3>
+        <p>الجزء اللي اتطابق مع كلمة البحث بيظهر بلون مختلف جوه اسم الملف في النتايج، عشان تلاقي بسرعة إيه اللي خلّى الملف ده يظهر.</p>
+
+        <h3>الوضع الليلي</h3>
+        <p>دوس زرار <strong>"🌙 الوضع الليلي"</strong> تحت مربع البحث عشان تبدّل بين الوضع النهاري والليلي. الاختيار بيتحفظ وهيفضل زي ما هو المرة الجاية.</p>
+
+        <h3>العمل بدون إنترنت</h3>
+        <p>التطبيق شغال كـ PWA - تقدر "تثبّته" على جهازك من قايمة المتصفح (Add to Home Screen / تثبيت التطبيق)، وهيفتح زي أي تطبيق عادي. بعد أول فتح، واجهة التطبيق والفهرس المخزن بيشتغلوا حتى من غير إنترنت؛ البحث المحلي هيفضل شغال، لكن فتح/تحميل الملفات الفعلي وتحديث الفهرس محتاجين اتصال بالإنترنت.</p>
+
         <h3>أنواع الملفات</h3>
         <ul>
-          <li>🔴 <strong>PDF</strong> — بيتحمّل مباشرة على جهازك.</li>
-          <li>🔵 <strong>Word (.docx / .doc)</strong> — بيتحمّل مباشرة على جهازك.</li>
-          <li>🟢 <strong>Excel (.xlsx / .xls)</strong> — بيتحمّل مباشرة على جهازك.</li>
-          <li>🟠 <strong>PowerPoint (.pptx / .ppt)</strong> — بيتحمّل مباشرة على جهازك.</li>
-          <li>🟣 <strong>صور (JPG / PNG / GIF / WEBP...)</strong> — بتتفتح مباشرة في تاب جديدة للمعاينة بدل ما تتحمّل.</li>
-          <li>🔵🟢🟠 <strong>مستندات/شيتات/عروض جوجل النيتيف</strong> — بتتفتح مباشرة في تاب جديدة بالمتصفح بدل ما تتحمّل.</li>
+          <li>🔴 <strong>PDF</strong></li>
+          <li>🔵 <strong>Word (.docx / .doc)</strong></li>
+          <li>🟢 <strong>Excel (.xlsx / .xls)</strong></li>
+          <li>🟠 <strong>PowerPoint (.pptx / .ppt)</strong></li>
+          <li>🟣 <strong>صور (JPG / PNG / GIF / WEBP...)</strong></li>
+          <li>🔵🟢🟠 <strong>مستندات/شيتات/عروض جوجل النيتيف</strong></li>
         </ul>
+        <p>كل الأنواع بتفتح نافذة المعاينة الأول (مش بتتحمّل على طول) - اختار "فتح" أو "تحميل" من جواها.</p>
 
         <h3>تحديث البيانات</h3>
         <p>التطبيق بيعمل فهرسة تلقائية أول مرة تفتحه فيها، وبعد كده بيحدّث نفسه تلقائيًا في الخلفية كل ما الفهرس المخزن يبقى عدّى عليه أسبوع - من غير ما توقف عن البحث. وبرضو تقدر تحدّث البيانات يدويًا في أي وقت بدوس زرار <strong>"🔄 اضغط لتحديث بيانات الملفات"</strong>.</p>
@@ -590,7 +705,7 @@
   const API_KEY = "AIzaSyC7F7fO9WYl7Qzt0Zl45Mk04XlZuoOJ4uo"; // <-- حط الـ API Key هنا
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
-  const CACHE_KEY = 'jigsearch_index_v6'; // شامل الفولدرات + أسماء ملفات PDF و Word و Excel و PowerPoint والصور
+  const CACHE_KEY = 'jigsearch_index_v7'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
   const STALE_INDEX_MS = 7 * 24 * 60 * 60 * 1000; // فهرس أقدم من أسبوع بيتحدث تلقائيًا في الخلفية
 
   const qInput = document.getElementById('q');
@@ -602,9 +717,20 @@
   const setupWarning = document.getElementById('setupWarning');
   const refreshIndexBtn = document.getElementById('refreshIndexBtn');
   const helpBtn = document.getElementById('helpBtn');
+  const themeToggleBtn = document.getElementById('themeToggleBtn');
   const helpModalOverlay = document.getElementById('helpModalOverlay');
   const helpModalClose = document.getElementById('helpModalClose');
   const recentSearchesEl = document.getElementById('recentSearches');
+  const folderFilterWrap = document.getElementById('folderFilterWrap');
+  const folderFilterSelect = document.getElementById('folderFilterSelect');
+  const previewModalOverlay = document.getElementById('previewModalOverlay');
+  const previewModalClose = document.getElementById('previewModalClose');
+  const previewIcon = document.getElementById('previewIcon');
+  const previewName = document.getElementById('previewName');
+  const previewMeta = document.getElementById('previewMeta');
+  const previewOpenBtn = document.getElementById('previewOpenBtn');
+  const previewDownloadBtn = document.getElementById('previewDownloadBtn');
+  const previewShareBtn = document.getElementById('previewShareBtn');
   const homeTabsEl = document.getElementById('homeTabs');
   const advancedSearchBtn = document.getElementById('advancedSearchBtn');
   const advancedSearchMenu = document.getElementById('advancedSearchMenu');
@@ -720,6 +846,18 @@
   function openHelpModal(){ helpModalOverlay.style.display = 'flex'; }
   function closeHelpModal(){ helpModalOverlay.style.display = 'none'; }
   helpBtn.addEventListener('click', openHelpModal);
+
+  // ===== الوضع الليلي =====
+  function applyThemeButtonLabel(){
+    const isDark = document.documentElement.classList.contains('dark');
+    themeToggleBtn.textContent = isDark ? '☀️ الوضع النهاري' : '🌙 الوضع الليلي';
+  }
+  applyThemeButtonLabel();
+  themeToggleBtn.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    try{ localStorage.setItem('jigsearch_theme', isDark ? 'dark' : 'light'); }catch(e){ /* تجاهل */ }
+    applyThemeButtonLabel();
+  });
   helpModalClose.addEventListener('click', closeHelpModal);
   helpModalOverlay.addEventListener('click', (e) => {
     if(e.target === helpModalOverlay) closeHelpModal(); // قفل لو دوس برة الصندوق
@@ -730,6 +868,8 @@
 
   let allFolderIds = null;   // كل الفولدرات (شامل الرئيسي) بعد الفهرسة
   let indexedFiles = null;   // كل ملفات الـ PDF (id + name) اللي اتفهرست جوه كل الفولدرات
+  let allTopFolders = null;  // الفولدرات المباشرة جوه الروت بس (id + name) - المتاحة للفلترة
+  let activeFolderFilter = null; // ID فولدر مباشر جوه الروت لو المستخدم فلتر النتايج بيه، أو null لكل الفولدرات
   let displayedCount = 0;
   let searchToken = 0; // بيتزود كل بحث جديد عشان نلغي نتيجة بحث قديم اتأخر
 
@@ -895,7 +1035,7 @@
       const data = await driveList(q, pageToken);
       (data.files || []).forEach(f => {
         if(f.mimeType === 'application/vnd.google-apps.folder'){
-          subfolders.push(f.id);
+          subfolders.push({ id: f.id, name: f.name });
         } else if(SUPPORTED_MIME_TYPES[f.mimeType]){
           matches.push({ id: f.id, name: f.name, type: SUPPORTED_MIME_TYPES[f.mimeType] });
         }
@@ -942,28 +1082,36 @@
   // كل ملفات الـ PDF في نفس الوقت. كل فولدرات نفس المستوى بتتفهرس بالتوازي
   // (بحد أقصى CRAWL_CONCURRENCY في نفس الوقت) بدل واحد ورا التاني - بيقلل
   // وقت الفهرسة بشكل كبير من غير ما نضرب rate limit بتاع Drive API.
+  // كل ملف بيتحط عليه "folder" = ID الفولدر المباشر جوه الروت اللي هو تابعله
+  // (حتى لو الملف متداخل جوه فولدرات فرعية أعمق)، عشان فلترة النتائج بالفولدر.
+  // ملفات الروت نفسه (مش جوه أي فولدر فرعي) بتاخد folder=null.
   async function crawlAllFoldersAndFiles(rootId, onProgress){
     // الفولدر الرئيسي بيتقرا من غير "ابتلاع" أي خطأ - لو فشل هنا فالمشكلة
     // عامة (نت/صلاحيات/سيرفر) مش مجرد فولدر فرعي، فلازم تبان بوضوح فوق
     const rootResult = await fetchFolderChildrenRaw(rootId);
-    const folderIds = [rootId, ...rootResult.subfolders];
-    const files = [...rootResult.pdfs];
-    let queue = rootResult.subfolders.slice();
+    const topFolders = rootResult.subfolders.map(sf => ({ id: sf.id, name: sf.name }));
+    const folderIds = [rootId, ...rootResult.subfolders.map(sf => sf.id)];
+    const files = rootResult.pdfs.map(f => ({ ...f, folder: null }));
+    let queue = rootResult.subfolders.map(sf => ({ id: sf.id, topFolderId: sf.id }));
     let level = 1;
     if(onProgress) onProgress(folderIds.length, files.length, level);
     while(queue.length){
       const nextQueue = [];
-      const results = await mapWithConcurrency(queue, CRAWL_CONCURRENCY, fetchFolderChildren);
-      results.forEach(({subfolders, pdfs}) => {
-        subfolders.forEach(id => { folderIds.push(id); nextQueue.push(id); });
-        files.push(...pdfs);
+      const results = await mapWithConcurrency(queue, CRAWL_CONCURRENCY, item => fetchFolderChildren(item.id));
+      results.forEach((res, idx) => {
+        const topFolderId = queue[idx].topFolderId;
+        res.subfolders.forEach(sf => {
+          folderIds.push(sf.id);
+          nextQueue.push({ id: sf.id, topFolderId });
+        });
+        res.pdfs.forEach(f => files.push({ ...f, folder: topFolderId }));
       });
       queue = nextQueue;
       level++;
       if(onProgress) onProgress(folderIds.length, files.length, level);
       if(level > 15) break; // حماية من حلقات لا نهائية
     }
-    return { folderIds, files };
+    return { folderIds, files, topFolders };
   }
 
   // ===== تخزين الفهرس: IndexedDB (سعة أكبر وأثبت من localStorage)
@@ -1027,8 +1175,8 @@
     }catch(e){ return null; }
   }
 
-  async function saveCachedIndex(folderIds, files){
-    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), folderIds, files };
+  async function saveCachedIndex(folderIds, files, topFolders){
+    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), folderIds, files, topFolders: topFolders || [] };
     const savedToIDB = await idbSet(CACHE_KEY, payload);
     if(!savedToIDB){
       // fallback لو IndexedDB فشل أو مش متاح
@@ -1036,6 +1184,36 @@
       catch(e){ /* تجاهل لو التخزين ممتلئ */ }
     }
   }
+
+  // بيرجع اسم الفولدر المباشر جوه الروت من ID بتاعه (للعرض في نافذة المعاينة)
+  function folderNameById(id){
+    if(!allTopFolders || !id) return null;
+    const tf = allTopFolders.find(t => t.id === id);
+    return tf ? tf.name : null;
+  }
+
+  // بيبني قايمة فلترة الفولدرات من الفولدرات المباشرة جوه الروت (REBUILD JIG SEARCH)
+  function renderFolderFilterOptions(){
+    if(!allTopFolders || !allTopFolders.length){ folderFilterWrap.style.display = 'none'; return; }
+    folderFilterSelect.innerHTML = '';
+    const allOpt = document.createElement('option');
+    allOpt.value = '';
+    allOpt.textContent = 'كل الفولدرات';
+    folderFilterSelect.appendChild(allOpt);
+    allTopFolders.slice().sort((a, b) => a.name.localeCompare(b.name, 'ar')).forEach(tf => {
+      const opt = document.createElement('option');
+      opt.value = tf.id;
+      opt.textContent = tf.name;
+      folderFilterSelect.appendChild(opt);
+    });
+    folderFilterSelect.value = activeFolderFilter || '';
+    folderFilterWrap.style.display = 'flex';
+  }
+  folderFilterSelect.addEventListener('change', () => {
+    activeFolderFilter = folderFilterSelect.value || null;
+    setActiveHomeTab(null);
+    if(qInput.value.trim()) runSearch();
+  });
 
   // بيرجع true لو الفهرس جاهز في الميموري. الفهرسة بتتم تلقائيًا أول مرة
   // (لو مفيش فهرس محفوظ)، وبتتحدث تلقائيًا في الخلفية لو عدّى عليها أسبوع
@@ -1050,6 +1228,8 @@
       if(cached){
         allFolderIds = cached.folderIds;
         indexedFiles = cached.files;
+        allTopFolders = cached.topFolders || [];
+        renderFolderFilterOptions();
         const age = Date.now() - (cached.ts || 0);
         setStatus(`(من الفهرس المخزن) ${allFolderIds.length} فولدر و ${indexedFiles.length} ملف PDF/Office/صور. اكتب كلمة البحث.`);
         if(age > STALE_INDEX_MS){
@@ -1075,7 +1255,9 @@
       });
       allFolderIds = result.folderIds;
       indexedFiles = result.files;
-      await saveCachedIndex(allFolderIds, indexedFiles);
+      allTopFolders = result.topFolders;
+      renderFolderFilterOptions();
+      await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders);
       let note = '';
       if(skippedFolderCount){
         const parts = [];
@@ -1115,6 +1297,80 @@
     if(f.type === 'image') return 'img';
     return '';
   }
+  function fileTypeLabel(f){
+    if(f.type === 'gsheet') return 'شيت جوجل (Google Sheets)';
+    if(f.type === 'gdoc') return 'مستند جوجل (Google Docs)';
+    if(f.type === 'gslides') return 'عرض جوجل (Google Slides)';
+    if(f.type === 'excel') return 'ملف Excel';
+    if(f.type === 'word') return 'ملف Word';
+    if(f.type === 'ppt') return 'ملف PowerPoint';
+    if(f.type === 'image') return 'صورة';
+    return 'ملف PDF';
+  }
+  // بيرجع روابط الملف الثلاثة: فتح (معاينة/تحرير)، تحميل، ومشاركة - حسب نوعه
+  function getFileUrls(f){
+    if(isNativeGoogleType(f.type)){
+      const editBase = {
+        gsheet: `https://docs.google.com/spreadsheets/d/${f.id}/edit`,
+        gdoc: `https://docs.google.com/document/d/${f.id}/edit`,
+        gslides: `https://docs.google.com/presentation/d/${f.id}/edit`
+      }[f.type];
+      const exportBase = {
+        gsheet: `https://docs.google.com/spreadsheets/d/${f.id}/export?format=xlsx`,
+        gdoc: `https://docs.google.com/document/d/${f.id}/export?format=docx`,
+        gslides: `https://docs.google.com/presentation/d/${f.id}/export?format=pptx`
+      }[f.type];
+      return { view: editBase, download: exportBase, share: editBase };
+    }
+    if(f.type === 'image'){
+      return {
+        view: `https://drive.google.com/uc?export=view&id=${f.id}`,
+        download: `https://drive.google.com/uc?export=download&id=${f.id}`,
+        share: `https://drive.google.com/file/d/${f.id}/view`
+      };
+    }
+    // PDF / Word / Excel / PowerPoint حقيقية - رابط "فتح" بيستخدم معاينة
+    // جوجل درايف المدمجة بدل ما يحمّل الملف على طول
+    return {
+      view: `https://drive.google.com/file/d/${f.id}/view`,
+      download: `https://drive.google.com/uc?export=download&id=${f.id}`,
+      share: `https://drive.google.com/file/d/${f.id}/view`
+    };
+  }
+
+  // ===== نافذة معاينة الملف: معلومات + أزرار فتح/تحميل/مشاركة =====
+  function openPreviewModal(f){
+    const urls = getFileUrls(f);
+    previewIcon.className = 'file-icon preview-icon' + (fileIconClass(f) ? ' ' + fileIconClass(f) : '');
+    previewIcon.textContent = fileIconLabel(f);
+    previewName.textContent = f.name;
+    const folderName = folderNameById(f.folder);
+    previewMeta.textContent = folderName ? `${fileTypeLabel(f)} • 📁 ${folderName}` : fileTypeLabel(f);
+
+    previewOpenBtn.onclick = () => { recordFileOpen(f); window.open(urls.view, '_blank', 'noopener'); };
+    previewDownloadBtn.onclick = () => { recordFileOpen(f); window.open(urls.download, '_blank', 'noopener'); };
+    previewShareBtn.onclick = async () => {
+      recordFileOpen(f);
+      if(navigator.share){
+        try{ await navigator.share({ title: f.name, url: urls.share }); }
+        catch(e){ /* المستخدم لغى المشاركة أو حصل خطأ - نتجاهل */ }
+        return;
+      }
+      try{
+        await navigator.clipboard.writeText(urls.share);
+        const original = previewShareBtn.textContent;
+        previewShareBtn.textContent = '✅ اتنسخ اللينك';
+        setTimeout(() => { previewShareBtn.textContent = original; }, 1800);
+      }catch(e){
+        window.open(urls.share, '_blank', 'noopener');
+      }
+    };
+
+    previewModalOverlay.style.display = 'flex';
+  }
+  function closePreviewModal(){ previewModalOverlay.style.display = 'none'; }
+  previewModalClose.addEventListener('click', closePreviewModal);
+  previewModalOverlay.addEventListener('click', (e) => { if(e.target === previewModalOverlay) closePreviewModal(); });
 
   // تطبيع عربي: توحيد الألف/التاء المربوطة/الياء وشيل التشكيل والتطويل
   function normalizeArabic(s){
@@ -1175,6 +1431,47 @@
 
   let currentFiles = [];
   let renderedCount = 0;
+  let lastSearchWordForms = null; // بيتحط بس وقت البحث الفعلي، عشان تمييز الكلمة في النتايج
+
+  // بيرجع محتوى <div class="file-name"> كنص عادي أو بتمييز الكلمات المتطابقة
+  // (لو فيه بحث نشط)، من غير innerHTML عشان اسم الملف يفضل آمن من XSS
+  function buildHighlightedName(name, wordFormsList){
+    if(!wordFormsList || !wordFormsList.length) return document.createTextNode(name);
+    const nameLower = name.toLowerCase();
+    const ranges = [];
+    wordFormsList.forEach(forms => {
+      forms.forEach(f => {
+        if(!f) return;
+        let idx = 0;
+        while(true){
+          const pos = nameLower.indexOf(f, idx);
+          if(pos === -1) break;
+          ranges.push([pos, pos + f.length]);
+          idx = pos + f.length;
+        }
+      });
+    });
+    if(!ranges.length) return document.createTextNode(name);
+    ranges.sort((a, b) => a[0] - b[0]);
+    const merged = [ranges[0].slice()];
+    for(let i = 1; i < ranges.length; i++){
+      const last = merged[merged.length - 1];
+      if(ranges[i][0] <= last[1]) last[1] = Math.max(last[1], ranges[i][1]);
+      else merged.push(ranges[i].slice());
+    }
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    merged.forEach(([start, end]) => {
+      if(start > cursor) frag.appendChild(document.createTextNode(name.slice(cursor, start)));
+      const mark = document.createElement('mark');
+      mark.className = 'search-highlight';
+      mark.textContent = name.slice(start, end);
+      frag.appendChild(mark);
+      cursor = end;
+    });
+    if(cursor < name.length) frag.appendChild(document.createTextNode(name.slice(cursor)));
+    return frag;
+  }
 
   function showResultsPage(files, append){
     if(!append){
@@ -1200,25 +1497,14 @@
     opts = opts || {};
     const a = document.createElement('a');
     a.className = 'result-item';
-    // ملفات جوجل نيتيف (شيت/مستند/عرض) والصور بتتفتح مباشرة في المتصفح
-    // (تاب جديدة)، أما الملفات الحقيقية (PDF / Word / Excel / PowerPoint)
-    // فبتتحمل مباشرة عشان تفتح بالتطبيق المثبت على الجهاز
-    const isNative = isNativeGoogleType(f.type);
-    const isImage = f.type === 'image';
-    const nativeUrls = {
-      gsheet: `https://docs.google.com/spreadsheets/d/${f.id}/edit`,
-      gdoc: `https://docs.google.com/document/d/${f.id}/edit`,
-      gslides: `https://docs.google.com/presentation/d/${f.id}/edit`
-    };
-    if(isNative){
-      a.href = nativeUrls[f.type];
-    } else if(isImage){
-      a.href = `https://drive.google.com/uc?export=view&id=${f.id}`;
-    } else {
-      a.href = `https://drive.google.com/uc?export=download&id=${f.id}`;
-    }
-    if(isNative || isImage){ a.target = '_blank'; a.rel = 'noopener'; }
-    a.addEventListener('click', () => recordFileOpen(f));
+    // بدل ما نحمّل الملف مباشرة، بنفتح نافذة معاينة فيها معلومات الملف
+    // وخيارات (فتح / تحميل / مشاركة). الـ href هنا لسه بيتحط كـ fallback
+    // (مثلاً لو المستخدم عمل right-click "فتح في تاب جديدة")
+    a.href = getFileUrls(f).view;
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      openPreviewModal(f);
+    });
 
     // بنبني العناصر بـ createElement/textContent مش innerHTML، عشان لو اسم
     // ملف فيه HTML/سكريبت متخزّن في Drive منفّذوش جوه الصفحة (XSS)
@@ -1228,7 +1514,7 @@
 
     const nameDiv = document.createElement('div');
     nameDiv.className = 'file-name';
-    nameDiv.textContent = f.name;
+    nameDiv.appendChild(buildHighlightedName(f.name, opts.highlightForms));
 
     const starBtn = document.createElement('button');
     starBtn.type = 'button';
@@ -1289,7 +1575,7 @@
   function renderFiles(files){
     const frag = document.createDocumentFragment();
     files.forEach(f => {
-      frag.appendChild(buildResultItem(f));
+      frag.appendChild(buildResultItem(f, { highlightForms: lastSearchWordForms }));
       displayedCount++;
     });
     resultsEl.appendChild(frag);
@@ -1380,6 +1666,7 @@
       resultsEl.innerHTML = "";
       currentFiles = [];
       renderedCount = 0;
+      lastSearchWordForms = null;
       loadMoreBtn.style.display = "none";
       return;
     }
@@ -1392,7 +1679,10 @@
     if(myToken !== searchToken) return; // بحث أحدث بدأ فعلاً
 
     const words = splitSearchWords(term);
-    const matched = indexedFiles.filter(f => matchesAllWords(f.name, words));
+    lastSearchWordForms = words;
+    const matched = indexedFiles.filter(f =>
+      matchesAllWords(f.name, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
+    );
 
     showResultsPage(matched, false);
     setStatus(matched.length ? `تم إيجاد ${matched.length} نتيجة` : "مفيش نتايج مطابقة");
@@ -1410,7 +1700,10 @@
     if(!e.target.closest('.advanced-search')) closeAdvancedMenu();
   });
   document.addEventListener('keydown', (e) => {
-    if(e.key === 'Escape') closeAdvancedMenu();
+    if(e.key !== 'Escape') return;
+    closeAdvancedMenu();
+    if(previewModalOverlay.style.display !== 'none') closePreviewModal();
+    if(cameraModalOverlay.style.display !== 'none') closeCamera();
   });
 
   // ===== تحميل مكتبات خارجية عند الحاجة بس (Barcode/QR و OCR) عشان متأثرش على سرعة فتح الصفحة =====

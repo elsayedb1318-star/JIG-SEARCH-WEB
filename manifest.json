@@ -1,15 +1,39 @@
 {
   "name": "JIG SEARCH",
   "short_name": "JIG SEARCH",
-  "description": "بحث فوري في ملفات ومستندات الجيجات (PDF, Word, Excel, PowerPoint والصور) بكل المصانع.",
-  "start_url": ".",
+  "description": "بحث عن ملفات الجيجات (PDF, Word, Excel, PowerPoint, صور) في Google Drive",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#3452E1",
-  "theme_color": "#3452E1",
+  "background_color": "#eef1f6",
+  "theme_color": "#1a56db",
   "lang": "ar",
   "dir": "rtl",
+  "orientation": "portrait-primary",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
