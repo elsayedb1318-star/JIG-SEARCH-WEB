@@ -375,14 +375,21 @@
     padding:6px 4px;
   }
   .recent-clear-all:hover{ color:#c0392b; }
-  .folder-filter-wrap{
+  .search-tools-row{
     max-width:520px;
     margin:12px auto 0;
     display:flex;
     align-items:center;
     justify-content:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .folder-filter-wrap{
+    display:flex;
+    align-items:center;
     gap:8px;
     flex-wrap:wrap;
+    justify-content:center;
   }
   .folder-filter-label{ font-size:12.5px; color:var(--muted); }
   .folder-filter-select{
@@ -404,8 +411,6 @@
   .remove-btn:hover{ color:#c0392b; }
   .advanced-search{
     position:relative;
-    max-width:520px;
-    margin:12px auto 0;
     display:flex;
     justify-content:center;
   }
@@ -558,17 +563,19 @@
     </div>
     <div class="powered">Prepared by Elsayed adel</div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
-    <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
-      <label for="folderFilterSelect" class="folder-filter-label">📁 فلترة حسب الفولدر:</label>
-      <select id="folderFilterSelect" class="folder-filter-select">
-        <option value="">كل الفولدرات</option>
-      </select>
-    </div>
-    <div class="advanced-search">
-      <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ بحث متقدم</button>
-      <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
-        <button type="button" id="scanBtn" class="advanced-menu-item">📷 مسح Barcode/QR</button>
-        <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 تصوير رقم (OCR)</button>
+    <div id="searchToolsRow" class="search-tools-row">
+      <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
+        <label for="folderFilterSelect" class="folder-filter-label">📁 فلترة حسب الفولدر:</label>
+        <select id="folderFilterSelect" class="folder-filter-select">
+          <option value="">كل الفولدرات</option>
+        </select>
+      </div>
+      <div class="advanced-search">
+        <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ بحث متقدم</button>
+        <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
+          <button type="button" id="scanBtn" class="advanced-menu-item">📷 مسح Barcode/QR</button>
+          <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 تصوير رقم (OCR)</button>
+        </div>
       </div>
     </div>
     <div class="secondary-actions">
