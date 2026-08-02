@@ -552,7 +552,7 @@
 
         <h3>البحث</h3>
         <p>اكتب اسم الملف أو جزء منه ودوس "بحث". تقدر تكتب أكتر من كلمة مفصولة بمسافة، والتطبيق هيلاقي أي ملف اسمه فيه كل الكلمات دي مهما كان ترتيبها، وحتى لو الكلمة في نص الاسم مش أوله.</p>
-        <p>البحث بيتسامح مع أخطاء الكتابة البسيطة (زي كتابة "conetor" بدل "connector")، وبيفهم إن "Connector" و"كونكتور" و"كونكتورات" بيدّوا نفس النتايج.</p>
+        <p>البحث بيفهم إن "Connector" و"كونكتور" و"كونكتورات" بيدّوا نفس النتايج.</p>
 
         <h3>بحث متقدم</h3>
         <p>دوس زرار <strong>"⚙️ بحث متقدم"</strong> تحت مربع البحث عشان تفتح قايمة فيها:</p>
@@ -1165,45 +1165,12 @@
     return term.split(/\s+/).filter(Boolean).map(expandWordForms);
   }
 
-  // مسافة Levenshtein - لقياس مدى تقارب كلمتين (أخطاء كتابة بسيطة)
-  function levenshtein(a, b){
-    const m = a.length, n = b.length;
-    if(!m) return n;
-    if(!n) return m;
-    const dp = new Array(n + 1);
-    for(let j = 0; j <= n; j++) dp[j] = j;
-    for(let i = 1; i <= m; i++){
-      let prev = dp[0]; dp[0] = i;
-      for(let j = 1; j <= n; j++){
-        const tmp = dp[j];
-        dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
-        prev = tmp;
-      }
-    }
-    return dp[n];
-  }
-
-  function tokenizeName(name){
-    return normalizeArabic(name.toLowerCase()).split(/[^a-z0-9\u0600-\u06FF]+/).filter(Boolean);
-  }
-
-  // مطابقة substring حقيقية (المسار الأساسي، بيغطي أرقام الطلبات وأغلب الحالات)
-  // مع fallback ضبابي (Levenshtein) للكلمات النصية فقط، عشان أخطاء الكتابة
-  // البسيطة زي "conetor" بدل "connector" - من غير ما يأثر على دقة أرقام الطلبات
+  // مطابقة substring حقيقية على كل الصيغ المكافئة للكلمة (نفسها + مرادفاتها
+  // عربي/إنجليزي)، بتغطي أرقام الطلبات وأغلب الحالات من غير بحث ضبابي
   function matchesAllWords(fileName, wordFormsList){
     const nameLower = fileName.toLowerCase();
     const nameNorm = normalizeArabic(nameLower);
-    let tokens = null;
-    return wordFormsList.every(forms => {
-      if(forms.some(f => nameLower.includes(f) || nameNorm.includes(f))) return true;
-      const fuzzyForms = forms.filter(f => f.length >= 3 && /[a-z\u0600-\u06FF]/.test(f));
-      if(!fuzzyForms.length) return false;
-      if(!tokens) tokens = tokenizeName(fileName);
-      return fuzzyForms.some(f => {
-        const threshold = f.length <= 5 ? 1 : 2;
-        return tokens.some(t => Math.abs(t.length - f.length) <= threshold && levenshtein(f, t) <= threshold);
-      });
-    });
+    return wordFormsList.every(forms => forms.some(f => nameLower.includes(f) || nameNorm.includes(f)));
   }
 
   let currentFiles = [];
