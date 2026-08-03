@@ -348,6 +348,7 @@
     padding:6px 4px 6px 14px;
     font-size:13px;
     cursor:pointer;
+    text-align:center;
   }
   .recent-chip-remove{
     background:none;
@@ -394,6 +395,7 @@
     background:#fff;
     color:var(--text);
     max-width:260px;
+    text-align:center;
   }
   html.dark .folder-filter-select{ background:var(--card); }
   .list-clear-all-wrap{
@@ -561,7 +563,7 @@
       <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
         <label for="folderFilterSelect" class="folder-filter-label">📁 فلترة:</label>
         <select id="folderFilterSelect" class="folder-filter-select">
-          <option value="">ALL</option>
+          <option value="">الكل</option>
         </select>
       </div>
       <div class="advanced-search">
@@ -1193,7 +1195,7 @@
     folderFilterSelect.innerHTML = '';
     const allOpt = document.createElement('option');
     allOpt.value = '';
-    allOpt.textContent = 'ALL';
+    allOpt.textContent = 'الكل';
     folderFilterSelect.appendChild(allOpt);
     allTopFolders.slice().sort((a, b) => a.name.localeCompare(b.name, 'ar')).forEach(tf => {
       const opt = document.createElement('option');
