@@ -567,7 +567,7 @@
       <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
         <label for="folderFilterSelect" class="folder-filter-label">📁 فلترة:</label>
         <select id="folderFilterSelect" class="folder-filter-select">
-          <option value="">كل الفولدرات</option>
+          <option value="">ALL</option>
         </select>
       </div>
       <div class="advanced-search">
@@ -1199,7 +1199,7 @@
     folderFilterSelect.innerHTML = '';
     const allOpt = document.createElement('option');
     allOpt.value = '';
-    allOpt.textContent = 'كل الفولدرات';
+    allOpt.textContent = 'ALL';
     folderFilterSelect.appendChild(allOpt);
     allTopFolders.slice().sort((a, b) => a.name.localeCompare(b.name, 'ar')).forEach(tf => {
       const opt = document.createElement('option');
