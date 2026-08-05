@@ -1682,13 +1682,7 @@
     );
 
     showResultsPage(matched, false);
-    if(matched.length){
-      setStatus(`تم إيجاد ${matched.length} نتيجة`);
-    } else if(/^[478]/.test(term)){
-      setStatus("check sde ref");
-    } else {
-      setStatus("مفيش نتايج مطابقة");
-    }
+    setStatus(matched.length ? `تم إيجاد ${matched.length} نتيجة` : "مفيش نتايج مطابقة");
     saveRecentSearch(term);
   }
 
