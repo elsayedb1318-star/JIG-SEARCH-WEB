@@ -704,7 +704,7 @@
 
 <script>
   // إعدادات لازم تتظبط قبل ما الصفحة تشتغل:
-  const API_KEY = "AIzaSyC7F7fO9WYl7Qzt0Zl45Mk04XlZuoOJ4uo"; // <-- حط الـ API Key هنا
+  const PROXY_URL = "https://jigsearch.elsayedb1318.workers.dev/";
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
   const CACHE_KEY = 'jigsearch_index_v7'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
@@ -901,11 +901,11 @@
   }
 
   function checkSetup(){
-    if(!API_KEY || API_KEY === "YOUR_GOOGLE_API_KEY_HERE"){
+    if(!PROXY_URL || PROXY_URL.includes("YOUR-SUBDOMAIN")){
       setupWarning.style.display = "block";
       setupWarning.innerHTML =
-        "⚠️ لسه محتاج تحط الـ Google API Key عشان البحث يشتغل.<br>" +
-        "افتح ملف الصفحة، دوّر على المتغيّر <code>API_KEY</code>، وحطّ فيه الكود من Google Cloud Console.<br>" +
+        "⚠️ لسه محتاج تحط رابط الـ Proxy Worker عشان البحث يشتغل.<br>" +
+        "افتح ملف الصفحة، دوّر على المتغيّر <code>PROXY_URL</code>، وحطّ فيه رابط الـ Worker بعد ما تنشره.<br>" +
         "وتأكد إن الفولدر معمول له مشاركة \"Anyone with the link – Viewer\".";
       searchBtn.disabled = true;
       return false;
@@ -940,13 +940,8 @@
 
   async function driveList(q, pageToken, retries){
     if(retries === undefined) retries = 3;
-    const url = new URL('https://www.googleapis.com/drive/v3/files');
+    const url = new URL(PROXY_URL);
     url.searchParams.set('q', q);
-    url.searchParams.set('fields', 'nextPageToken, files(id, name, webViewLink, mimeType)');
-    url.searchParams.set('pageSize', '1000');
-    url.searchParams.set('key', API_KEY);
-    url.searchParams.set('supportsAllDrives', 'true');
-    url.searchParams.set('includeItemsFromAllDrives', 'true');
     if(pageToken) url.searchParams.set('pageToken', pageToken);
     let res, data;
     try{
