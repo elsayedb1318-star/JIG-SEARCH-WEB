@@ -146,6 +146,13 @@
     padding:0 1px;
     border-radius:2px;
   }
+  .ps-special-highlight{
+    background:#ff4d4f;
+    color:#fff;
+    padding:0 2px;
+    border-radius:3px;
+    font-weight:700;
+  }
   .help-modal-overlay{
     position:fixed;
     inset:0;
@@ -1500,40 +1507,74 @@
   // بيرجع محتوى <div class="file-name"> كنص عادي أو بتمييز الكلمات المتطابقة
   // (لو فيه بحث نشط)، من غير innerHTML عشان اسم الملف يفضل آمن من XSS
   function buildHighlightedName(name, wordFormsList){
-    if(!wordFormsList || !wordFormsList.length) return document.createTextNode(name);
-    const nameLower = name.toLowerCase();
-    const ranges = [];
-    wordFormsList.forEach(forms => {
-      forms.forEach(f => {
-        if(!f) return;
-        let idx = 0;
-        while(true){
-          const pos = nameLower.indexOf(f, idx);
-          if(pos === -1) break;
-          ranges.push([pos, pos + f.length]);
-          idx = pos + f.length;
-        }
-      });
-    });
-    if(!ranges.length) return document.createTextNode(name);
-    ranges.sort((a, b) => a[0] - b[0]);
-    const merged = [ranges[0].slice()];
-    for(let i = 1; i < ranges.length; i++){
-      const last = merged[merged.length - 1];
-      if(ranges[i][0] <= last[1]) last[1] = Math.max(last[1], ranges[i][1]);
-      else merged.push(ranges[i].slice());
-    }
     const frag = document.createDocumentFragment();
-    let cursor = 0;
-    merged.forEach(([start, end]) => {
-      if(start > cursor) frag.appendChild(document.createTextNode(name.slice(cursor, start)));
-      const mark = document.createElement('mark');
-      mark.className = 'search-highlight';
-      mark.textContent = name.slice(start, end);
-      frag.appendChild(mark);
-      cursor = end;
-    });
-    if(cursor < name.length) frag.appendChild(document.createTextNode(name.slice(cursor)));
+    const specialMatch = /PS(?:1|2|3|7)_/i.exec(name);
+
+    // لو اسم الملف فيه PS1_ أو PS2_ أو PS3_ أو PS7_
+    // بنخلي كل الكلام اللي بعد الكود متظلل بالأحمر.
+    const specialStart = specialMatch ? specialMatch.index + specialMatch[0].length : -1;
+
+    function appendNormalHighlighted(text){
+      if(!text) return;
+      if(!wordFormsList || !wordFormsList.length){
+        frag.appendChild(document.createTextNode(text));
+        return;
+      }
+
+      const textLower = text.toLowerCase();
+      const ranges = [];
+      wordFormsList.forEach(forms => {
+        forms.forEach(f => {
+          if(!f) return;
+          let idx = 0;
+          while(true){
+            const pos = textLower.indexOf(f, idx);
+            if(pos === -1) break;
+            ranges.push([pos, pos + f.length]);
+            idx = pos + f.length;
+          }
+        });
+      });
+
+      if(!ranges.length){
+        frag.appendChild(document.createTextNode(text));
+        return;
+      }
+
+      ranges.sort((a, b) => a[0] - b[0]);
+      const merged = [ranges[0].slice()];
+      for(let i = 1; i < ranges.length; i++){
+        const last = merged[merged.length - 1];
+        if(ranges[i][0] <= last[1]) last[1] = Math.max(last[1], ranges[i][1]);
+        else merged.push(ranges[i].slice());
+      }
+
+      let cursor = 0;
+      merged.forEach(([start, end]) => {
+        if(start > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, start)));
+        const mark = document.createElement('mark');
+        mark.className = 'search-highlight';
+        mark.textContent = text.slice(start, end);
+        frag.appendChild(mark);
+        cursor = end;
+      });
+      if(cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+    }
+
+    if(specialStart === -1){
+      appendNormalHighlighted(name);
+      return frag;
+    }
+
+    // الجزء قبل PSx_ يظل له تمييز البحث العادي.
+    appendNormalHighlighted(name.slice(0, specialStart - specialMatch[0].length));
+
+    // PSx_ + كل ما بعده يتظلل بالأحمر.
+    const specialMark = document.createElement('mark');
+    specialMark.className = 'ps-special-highlight';
+    specialMark.textContent = name.slice(specialStart - specialMatch[0].length);
+    frag.appendChild(specialMark);
+
     return frag;
   }
 
