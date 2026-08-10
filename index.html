@@ -1454,9 +1454,18 @@
     return wordFormsList.every(forms => forms.some(f => nameLower.includes(f) || nameNorm.includes(f)));
   }
 
-  // بيدي درجة أولوية لكل ملف حسب قرب اسمه من نص البحث: تطابق كامل، بعدين
-  // بداية الاسم بنفس النص، بعدين احتواء العبارة كاملة، وأخيرًا التطابق عن
-  // طريق كلمات منفصلة بس. عند تساوي الدرجة بيتم الترتيب حسب الأقرب في الطول
+  // بيقسّم اسم الملف لكلمات/رموز منفصلة (على أي فاصل زي _ - مسافة نقطة)
+  function tokenize(fileName){
+    return normalizeArabic(fileName.toLowerCase()).split(/[^a-z0-9\u0600-\u06ff]+/i).filter(Boolean);
+  }
+  // بيتحقق إن نص البحث (أو كل كلمة فيه) اتطابق مع "كلمة منفصلة" كاملة في
+  // اسم الملف (مش مجرد جزء من كلمة أطول، زي 02P15GD3L)
+  function matchesAsSeparateWords(fileName, wordFormsList){
+    const tokens = tokenize(fileName);
+    return wordFormsList.every(forms => forms.some(f => tokens.includes(f)));
+  }
+  // بيدي درجة أولوية ثانوية (تُستخدم بعد ترتيب الكلمات المنفصلة) حسب قرب
+  // اسم الملف من نص البحث ككل: تطابق كامل، بداية الاسم، احتواء العبارة
   function relevanceScore(fileName, termNorm){
     const nameNorm = normalizeArabic(fileName.toLowerCase());
     if(!termNorm) return 3;
@@ -1465,9 +1474,15 @@
     if(nameNorm.includes(termNorm)) return 2;
     return 3;
   }
-  function sortByRelevance(files, term){
+  // الترتيب المطلوب: النتايج اللي اتطابقت بكلمة منفصلة كاملة (زي 02P15GD3)
+  // تيجي الأول، وبعدها الباقي (تطابق جزئي جوه كلمة أطول زي 02P15GD3L) مرتب
+  // حسب الأقرب (تطابق كامل > بداية الاسم > احتواء > الأقرب في الطول)
+  function sortByRelevance(files, term, wordFormsList){
     const termNorm = normalizeArabic(term.toLowerCase().trim());
     return files.slice().sort((a, b) => {
+      const wa = matchesAsSeparateWords(a.name, wordFormsList) ? 0 : 1;
+      const wb = matchesAsSeparateWords(b.name, wordFormsList) ? 0 : 1;
+      if(wa !== wb) return wa - wb;
       const sa = relevanceScore(a.name, termNorm);
       const sb = relevanceScore(b.name, termNorm);
       if(sa !== sb) return sa - sb;
@@ -1732,7 +1747,7 @@
     const matched = indexedFiles.filter(f =>
       matchesAllWords(f.name, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
     );
-    const sortedMatched = sortByRelevance(matched, term);
+    const sortedMatched = sortByRelevance(matched, term, words);
 
     showResultsPage(sortedMatched, false);
     setStatus(matched.length ? `تم إيجاد ${matched.length} نتيجة` : "مفيش نتايج مطابقة");
