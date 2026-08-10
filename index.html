@@ -69,9 +69,12 @@
     max-width:520px;
     margin:0 auto;
   }
+  .search-input-wrap{
+    position:relative;
+  }
   input#q{
     width:100%;
-    padding:16px 18px;
+    padding:16px 42px;
     font-size:16px;
     border:1px solid var(--border);
     border-radius:12px;
@@ -80,6 +83,27 @@
     border-color:var(--blue);
     box-shadow:0 0 0 3px rgba(26,86,219,.15);
   }
+  .q-clear-btn{
+    position:absolute;
+    top:50%;
+    left:10px;
+    transform:translateY(-50%);
+    width:26px;height:26px;
+    border:none;
+    border-radius:50%;
+    background:#e4e7ee;
+    color:#4a5468;
+    font-size:13px;
+    line-height:1;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+  }
+  .q-clear-btn:hover{ background:#d5d9e2; }
+  html.dark .q-clear-btn{ background:#2b3142; color:var(--text); }
+  html.dark .q-clear-btn:hover{ background:#3a4152; }
   button#searchBtn{
     width:100%;
     margin-top:14px;
@@ -559,7 +583,10 @@
   <div class="header">
     <h1 class="title">JIG SEARCH</h1>
     <div class="search-box">
-      <input type="text" id="q" placeholder="connector or order number" />
+      <div class="search-input-wrap">
+        <input type="text" id="q" placeholder="" />
+        <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="مسح البحث">✕</button>
+      </div>
       <button id="searchBtn">بحث</button>
     </div>
     <div class="powered">Prepared by Elsayed adel</div>
@@ -711,6 +738,7 @@
   const STALE_INDEX_MS = 7 * 24 * 60 * 60 * 1000; // فهرس أقدم من أسبوع بيتحدث تلقائيًا في الخلفية
 
   const qInput = document.getElementById('q');
+  const qClear = document.getElementById('qClear');
   const searchBtn = document.getElementById('searchBtn');
   const statusEl = document.getElementById('statusText');
   const spinnerEl = document.getElementById('spinner');
@@ -1426,6 +1454,30 @@
     return wordFormsList.every(forms => forms.some(f => nameLower.includes(f) || nameNorm.includes(f)));
   }
 
+  // بيدي درجة أولوية لكل ملف حسب قرب اسمه من نص البحث: تطابق كامل، بعدين
+  // بداية الاسم بنفس النص، بعدين احتواء العبارة كاملة، وأخيرًا التطابق عن
+  // طريق كلمات منفصلة بس. عند تساوي الدرجة بيتم الترتيب حسب الأقرب في الطول
+  function relevanceScore(fileName, termNorm){
+    const nameNorm = normalizeArabic(fileName.toLowerCase());
+    if(!termNorm) return 3;
+    if(nameNorm === termNorm) return 0;
+    if(nameNorm.startsWith(termNorm)) return 1;
+    if(nameNorm.includes(termNorm)) return 2;
+    return 3;
+  }
+  function sortByRelevance(files, term){
+    const termNorm = normalizeArabic(term.toLowerCase().trim());
+    return files.slice().sort((a, b) => {
+      const sa = relevanceScore(a.name, termNorm);
+      const sb = relevanceScore(b.name, termNorm);
+      if(sa !== sb) return sa - sb;
+      const diffA = Math.abs(a.name.length - termNorm.length);
+      const diffB = Math.abs(b.name.length - termNorm.length);
+      if(diffA !== diffB) return diffA - diffB;
+      return a.name.localeCompare(b.name, 'ar');
+    });
+  }
+
   let currentFiles = [];
   let renderedCount = 0;
   let lastSearchWordForms = null; // بيتحط بس وقت البحث الفعلي، عشان تمييز الكلمة في النتايج
@@ -1680,8 +1732,9 @@
     const matched = indexedFiles.filter(f =>
       matchesAllWords(f.name, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
     );
+    const sortedMatched = sortByRelevance(matched, term);
 
-    showResultsPage(matched, false);
+    showResultsPage(sortedMatched, false);
     setStatus(matched.length ? `تم إيجاد ${matched.length} نتيجة` : "مفيش نتايج مطابقة");
     saveRecentSearch(term);
   }
@@ -1882,6 +1935,7 @@
   });
   // البحث بيتم بس لما تدوس زرار "بحث" أو Enter - مفيش بحث تلقائي أثناء الكتابة
   qInput.addEventListener('input', () => {
+    qClear.style.display = qInput.value ? 'flex' : 'none';
     if(qInput.value.trim() === ""){
       resultsEl.innerHTML = "";
       currentFiles = [];
@@ -1889,6 +1943,16 @@
       loadMoreBtn.style.display = "none";
       setStatus("");
     }
+  });
+  qClear.addEventListener('click', () => {
+    qInput.value = "";
+    qClear.style.display = 'none';
+    resultsEl.innerHTML = "";
+    currentFiles = [];
+    renderedCount = 0;
+    loadMoreBtn.style.display = "none";
+    setStatus("");
+    qInput.focus();
   });
 
   loadMoreBtn.addEventListener('click', () => {
