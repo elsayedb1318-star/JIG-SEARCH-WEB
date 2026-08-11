@@ -608,7 +608,6 @@
     </div>
     <div class="secondary-actions">
       <button id="refreshIndexBtn" class="refresh-index-btn">🔄 اضغط لتحديث بيانات الملفات</button>
-      <button id="helpBtn" class="refresh-index-btn help-btn">📖 دليل الاستخدام</button>
       <button id="themeToggleBtn" class="refresh-index-btn help-btn">🌙 الوضع الليلي</button>
     </div>
   </div>
@@ -669,66 +668,6 @@
     </div>
   </div>
 
-  <div id="helpModalOverlay" class="help-modal-overlay" style="display:none;">
-    <div class="help-modal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
-      <div class="help-modal-header">
-        <h2 id="helpModalTitle">📖 دليل الاستخدام</h2>
-        <button id="helpModalClose" class="help-modal-close" aria-label="إغلاق">✕</button>
-      </div>
-      <div class="help-modal-body">
-        <h3>الفكرة العامة</h3>
-        <p>التطبيق يشمل كافه بيانات الجيكات من مختلف انواع الشركات، دون الحاجة لتسجيل دخول، مع اضافه اللوكيشن الخاص بالـ Spare Part في كل مصنع.</p>
-
-        <h3>البحث</h3>
-        <p>اكتب اسم الملف أو جزء منه ودوس "بحث". تقدر تكتب أكتر من كلمة مفصولة بمسافة، والتطبيق هيلاقي أي ملف اسمه فيه كل الكلمات دي مهما كان ترتيبها، وحتى لو الكلمة في نص الاسم مش أوله.</p>
-        <p>البحث بيفهم إن "Connector" و"كونكتور" و"كونكتورات" بيدّوا نفس النتايج.</p>
-
-        <h3>بحث متقدم</h3>
-        <p>دوس زرار <strong>"⚙️ بحث متقدم"</strong> تحت مربع البحث عشان تفتح قايمة فيها:</p>
-        <ul>
-          <li>📷 <strong>مسح Barcode / QR</strong> — بيقرا أي نوع باركود (QR، وباركود خطي زي Code128/EAN/UPC، وباركود مصفوفة زي DataMatrix/PDF417). دوس الزرار ووجّه الكاميرا على الكود. بعد ما يتقرا، هيديك اختيار تفتح اللينك مباشرة (لو الكود لينك) أو تبحث بمحتواه.</li>
-          <li>🔎 <strong>تصوير رقم (OCR)</strong> — صوّر رقم أو نص مكتوب على الجيج ودوس "التقاط". النص اللي هيتقرا هيظهر في مربع تقدر تعدّله أو تمسح منه أي جزء مش محتاجه، وبعدين دوس "ابحث عن ده".</li>
-        </ul>
-        <p>الأدوات دي محتاجة إذن الكاميرا من المتصفح، ومحتاجة إنترنت أول مرة بس عشان تحمّل مكتبات القراءة.</p>
-
-        <h3>آخر الملفات، الأكثر استخدامًا، والمفضلة</h3>
-        <p>من التابات فوق النتايج تقدر تشوف آخر الملفات اللي فتحتها، أو الملفات الأكتر استخدامًا، أو الملفات المحفوظة في المفضلة. دوس أيقونة ⭐ جنب أي ملف عشان تحفظه في المفضلة. البيانات دي متخزنة على جهازك بس.</p>
-        <p>تقدر تمسح أي عنصر لوحده (🗑 جنب الملف، أو × جنب عملية بحث في "عمليات البحث الأخيرة")، أو تمسح القايمة كلها مرة واحدة من زرار "مسح الكل" فوق أو جوه كل تاب.</p>
-
-        <h3>معاينة الملف</h3>
-        <p>دوس على أي نتيجة عشان تفتح نافذة معاينة فيها اسم الملف ونوعه والفولدر بتاعه، وثلاث أزرار:</p>
-        <ul>
-          <li>📂 <strong>فتح</strong> — بيفتح الملف في تاب جديدة (معاينة PDF/Word/Excel/PowerPoint المدمجة من Drive).</li>
-          <li>⬇️ <strong>تحميل</strong> — بيحمّل نسخة من الملف على جهازك.</li>
-          <li>📤 <strong>مشاركة</strong> — بيفتح قايمة مشاركة الجهاز (أو بينسخ لينك الملف لو المتصفح مايدعمش المشاركة).</li>
-        </ul>
-
-        <h3>تمييز كلمة البحث</h3>
-        <p>الجزء اللي اتطابق مع كلمة البحث بيظهر بلون مختلف جوه اسم الملف في النتايج، عشان تلاقي بسرعة إيه اللي خلّى الملف ده يظهر.</p>
-
-        <h3>الوضع الليلي</h3>
-        <p>دوس زرار <strong>"🌙 الوضع الليلي"</strong> تحت مربع البحث عشان تبدّل بين الوضع النهاري والليلي. الاختيار بيتحفظ وهيفضل زي ما هو المرة الجاية.</p>
-
-        <h3>العمل بدون إنترنت</h3>
-        <p>التطبيق شغال كـ PWA - تقدر "تثبّته" على جهازك من قايمة المتصفح (Add to Home Screen / تثبيت التطبيق)، وهيفتح زي أي تطبيق عادي. بعد أول فتح، واجهة التطبيق والفهرس المخزن بيشتغلوا حتى من غير إنترنت؛ البحث المحلي هيفضل شغال، لكن فتح/تحميل الملفات الفعلي وتحديث الفهرس محتاجين اتصال بالإنترنت.</p>
-
-        <h3>أنواع الملفات</h3>
-        <ul>
-          <li>🔴 <strong>PDF</strong></li>
-          <li>🔵 <strong>Word (.docx / .doc)</strong></li>
-          <li>🟢 <strong>Excel (.xlsx / .xls)</strong></li>
-          <li>🟠 <strong>PowerPoint (.pptx / .ppt)</strong></li>
-          <li>🟣 <strong>صور (JPG / PNG / GIF / WEBP...)</strong></li>
-          <li>🔵🟢🟠 <strong>مستندات/شيتات/عروض جوجل النيتيف</strong></li>
-        </ul>
-        <p>كل الأنواع بتفتح نافذة المعاينة الأول (مش بتتحمّل على طول) - اختار "فتح" أو "تحميل" من جواها.</p>
-
-        <h3>تحديث البيانات</h3>
-        <p>التطبيق بيعمل فهرسة تلقائية أول مرة تفتحه فيها، وبعد كده بيحدّث نفسه تلقائيًا في الخلفية كل ما الفهرس المخزن يبقى عدّى عليه أسبوع - من غير ما توقف عن البحث. وبرضو تقدر تحدّث البيانات يدويًا في أي وقت بدوس زرار <strong>"🔄 اضغط لتحديث بيانات الملفات"</strong>.</p>
-      </div>
-    </div>
-  </div>
-
 <script>
   // إعدادات لازم تتظبط قبل ما الصفحة تشتغل:
   const PROXY_URL = "https://jigsearch.elsayedb1318.workers.dev/";
@@ -746,10 +685,7 @@
   const loadMoreBtn = document.getElementById('loadMoreBtn');
   const setupWarning = document.getElementById('setupWarning');
   const refreshIndexBtn = document.getElementById('refreshIndexBtn');
-  const helpBtn = document.getElementById('helpBtn');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
-  const helpModalOverlay = document.getElementById('helpModalOverlay');
-  const helpModalClose = document.getElementById('helpModalClose');
   const recentSearchesEl = document.getElementById('recentSearches');
   const folderFilterWrap = document.getElementById('folderFilterWrap');
   const folderFilterSelect = document.getElementById('folderFilterSelect');
@@ -873,10 +809,6 @@
     });
   });
 
-  function openHelpModal(){ helpModalOverlay.style.display = 'flex'; }
-  function closeHelpModal(){ helpModalOverlay.style.display = 'none'; }
-  helpBtn.addEventListener('click', openHelpModal);
-
   // ===== الوضع الليلي =====
   function applyThemeButtonLabel(){
     const isDark = document.documentElement.classList.contains('dark');
@@ -887,13 +819,6 @@
     const isDark = document.documentElement.classList.toggle('dark');
     try{ localStorage.setItem('jigsearch_theme', isDark ? 'dark' : 'light'); }catch(e){ /* تجاهل */ }
     applyThemeButtonLabel();
-  });
-  helpModalClose.addEventListener('click', closeHelpModal);
-  helpModalOverlay.addEventListener('click', (e) => {
-    if(e.target === helpModalOverlay) closeHelpModal(); // قفل لو دوس برة الصندوق
-  });
-  document.addEventListener('keydown', (e) => {
-    if(e.key === 'Escape') closeHelpModal();
   });
 
   let allFolderIds = null;   // كل الفولدرات (شامل الرئيسي) بعد الفهرسة
@@ -1256,7 +1181,8 @@
         allTopFolders = cached.topFolders || [];
         renderFolderFilterOptions();
         const age = Date.now() - (cached.ts || 0);
-        setStatus(`(من الفهرس المخزن) ${allFolderIds.length} فولدر و ${indexedFiles.length} ملف PDF/Office/صور. اكتب كلمة البحث.`);
+        const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'غير معروف';
+        setStatus(`آخر تحديث للفهرس: ${lastIndexDate}. اكتب كلمة البحث.`);
         if(age > STALE_INDEX_MS){
           // الفهرس بقاله أكتر من أسبوع - نحدّثه تلقائيًا في الخلفية
           ensureIndex(true, true);
@@ -1659,7 +1585,7 @@
 
   // ===== آخر 5 عمليات بحث (recent searches) - متخزنة محليًا في المتصفح =====
   const RECENT_SEARCH_KEY = 'jigsearch_recent_searches_v1';
-  const RECENT_SEARCH_MAX = 5;
+  const RECENT_SEARCH_MAX = 3;
 
   function loadRecentSearches(){
     try{
