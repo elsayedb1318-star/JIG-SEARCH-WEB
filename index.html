@@ -1571,7 +1571,15 @@
     a.href = getFileUrls(f).view;
     a.addEventListener('click', (e) => {
       e.preventDefault();
-      openPreviewModal(f);
+      // لو الملف PDF يتفتح على طول في تاب جديدة، ولو صيغة تانية يتحمّل على طول
+      // من غير ما نعدي على نافذة المعاينة
+      const urls = getFileUrls(f);
+      recordFileOpen(f);
+      if(f.type === 'pdf'){
+        window.open(urls.view, '_blank', 'noopener');
+      } else {
+        window.open(urls.download, '_blank', 'noopener');
+      }
     });
 
     // بنبني العناصر بـ createElement/textContent مش innerHTML، عشان لو اسم
