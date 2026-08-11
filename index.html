@@ -605,6 +605,7 @@
           <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 تصوير رقم (OCR)</button>
         </div>
       </div>
+      <button type="button" class="home-tab" data-tab="favorites">⭐ المفضلة</button>
     </div>
   </div>
 
@@ -612,10 +613,6 @@
     <div id="setupWarning" class="setup-warning" style="display:none;"></div>
     <div id="homeTabs" class="home-tabs">
       <button type="button" class="home-tab" data-tab="recent">🕘 آخر الملفات</button>
-      <button type="button" class="home-tab" data-tab="most">📈 الأكثر استخدامًا</button>
-      <button type="button" class="home-tab" data-tab="favorites">⭐ المفضلة</button>
-    </div>
-    <div class="secondary-actions">
       <button id="refreshIndexBtn" class="refresh-index-btn">🔄 اضغط للفهرسة</button>
       <button id="themeToggleBtn" class="refresh-index-btn help-btn">🌙 DARK MODE</button>
     </div>
@@ -790,9 +787,9 @@
   let activeHomeTab = null;
   function setActiveHomeTab(tab){
     activeHomeTab = tab;
-    homeTabsEl.querySelectorAll('.home-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.home-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   }
-  homeTabsEl.querySelectorAll('.home-tab').forEach(btn => {
+  document.querySelectorAll('.home-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.dataset.tab;
       if(activeHomeTab === tab){
@@ -804,7 +801,6 @@
       setActiveHomeTab(tab);
       currentFiles = []; renderedCount = 0;
       if(tab === 'recent') renderRecentTab();
-      else if(tab === 'most') renderMostUsedTab();
       else renderFavoritesTab();
     });
   });
