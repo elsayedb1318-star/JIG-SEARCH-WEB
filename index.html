@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -193,7 +193,7 @@
   .help-modal-body{
     padding:16px 18px 20px;
     overflow-y:auto;
-    text-align:right;
+    text-align:left;
     line-height:1.7;
     font-size:14px;
     color:#2c3444;
@@ -455,7 +455,7 @@
   .advanced-menu-item{
     display:block;
     width:100%;
-    text-align:right;
+    text-align:left;
     background:#fff;
     border:none;
     padding:12px 16px;
@@ -585,65 +585,65 @@
     <div class="search-box">
       <div class="search-input-wrap">
         <input type="text" id="q" placeholder="" />
-        <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="مسح البحث">✕</button>
+        <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
       </div>
-      <button id="searchBtn">بحث</button>
+      <button id="searchBtn">Search</button>
     </div>
     <div class="powered">Prepared by Elsayed adel</div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
     <div id="searchToolsRow" class="search-tools-row">
       <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
-        <label for="folderFilterSelect" class="folder-filter-label">📁 فلترة:</label>
+        <label for="folderFilterSelect" class="folder-filter-label">📁 Filter:</label>
         <select id="folderFilterSelect" class="folder-filter-select">
-          <option value="">الكل</option>
+          <option value="">All</option>
         </select>
       </div>
       <div class="advanced-search">
-        <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ بحث متقدم</button>
+        <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ Advanced Search</button>
         <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
-          <button type="button" id="scanBtn" class="advanced-menu-item">📷 مسح Barcode/QR</button>
-          <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 تصوير رقم (OCR)</button>
+          <button type="button" id="scanBtn" class="advanced-menu-item">📷 Scan Barcode/QR</button>
+          <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 Capture Number (OCR)</button>
         </div>
       </div>
     </div>
     <div class="secondary-actions">
-      <button id="refreshIndexBtn" class="refresh-index-btn">🔄 اضغط لتحديث بيانات الملفات</button>
-      <button id="themeToggleBtn" class="refresh-index-btn help-btn">🌙 الوضع الليلي</button>
+      <button id="refreshIndexBtn" class="refresh-index-btn">🔄 Refresh File Data</button>
+      <button id="themeToggleBtn" class="refresh-index-btn help-btn">🌙 Dark Mode</button>
     </div>
   </div>
 
   <div class="content">
     <div id="setupWarning" class="setup-warning" style="display:none;"></div>
     <div id="homeTabs" class="home-tabs">
-      <button type="button" class="home-tab" data-tab="recent">🕘 آخر الملفات</button>
-      <button type="button" class="home-tab" data-tab="most">📈 الأكثر استخدامًا</button>
-      <button type="button" class="home-tab" data-tab="favorites">⭐ المفضلة</button>
+      <button type="button" class="home-tab" data-tab="recent">🕘 Recent Files</button>
+      <button type="button" class="home-tab" data-tab="most">📈 Most Used</button>
+      <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
     </div>
     <div id="status" class="status" role="status" aria-live="polite">
       <span id="spinner" class="spinner" aria-hidden="true"></span>
       <span id="statusText"></span>
     </div>
     <div id="results" class="results"></div>
-    <button id="loadMoreBtn" class="load-more" style="display:none;">تحميل المزيد</button>
+    <button id="loadMoreBtn" class="load-more" style="display:none;">Load More</button>
   </div>
 
   <div id="cameraModalOverlay" class="camera-modal-overlay" style="display:none;">
     <div class="camera-modal" role="dialog" aria-modal="true" aria-labelledby="cameraModalTitle">
       <div class="help-modal-header">
-        <h2 id="cameraModalTitle">📷 مسح Barcode / QR</h2>
-        <button id="cameraModalClose" class="help-modal-close" aria-label="إغلاق">✕</button>
+        <h2 id="cameraModalTitle">📷 Scan Barcode / QR</h2>
+        <button id="cameraModalClose" class="help-modal-close" aria-label="Close">✕</button>
       </div>
       <video id="cameraVideo" autoplay playsinline muted></video>
       <canvas id="cameraCanvas" style="display:none;"></canvas>
       <div id="cameraStatus" class="camera-status"></div>
       <div class="camera-actions">
-        <button type="button" id="cameraCaptureBtn" class="tool-btn" style="display:none;">📸 التقاط</button>
+        <button type="button" id="cameraCaptureBtn" class="tool-btn" style="display:none;">📸 Capture</button>
       </div>
       <div id="cameraResult" class="camera-result" style="display:none;">
         <textarea id="cameraResultText" class="camera-result-text" rows="3"></textarea>
         <div class="camera-actions">
-          <button type="button" id="cameraOpenLinkBtn" class="tool-btn" style="display:none;">🔗 افتح اللينك</button>
-          <button type="button" id="cameraSearchBtn" class="tool-btn">🔍 ابحث عن ده</button>
+          <button type="button" id="cameraOpenLinkBtn" class="tool-btn" style="display:none;">🔗 Open Link</button>
+          <button type="button" id="cameraSearchBtn" class="tool-btn">🔍 Search This</button>
         </div>
       </div>
     </div>
@@ -652,8 +652,8 @@
   <div id="previewModalOverlay" class="camera-modal-overlay" style="display:none;">
     <div class="camera-modal preview-modal" role="dialog" aria-modal="true" aria-labelledby="previewModalTitle">
       <div class="help-modal-header">
-        <h2 id="previewModalTitle">معاينة الملف</h2>
-        <button id="previewModalClose" class="help-modal-close" aria-label="إغلاق">✕</button>
+        <h2 id="previewModalTitle">File Preview</h2>
+        <button id="previewModalClose" class="help-modal-close" aria-label="Close">✕</button>
       </div>
       <div class="preview-body">
         <div id="previewIcon" class="file-icon preview-icon"></div>
@@ -661,9 +661,9 @@
         <div id="previewMeta" class="preview-meta"></div>
       </div>
       <div class="camera-actions preview-actions">
-        <button type="button" id="previewOpenBtn" class="tool-btn">📂 فتح</button>
-        <button type="button" id="previewDownloadBtn" class="tool-btn">⬇️ تحميل</button>
-        <button type="button" id="previewShareBtn" class="tool-btn">📤 مشاركة</button>
+        <button type="button" id="previewOpenBtn" class="tool-btn">📂 Open</button>
+        <button type="button" id="previewDownloadBtn" class="tool-btn">⬇️ Download</button>
+        <button type="button" id="previewShareBtn" class="tool-btn">📤 Share</button>
       </div>
     </div>
   </div>
@@ -778,13 +778,13 @@
   }
 
   function renderRecentTab(){
-    renderPlainList(getRecentFiles(), "لسه مفتحتش أي ملف", { onRemove: f => removeRecentFile(f.id), onClearAll: clearRecentFiles });
+    renderPlainList(getRecentFiles(), "No files opened yet", { onRemove: f => removeRecentFile(f.id), onClearAll: clearRecentFiles });
   }
   function renderMostUsedTab(){
-    renderPlainList(getMostUsedFiles(), "لسه مفيش ملفات مستخدمة كتير", { onRemove: f => removeUsageEntry(f.id), onClearAll: clearUsage });
+    renderPlainList(getMostUsedFiles(), "No frequently used files yet", { onRemove: f => removeUsageEntry(f.id), onClearAll: clearUsage });
   }
   function renderFavoritesTab(){
-    renderPlainList(getFavoriteFiles(), "لسه مفيش ملفات محفوظة في المفضلة", { onClearAll: clearFavorites });
+    renderPlainList(getFavoriteFiles(), "No favorite files yet", { onClearAll: clearFavorites });
   }
 
   let activeHomeTab = null;
@@ -798,7 +798,7 @@
       if(activeHomeTab === tab){
         setActiveHomeTab(null);
         resultsEl.innerHTML = ""; loadMoreBtn.style.display = "none";
-        setStatus("اكتب اسم أو جزء من اسم الملف الأول");
+        setStatus("Enter a file name or part of the file name first");
         return;
       }
       setActiveHomeTab(tab);
@@ -812,7 +812,7 @@
   // ===== الوضع الليلي =====
   function applyThemeButtonLabel(){
     const isDark = document.documentElement.classList.contains('dark');
-    themeToggleBtn.textContent = isDark ? '☀️ الوضع النهاري' : '🌙 الوضع الليلي';
+    themeToggleBtn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
   }
   applyThemeButtonLabel();
   themeToggleBtn.addEventListener('click', () => {
@@ -842,24 +842,24 @@
   function friendlyErrorMessage(err){
     const category = err && err.category ? err.category : 'unknown';
     if(category === 'network'){
-      return '❌ مشكلة في الاتصال بالإنترنت. اتأكد إن جهازك متصل بالنت وجرب تاني.';
+      return '❌ Internet connection problem. Make sure your device is connected and try again.';
     }
     if(category === 'permission'){
-      return '❌ مشكلة في الصلاحيات: التطبيق مش قادر يوصل للفولدر/الملفات. اتأكد إن الفولدر الرئيسي على Google Drive معمول له مشاركة "Anyone with the link – Viewer"، وإن الـ API Key لسه مفعّلة ومقيدة صح على Google Drive API ودومين الموقع.';
+      return '❌ Permission problem: The app cannot access the folder/files. Make sure the main Google Drive folder is shared as "Anyone with the link – Viewer", and the API Key is enabled and properly restricted to the Google Drive API and website domain.';
     }
     if(category === 'server'){
-      return '❌ فيه ضغط أو مشكلة مؤقتة من خوادم Google Drive. استنى دقيقة وجرب تدوس تحديث تاني.';
+      return '❌ Google Drive servers are busy or temporarily unavailable. Wait a minute and click refresh again.';
     }
-    return '❌ حصل خطأ غير متوقع: ' + (err && err.message ? err.message : 'غير معروف') + '. جرب تاني، ولو استمر تواصل مع المسؤول عن التطبيق.';
+    return '❌ Unexpected error: ' + (err && err.message ? err.message : 'Unknown') + '. Try again, and contact the app administrator if the problem persists.';
   }
 
   function checkSetup(){
     if(!PROXY_URL || PROXY_URL.includes("YOUR-SUBDOMAIN")){
       setupWarning.style.display = "block";
       setupWarning.innerHTML =
-        "⚠️ لسه محتاج تحط رابط الـ Proxy Worker عشان البحث يشتغل.<br>" +
-        "افتح ملف الصفحة، دوّر على المتغيّر <code>PROXY_URL</code>، وحطّ فيه رابط الـ Worker بعد ما تنشره.<br>" +
-        "وتأكد إن الفولدر معمول له مشاركة \"Anyone with the link – Viewer\".";
+        "⚠️ You still need to set the Proxy Worker URL for search to work.<br>" +
+        "Open the page file, find the <code>PROXY_URL</code> variable, and put the Worker URL in it after deployment.<br>" +
+        "Make sure the folder is shared as \"Anyone with the link – Viewer\".";
       searchBtn.disabled = true;
       return false;
     }
@@ -905,12 +905,12 @@
         await new Promise(r => setTimeout(r, 800));
         return driveList(q, pageToken, retries - 1);
       }
-      throw makeCategorizedError('تعذّر الاتصال بالإنترنت أو بخوادم Google.', 'network');
+      throw makeCategorizedError('Unable to connect to the internet or Google servers.', 'network');
     }
     try{
       data = await res.json();
     }catch(parseErr){
-      throw makeCategorizedError('رد غير متوقع من خوادم Google Drive.', 'server');
+      throw makeCategorizedError('Unexpected response from Google Drive servers.', 'server');
     }
     if(data.error){
       const status = res.status;
@@ -937,7 +937,7 @@
       if(status === 401 || status === 403) category = 'permission';
       else if(status === 429 || status >= 500) category = 'server';
       else if(status === 404) category = 'permission'; // الفولدر مش موجود أو مش متاح
-      throw makeCategorizedError(data.error.message || 'خطأ غير معروف من Google Drive', category);
+      throw makeCategorizedError(data.error.message || 'Unknown error from Google Drive', category);
     }
     consecutiveRateErrors = 0;
     return data;
@@ -1148,7 +1148,7 @@
     folderFilterSelect.innerHTML = '';
     const allOpt = document.createElement('option');
     allOpt.value = '';
-    allOpt.textContent = 'الكل';
+    allOpt.textContent = 'All';
     folderFilterSelect.appendChild(allOpt);
     allTopFolders.slice().sort((a, b) => a.name.localeCompare(b.name, 'ar')).forEach(tf => {
       const opt = document.createElement('option');
@@ -1181,8 +1181,8 @@
         allTopFolders = cached.topFolders || [];
         renderFolderFilterOptions();
         const age = Date.now() - (cached.ts || 0);
-        const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'غير معروف';
-        setStatus(`آخر تحديث للفهرس: ${lastIndexDate}. اكتب كلمة البحث.`);
+        const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString('en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown';
+        setStatus(`Last index update: ${lastIndexDate}. Enter a search term.`);
         if(age > STALE_INDEX_MS){
           // الفهرس بقاله أكتر من أسبوع - نحدّثه تلقائيًا في الخلفية
           ensureIndex(true, true);
@@ -1193,7 +1193,7 @@
     }
 
     if(!background){
-      setStatus("بيتم تجهيز فهرس الفولدرات والملفات تلقائيًا... (هيتم مرة واحدة بس ويتخزن)");
+      setStatus("Preparing the folder and file index automatically... (this will happen once and be saved)");
       setLoading(true);
     }
     try{
@@ -1202,7 +1202,7 @@
       consecutiveRateErrors = 0;
       CRAWL_CONCURRENCY = CRAWL_CONCURRENCY_DEFAULT;
       const result = await crawlAllFoldersAndFiles(ROOT_FOLDER_ID, (folderCount, fileCount, level) => {
-        if(!background) setStatus(`بيتم الفهرسة... ${folderCount} فولدر و ${fileCount} ملف PDF/Office/صور لحد دلوقتي (مستوى ${level})`);
+        if(!background) setStatus(`Indexing... ${folderCount} folders and ${fileCount} PDF/Office/image files so far (level ${level})`);
       });
       allFolderIds = result.folderIds;
       indexedFiles = result.files;
@@ -1212,13 +1212,13 @@
       let note = '';
       if(skippedFolderCount){
         const parts = [];
-        if(skippedByCategory.permission) parts.push(`${skippedByCategory.permission} بسبب صلاحيات`);
-        if(skippedByCategory.network) parts.push(`${skippedByCategory.network} بسبب مشاكل شبكة`);
-        if(skippedByCategory.server) parts.push(`${skippedByCategory.server} بسبب مشاكل مؤقتة في الخادم`);
-        if(skippedByCategory.unknown) parts.push(`${skippedByCategory.unknown} لسبب غير معروف`);
-        note = ` (اتخطى ${skippedFolderCount} فولدر: ${parts.join('، ')})`;
+        if(skippedByCategory.permission) parts.push(`${skippedByCategory.permission} due to permission issues`);
+        if(skippedByCategory.network) parts.push(`${skippedByCategory.network} due to network issues`);
+        if(skippedByCategory.server) parts.push(`${skippedByCategory.server} due to temporary server issues`);
+        if(skippedByCategory.unknown) parts.push(`${skippedByCategory.unknown} for an unknown reason`);
+        note = ` (${skippedFolderCount} folders skipped: ${parts.join(', ')})`;
       }
-      setStatus(`تم فهرسة ${allFolderIds.length} فولدر و ${indexedFiles.length} ملف PDF/Office/صور${note}. اكتب كلمة البحث.`);
+      setStatus(`Indexed ${allFolderIds.length} folders and ${indexedFiles.length} PDF/Office/image files${note}. Enter a search term.`);
     }catch(err){
       if(background){
         // فشل تحديث تلقائي في الخلفية - نسيب الفهرس القديم شغال زي ما هو
@@ -1249,14 +1249,14 @@
     return '';
   }
   function fileTypeLabel(f){
-    if(f.type === 'gsheet') return 'شيت جوجل (Google Sheets)';
-    if(f.type === 'gdoc') return 'مستند جوجل (Google Docs)';
-    if(f.type === 'gslides') return 'عرض جوجل (Google Slides)';
-    if(f.type === 'excel') return 'ملف Excel';
-    if(f.type === 'word') return 'ملف Word';
-    if(f.type === 'ppt') return 'ملف PowerPoint';
-    if(f.type === 'image') return 'صورة';
-    return 'ملف PDF';
+    if(f.type === 'gsheet') return 'Google Sheet (Google Sheets)';
+    if(f.type === 'gdoc') return 'Google Document (Google Docs)';
+    if(f.type === 'gslides') return 'Google Presentation (Google Slides)';
+    if(f.type === 'excel') return 'Excel File';
+    if(f.type === 'word') return 'Word File';
+    if(f.type === 'ppt') return 'PowerPoint File';
+    if(f.type === 'image') return 'Image';
+    return 'PDF File';
   }
   // بيرجع روابط الملف الثلاثة: فتح (معاينة/تحرير)، تحميل، ومشاركة - حسب نوعه
   function getFileUrls(f){
@@ -1310,7 +1310,7 @@
       try{
         await navigator.clipboard.writeText(urls.share);
         const original = previewShareBtn.textContent;
-        previewShareBtn.textContent = '✅ اتنسخ اللينك';
+        previewShareBtn.textContent = '✅ Link copied';
         setTimeout(() => { previewShareBtn.textContent = original; }, 1800);
       }catch(e){
         window.open(urls.share, '_blank', 'noopener');
@@ -1481,7 +1481,7 @@
     const remaining = currentFiles.length - renderedCount;
     if(remaining > 0){
       loadMoreBtn.style.display = "block";
-      loadMoreBtn.textContent = `تحميل المزيد (${remaining} باقي)`;
+      loadMoreBtn.textContent = `Load More (${remaining} remaining)`;
     } else {
       loadMoreBtn.style.display = "none";
     }
@@ -1522,7 +1522,7 @@
     starBtn.type = 'button';
     starBtn.className = 'star-btn' + (isFavorite(f.id) ? ' active' : '');
     starBtn.textContent = isFavorite(f.id) ? '⭐' : '☆';
-    starBtn.setAttribute('aria-label', 'حفظ في المفضلة');
+    starBtn.setAttribute('aria-label', 'Save to favorites');
     starBtn.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       toggleFavorite(f);
@@ -1540,7 +1540,7 @@
       removeBtn.type = 'button';
       removeBtn.className = 'star-btn remove-btn';
       removeBtn.textContent = '🗑';
-      removeBtn.setAttribute('aria-label', 'حذف من القايمة دي');
+      removeBtn.setAttribute('aria-label', 'Remove from this list');
       removeBtn.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         opts.onRemove(f);
@@ -1563,7 +1563,7 @@
       const clearBtn = document.createElement('button');
       clearBtn.type = 'button';
       clearBtn.className = 'recent-clear-all';
-      clearBtn.textContent = '🗑 مسح كل القايمة دي';
+      clearBtn.textContent = '🗑 Clear this list';
       clearBtn.addEventListener('click', opts.onClearAll);
       clearWrap.appendChild(clearBtn);
       resultsEl.appendChild(clearWrap);
@@ -1614,7 +1614,7 @@
     }
     const label = document.createElement('span');
     label.className = 'recent-searches-label';
-    label.textContent = 'عمليات البحث الأخيرة:';
+    label.textContent = 'Recent searches:';
     recentSearchesEl.appendChild(label);
     list.forEach(term => {
       const wrap = document.createElement('span');
@@ -1631,7 +1631,7 @@
       removeBtn.type = 'button';
       removeBtn.className = 'recent-chip-remove';
       removeBtn.textContent = '×';
-      removeBtn.setAttribute('aria-label', 'حذف عملية البحث دي');
+      removeBtn.setAttribute('aria-label', 'Remove this search');
       removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeRecentSearch(term); });
       wrap.appendChild(chip);
       wrap.appendChild(removeBtn);
@@ -1640,7 +1640,7 @@
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.className = 'recent-clear-all';
-    clearBtn.textContent = 'مسح الكل';
+    clearBtn.textContent = 'Clear all';
     clearBtn.addEventListener('click', clearRecentSearches);
     recentSearchesEl.appendChild(clearBtn);
     recentSearchesEl.style.display = 'flex';
@@ -1664,7 +1664,7 @@
     setActiveHomeTab(null);
 
     if(!term){
-      setStatus("اكتب اسم أو جزء من اسم الملف الأول");
+      setStatus("Enter a file name or part of the file name first");
       resultsEl.innerHTML = "";
       currentFiles = [];
       renderedCount = 0;
@@ -1688,7 +1688,7 @@
     const sortedMatched = sortByRelevance(matched, term, words);
 
     showResultsPage(sortedMatched, false);
-    setStatus(matched.length ? `تم إيجاد ${matched.length} نتيجة` : "مفيش نتايج مطابقة");
+    setStatus(matched.length ? `Found ${matched.length} results` : "No matching results");
     saveRecentSearch(term);
   }
 
@@ -1716,7 +1716,7 @@
       const s = document.createElement('script');
       s.src = src;
       s.onload = () => resolve();
-      s.onerror = () => reject(new Error('تعذر تحميل المكتبة'));
+      s.onerror = () => reject(new Error('Unable to load library'));
       document.head.appendChild(s);
     });
   }
@@ -1748,32 +1748,32 @@
   }
 
   async function openCamera(mode){
-    cameraModalTitle.textContent = mode === 'scan' ? '📷 مسح Barcode / QR' : '🔎 تصوير الرقم (OCR)';
+    cameraModalTitle.textContent = mode === 'scan' ? '📷 Scan Barcode / QR' : '🔎 Capture Number (OCR)';
     hideCameraResult();
     cameraVideoEl.style.display = 'block';
     cameraCaptureBtn.style.display = mode === 'ocr' ? 'inline-block' : 'none';
     cameraCaptureBtn.disabled = false;
-    cameraStatusEl.textContent = 'بيتم فتح الكاميرا...';
+    cameraStatusEl.textContent = 'Opening camera...';
     cameraModalOverlay.style.display = 'flex';
 
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-      cameraStatusEl.textContent = '❌ المتصفح ده مش بيدعم الوصول للكاميرا.';
+      cameraStatusEl.textContent = '❌ This browser does not support camera access.';
       return;
     }
     try{
       cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     }catch(e){
-      cameraStatusEl.textContent = '❌ تعذر فتح الكاميرا. اتأكد إنك سمحت للموقع بالوصول للكاميرا.';
+      cameraStatusEl.textContent = '❌ Could not open the camera. Make sure you allowed camera access.';
       return;
     }
     cameraVideoEl.srcObject = cameraStream;
     await cameraVideoEl.play().catch(() => {});
 
     if(mode === 'scan'){
-      cameraStatusEl.textContent = 'وجّه الكاميرا على الباركود (أي نوع) أو QR...';
+      cameraStatusEl.textContent = 'Point the camera at the barcode (any type) or QR...;
       await startBarcodeScan();
     } else {
-      cameraStatusEl.textContent = 'صوّب الكاميرا على الرقم ودوس "التقاط"';
+      cameraStatusEl.textContent = 'Point the camera at the number and press "Capture"';
     }
   }
 
@@ -1793,10 +1793,10 @@
       scanWithBarcodeDetector(detector);
       return;
     }
-    cameraStatusEl.textContent = 'بيتم تجهيز قارئ الباركود...';
+    cameraStatusEl.textContent = 'Preparing barcode scanner...';
     try{ await loadScript(ZXING_CDN); }
-    catch(e){ cameraStatusEl.textContent = '❌ تعذر تحميل مكتبة قراءة الباركود. اتأكد من الإنترنت.'; return; }
-    cameraStatusEl.textContent = 'وجّه الكاميرا على الباركود (أي نوع) أو QR...';
+    catch(e){ cameraStatusEl.textContent = '❌ Could not load the barcode reader library. Check your internet connection.'; return; }
+    cameraStatusEl.textContent = 'Point the camera at the barcode (any type) or QR...;
     scanWithZXing();
   }
 
@@ -1825,7 +1825,7 @@
       }
       // أي error تاني (زي NotFoundException) طبيعي لما مفيش كود في الفريم - نتجاهله
     }).catch(() => {
-      cameraStatusEl.textContent = '❌ تعذر تشغيل قارئ الباركود.';
+      cameraStatusEl.textContent = '❌ Could not start the barcode reader.';
     });
   }
 
@@ -1846,7 +1846,7 @@
   cameraModalOverlay.addEventListener('click', (e) => { if(e.target === cameraModalOverlay) closeCamera(); });
 
   cameraCaptureBtn.addEventListener('click', async () => {
-    cameraStatusEl.textContent = 'بيتم تحليل الصورة...';
+    cameraStatusEl.textContent = 'Analyzing image...';
     cameraCaptureBtn.disabled = true;
     cameraCanvasEl.width = cameraVideoEl.videoWidth;
     cameraCanvasEl.height = cameraVideoEl.videoHeight;
@@ -1857,13 +1857,13 @@
       const text = ((data && data.text) || '').replace(/\s+/g, ' ').trim();
       cameraCaptureBtn.disabled = false;
       if(!text){
-        cameraStatusEl.textContent = 'مقدرناش نلاقي نص واضح، جرب تاني بإضاءة أحسن.';
+        cameraStatusEl.textContent = 'Could not find clear text. Try again with better lighting.';
         return;
       }
-      cameraStatusEl.textContent = 'صحّح أو امسح أي جزء مش محتاجه، بعدين دوس ابحث:';
+      cameraStatusEl.textContent = 'Correct or erase any part you do not need, then press Search:';
       showCameraResult(text, false);
     }catch(e){
-      cameraStatusEl.textContent = '❌ تعذر تحليل الصورة. اتأكد من الإنترنت وجرب تاني.';
+      cameraStatusEl.textContent = '❌ Could not analyze the image. Check your internet connection and try again.';
       cameraCaptureBtn.disabled = false;
     }
   });
