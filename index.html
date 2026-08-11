@@ -8,6 +8,9 @@
 <meta name="theme-color" content="#1a56db">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
   // بنطبّق الوضع الليلي بدري قبل ما الصفحة تترسم عشان مايحصلش وميض (flash) بلون غلط
   try{
@@ -18,20 +21,28 @@
   :root{
     --blue:#1a56db;
     --blue-dark:#1442a8;
+    --blue-light:#4f7fe8;
     --bg:#eef1f6;
     --card:#ffffff;
     --border:#d9dee6;
     --text:#1f2430;
     --muted:#6b7280;
+    --shadow-sm:0 1px 3px rgba(20,30,60,.06), 0 1px 2px rgba(20,30,60,.04);
+    --shadow-md:0 6px 20px rgba(20,30,60,.08);
+    --shadow-lg:0 12px 32px rgba(20,30,60,.14);
   }
   html.dark{
-    --blue:#4c8dff;
-    --blue-dark:#3672d9;
-    --bg:#12151c;
+    --blue:#5b9dff;
+    --blue-dark:#3f7fe0;
+    --blue-light:#7fb3ff;
+    --bg:#0f1218;
     --card:#1b1f29;
-    --border:#2b3142;
-    --text:#e7eaf1;
-    --muted:#9aa3b5;
+    --border:#2f3648;
+    --text:#eef1f7;
+    --muted:#a3aec2;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.35);
+    --shadow-md:0 6px 20px rgba(0,0,0,.4);
+    --shadow-lg:0 14px 36px rgba(0,0,0,.5);
   }
   html.dark body{ background:var(--bg); }
   html.dark .file-icon{ background:#242a38; }
@@ -40,30 +51,51 @@
   html,body{ overflow-x:hidden; max-width:100%; }
   body{
     margin:0;
-    font-family:'Segoe UI', Tahoma, Arial, sans-serif;
+    font-family:'Inter', 'Segoe UI', Tahoma, Arial, sans-serif;
     background:var(--bg);
     color:var(--text);
     min-height:100vh;
     display:flex;
     flex-direction:column;
     align-items:center;
+    -webkit-font-smoothing:antialiased;
   }
   .header{
     width:100%;
-    background:var(--card);
-    padding:36px 20px 28px;
-    box-shadow:0 2px 10px rgba(20,30,60,.06);
-    border-bottom-left-radius:28px;
-    border-bottom-right-radius:28px;
+    background:linear-gradient(160deg, var(--card) 0%, var(--card) 55%, rgba(26,86,219,.06) 100%);
+    padding:40px 20px 30px;
+    box-shadow:var(--shadow-sm);
+    border-bottom-left-radius:32px;
+    border-bottom-right-radius:32px;
+    position:relative;
   }
+  .brand{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    margin:0 0 26px;
+  }
+  .brand-icon{
+    width:38px;
+    height:38px;
+    border-radius:11px;
+    background:linear-gradient(135deg, var(--blue) 0%, var(--blue-light) 100%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 4px 12px rgba(26,86,219,.35);
+    flex:0 0 auto;
+  }
+  .brand-icon svg{ width:20px; height:20px; }
   .title{
     text-align:center;
-    font-size:32px;
+    font-size:28px;
     font-weight:800;
-    letter-spacing:1px;
-    color:var(--blue);
-    margin:0 0 24px;
-    font-family:Tahoma, Arial, sans-serif;
+    letter-spacing:.5px;
+    color:var(--text);
+    margin:0;
+    font-family:'Inter', Tahoma, Arial, sans-serif;
   }
   .search-box{
     max-width:520px;
@@ -72,17 +104,33 @@
   .search-input-wrap{
     position:relative;
   }
+  .search-input-icon{
+    position:absolute;
+    left:16px;
+    top:50%;
+    transform:translateY(-50%);
+    width:18px;
+    height:18px;
+    color:var(--muted);
+    pointer-events:none;
+    display:flex;
+  }
   input#q{
     width:100%;
-    padding:16px 42px;
+    padding:16px 42px 16px 44px;
     font-size:16px;
+    font-family:inherit;
     border:1px solid var(--border);
-    border-radius:12px;
+    border-radius:14px;
     outline:none;
     text-align:center;
     border-color:var(--blue);
-    box-shadow:0 0 0 3px rgba(26,86,219,.15);
+    background:var(--card);
+    color:var(--text);
+    box-shadow:0 0 0 3px rgba(26,86,219,.12);
+    transition:box-shadow .15s ease;
   }
+  input#q:focus{ box-shadow:0 0 0 4px rgba(26,86,219,.2); }
   .q-clear-btn{
     position:absolute;
     top:50%;
@@ -107,37 +155,44 @@
   button#searchBtn{
     width:100%;
     margin-top:14px;
-    padding:16px;
-    font-size:18px;
+    padding:15px;
+    font-size:16px;
     font-weight:600;
+    font-family:inherit;
     color:#fff;
-    background:var(--blue);
+    background:linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%);
     border:none;
-    border-radius:12px;
+    border-radius:14px;
     cursor:pointer;
-    transition:background .15s ease;
+    letter-spacing:.2px;
+    box-shadow:0 6px 16px rgba(26,86,219,.28);
+    transition:transform .12s ease, box-shadow .12s ease, background .15s ease;
   }
-  button#searchBtn:hover{ background:var(--blue-dark); }
-  button#searchBtn:disabled{ background:#9db4e8; cursor:default; }
+  button#searchBtn:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(26,86,219,.35); }
+  button#searchBtn:active{ transform:translateY(0); }
+  button#searchBtn:disabled{ background:#9db4e8; box-shadow:none; cursor:default; transform:none; }
   .powered{
     text-align:center;
     color:var(--muted);
-    font-size:14px;
-    margin-top:16px;
+    font-size:13px;
+    margin-top:18px;
   }
   .refresh-index-btn{
     display:block;
     margin:14px auto 0;
-    padding:8px 18px;
-    background:#fff;
+    padding:9px 20px;
+    background:var(--card);
     border:1px solid var(--border);
     color:var(--blue);
-    border-radius:10px;
+    border-radius:999px;
     cursor:pointer;
     font-size:13px;
+    font-weight:500;
+    font-family:inherit;
+    transition:border-color .15s ease, transform .12s ease, box-shadow .15s ease;
   }
-  .refresh-index-btn:hover{ border-color:var(--blue); }
-  .refresh-index-btn:disabled{ opacity:.6; cursor:default; }
+  .refresh-index-btn:hover{ border-color:var(--blue); box-shadow:var(--shadow-sm); transform:translateY(-1px); }
+  .refresh-index-btn:disabled{ opacity:.6; cursor:default; transform:none; box-shadow:none; }
   .help-btn{ color:#3a4152; }
   html.dark .help-btn{ color:var(--text); }
   .search-highlight{
@@ -181,15 +236,18 @@
   }
   .help-modal-close{
     border:none;
-    background:#f1f3f7;
-    color:#4a5468;
+    background:var(--bg);
+    color:var(--muted);
     width:30px;height:30px;
-    border-radius:8px;
+    border-radius:10px;
     font-size:15px;
+    font-family:inherit;
     cursor:pointer;
     flex:0 0 auto;
+    transition:background .12s ease;
   }
-  .help-modal-close:hover{ background:#e4e7ee; }
+  html.dark .help-modal-close{ background:var(--border); }
+  .help-modal-close:hover{ background:var(--border); }
   .help-modal-body{
     padding:16px 18px 20px;
     overflow-y:auto;
@@ -232,12 +290,12 @@
   .content{
     width:100%;
     max-width:640px;
-    padding:22px 16px 60px;
+    padding:26px 16px 60px;
   }
   .status{
     text-align:center;
     color:var(--muted);
-    margin-top:24px;
+    margin-top:28px;
     font-size:15px;
     display:flex;
     align-items:center;
@@ -260,22 +318,25 @@
     gap:12px;
     background:var(--card);
     border:1px solid var(--border);
-    border-radius:12px;
+    border-radius:16px;
     padding:14px 16px;
     text-decoration:none;
     color:var(--text);
     max-width:100%;
+    box-shadow:var(--shadow-sm);
+    transition:transform .12s ease, box-shadow .15s ease, border-color .15s ease;
   }
-  .result-item:hover{ border-color:var(--blue); }
+  .result-item:hover{ border-color:var(--blue-light); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+  .result-item:active{ transform:translateY(0); }
   .file-icon{
     flex:0 0 auto;
-    width:36px;height:36px;
-    border-radius:8px;
+    width:38px;height:38px;
+    border-radius:10px;
     background:#fde8e8;
     color:#c0392b;
     display:flex;align-items:center;justify-content:center;
-    font-size:12px;font-weight:700;
   }
+  .file-icon svg{ width:19px; height:19px; }
   .file-icon.xls{
     background:#e5f5ea;
     color:#1e7b3e;
@@ -297,18 +358,24 @@
     min-width:0;
     overflow-wrap:anywhere;
     word-break:break-all;
-    font-size:15px;
+    font-size:14.5px;
+  }
+  .load-more{
     text-align:center;
     display:block;
-    margin:16px auto 0;
-    padding:10px 22px;
-    background:#fff;
+    margin:18px auto 0;
+    padding:11px 24px;
+    background:var(--card);
     border:1px solid var(--blue);
     color:var(--blue);
-    border-radius:10px;
+    border-radius:999px;
     cursor:pointer;
     font-size:14px;
+    font-weight:500;
+    font-family:inherit;
+    transition:background .15s ease, transform .12s ease;
   }
+  .load-more:hover{ background:rgba(26,86,219,.08); transform:translateY(-1px); }
   .setup-warning{
     max-width:640px;
     margin:18px auto 0;
@@ -340,6 +407,42 @@
   }
   .spinner.active{ display:inline-block; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
+  .skeleton-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-top:16px;
+  }
+  .skeleton-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:14px 16px;
+  }
+  .skeleton-icon{
+    flex:0 0 auto;
+    width:38px;height:38px;
+    border-radius:10px;
+    background:linear-gradient(90deg, var(--border) 25%, rgba(255,255,255,.5) 50%, var(--border) 75%);
+    background-size:200% 100%;
+    animation:shimmer 1.4s ease-in-out infinite;
+  }
+  .skeleton-line{
+    flex:1;
+    height:14px;
+    border-radius:7px;
+    background:linear-gradient(90deg, var(--border) 25%, rgba(255,255,255,.5) 50%, var(--border) 75%);
+    background-size:200% 100%;
+    animation:shimmer 1.4s ease-in-out infinite;
+  }
+  html.dark .skeleton-icon, html.dark .skeleton-line{
+    background:linear-gradient(90deg, var(--border) 25%, rgba(255,255,255,.08) 50%, var(--border) 75%);
+    background-size:200% 100%;
+  }
+  @keyframes shimmer{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
   .cache-note{
     text-align:center;
     color:#9aa3b2;
@@ -401,7 +504,7 @@
   .recent-clear-all:hover{ color:#c0392b; }
   .search-tools-row{
     max-width:520px;
-    margin:12px auto 0;
+    margin:16px auto 0;
     display:flex;
     align-items:center;
     justify-content:center;
@@ -418,10 +521,11 @@
   .folder-filter-label{ font-size:12.5px; color:var(--muted); }
   .folder-filter-select{
     border:1px solid var(--border);
-    border-radius:10px;
-    padding:7px 10px;
+    border-radius:999px;
+    padding:8px 14px;
     font-size:13px;
-    background:#fff;
+    font-family:inherit;
+    background:var(--card);
     color:var(--text);
     max-width:260px;
     text-align:center;
@@ -441,13 +545,13 @@
   }
   .advanced-menu{
     position:absolute;
-    top:calc(100% + 6px);
+    top:calc(100% + 8px);
     left:50%;
     transform:translateX(-50%);
-    background:#fff;
+    background:var(--card);
     border:1px solid var(--border);
-    border-radius:12px;
-    box-shadow:0 8px 24px rgba(20,30,60,.15);
+    border-radius:14px;
+    box-shadow:var(--shadow-lg);
     overflow:hidden;
     min-width:230px;
     z-index:20;
@@ -456,43 +560,49 @@
     display:block;
     width:100%;
     text-align:left;
-    background:#fff;
+    background:var(--card);
     border:none;
-    padding:12px 16px;
+    padding:13px 16px;
     font-size:13.5px;
+    font-family:inherit;
     color:var(--text);
     cursor:pointer;
+    transition:background .12s ease;
   }
-  .advanced-menu-item:hover{ background:#f1f3f7; }
+  .advanced-menu-item:hover{ background:rgba(26,86,219,.08); }
   .advanced-menu-item + .advanced-menu-item{ border-top:1px solid var(--border); }
   .tool-btn{
-    background:#fff;
+    background:var(--card);
     border:1px solid var(--border);
     color:var(--blue-dark);
-    border-radius:10px;
-    padding:8px 14px;
+    border-radius:999px;
+    padding:9px 16px;
     font-size:13px;
+    font-family:inherit;
     cursor:pointer;
+    transition:border-color .15s ease, transform .12s ease;
   }
-  .tool-btn:hover{ border-color:var(--blue); }
+  .tool-btn:hover{ border-color:var(--blue); transform:translateY(-1px); }
   .home-tabs{
     display:flex;
     justify-content:center;
     gap:8px;
     flex-wrap:wrap;
-    margin-bottom:10px;
+    margin-bottom:14px;
   }
   .home-tab{
-    background:#fff;
+    background:var(--card);
     border:1px solid var(--border);
     color:var(--muted);
-    border-radius:20px;
-    padding:7px 14px;
+    border-radius:999px;
+    padding:8px 16px;
     font-size:13px;
+    font-family:inherit;
     cursor:pointer;
+    transition:border-color .15s ease, background .15s ease, color .15s ease, transform .12s ease;
   }
-  .home-tab:hover{ border-color:var(--blue); }
-  .home-tab.active{ background:var(--blue); border-color:var(--blue); color:#fff; }
+  .home-tab:hover{ border-color:var(--blue); transform:translateY(-1px); }
+  .home-tab.active{ background:linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%); border-color:var(--blue); color:#fff; box-shadow:0 4px 12px rgba(26,86,219,.25); }
   .star-btn{
     flex:0 0 auto;
     background:none;
@@ -507,7 +617,7 @@
   .camera-modal-overlay{
     position:fixed;
     inset:0;
-    background:rgba(20,25,35,.7);
+    background:rgba(15,18,24,.65);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -515,12 +625,12 @@
     z-index:110;
   }
   .camera-modal{
-    background:#fff;
-    border-radius:14px;
+    background:var(--card);
+    border-radius:18px;
     max-width:480px;
     width:100%;
     overflow:hidden;
-    box-shadow:0 12px 40px rgba(0,0,0,.3);
+    box-shadow:var(--shadow-lg);
   }
   .camera-modal video{
     width:100%;
@@ -532,7 +642,7 @@
     text-align:center;
     padding:10px 16px 0;
     font-size:13.5px;
-    color:#2c3444;
+    color:var(--text);
     min-height:20px;
   }
   .camera-actions{
@@ -540,6 +650,7 @@
     justify-content:center;
     gap:8px;
     padding:14px 16px 18px;
+    flex-wrap:wrap;
   }
   .camera-result{ padding:0 16px 16px; }
   .preview-body{
@@ -547,12 +658,14 @@
     padding:8px 20px 4px;
   }
   .preview-icon{
-    width:56px;
-    height:56px;
+    width:58px;
+    height:58px;
     margin:0 auto 12px;
     font-size:15px;
     display:flex;
+    border-radius:14px;
   }
+  .preview-icon svg{ width:28px; height:28px; }
   .preview-name{
     font-size:15.5px;
     font-weight:600;
@@ -573,6 +686,8 @@
     padding:10px;
     font-size:14px;
     font-family:inherit;
+    background:var(--card);
+    color:var(--text);
     resize:vertical;
     margin-bottom:4px;
   }
@@ -581,13 +696,21 @@
 <body>
 
   <div class="header">
-    <h1 class="title">JIG SEARCH</h1>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="#fff" stroke-width="2"/><path d="M19 19L15 15" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <h1 class="title">JIG SEARCH</h1>
+    </div>
     <div class="search-box">
       <div class="search-input-wrap">
-        <input type="text" id="q" placeholder="" />
+        <span class="search-input-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <input type="text" id="q" placeholder="Type your search term" />
         <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
       </div>
-      <button id="searchBtn">Search</button>
+      <button id="searchBtn">🔍 Search</button>
     </div>
     <div class="powered">Prepared by Elsayed adel</div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
@@ -622,6 +745,12 @@
     <div id="status" class="status" role="status" aria-live="polite">
       <span id="spinner" class="spinner" aria-hidden="true"></span>
       <span id="statusText"></span>
+    </div>
+    <div id="skeletonLoader" class="skeleton-list" style="display:none;">
+      <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
+      <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
+      <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
+      <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
     </div>
     <div id="results" class="results"></div>
     <button id="loadMoreBtn" class="load-more" style="display:none;">Load More</button>
@@ -682,6 +811,7 @@
   const statusEl = document.getElementById('statusText');
   const spinnerEl = document.getElementById('spinner');
   const resultsEl = document.getElementById('results');
+  const skeletonLoader = document.getElementById('skeletonLoader');
   const loadMoreBtn = document.getElementById('loadMoreBtn');
   const setupWarning = document.getElementById('setupWarning');
   const refreshIndexBtn = document.getElementById('refreshIndexBtn');
@@ -778,13 +908,13 @@
   }
 
   function renderRecentTab(){
-    renderPlainList(getRecentFiles(), "You haven't opened any files yet", { onRemove: f => removeRecentFile(f.id), onClearAll: clearRecentFiles });
+    renderPlainList(getRecentFiles(), "🕘 You haven't opened any files yet", { onRemove: f => removeRecentFile(f.id), onClearAll: clearRecentFiles });
   }
   function renderMostUsedTab(){
-    renderPlainList(getMostUsedFiles(), "No frequently used files yet", { onRemove: f => removeUsageEntry(f.id), onClearAll: clearUsage });
+    renderPlainList(getMostUsedFiles(), "📈 No frequently used files yet", { onRemove: f => removeUsageEntry(f.id), onClearAll: clearUsage });
   }
   function renderFavoritesTab(){
-    renderPlainList(getFavoriteFiles(), "No favorite files saved yet", { onClearAll: clearFavorites });
+    renderPlainList(getFavoriteFiles(), "⭐ No favorite files saved yet", { onClearAll: clearFavorites });
   }
 
   let activeHomeTab = null;
@@ -1182,7 +1312,7 @@
         renderFolderFilterOptions();
         const age = Date.now() - (cached.ts || 0);
         const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString('en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown';
-        setStatus(`Last index update: ${lastIndexDate}. Type your search term.`);
+        setStatus(`Last index update: ${lastIndexDate}.`);
         if(age > STALE_INDEX_MS){
           // الفهرس بقاله أكتر من أسبوع - نحدّثه تلقائيًا في الخلفية
           ensureIndex(true, true);
@@ -1195,6 +1325,7 @@
     if(!background){
       setStatus("Automatically preparing the index of folders and files... (this happens once and is saved)");
       setLoading(true);
+      skeletonLoader.style.display = 'flex';
     }
     try{
       skippedFolderCount = 0;
@@ -1229,7 +1360,10 @@
         indexedFiles = null;
       }
     }finally{
-      if(!background) setLoading(false);
+      if(!background){
+        setLoading(false);
+        skeletonLoader.style.display = 'none';
+      }
     }
     return !!(allFolderIds && indexedFiles);
   }
@@ -1241,6 +1375,12 @@
     if(f.type === 'image') return 'IMG';
     return 'PDF';
   }
+  // بيرجع SVG أيقونة ملف عامة (بتاخد لونها من CSS currentColor حسب النوع)
+  const FILE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+    + '<path d="M6 2.5h8l5 5V20a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20V4A1.5 1.5 0 0 1 6.5 2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+    + '<path d="M14 2.5V7a1 1 0 0 0 1 1h4.5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+    + '<path d="M8.3 13h7.4M8.3 16.2h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    + '</svg>';
   function fileIconClass(f){
     if(f.type === 'excel' || f.type === 'gsheet') return 'xls';
     if(f.type === 'word' || f.type === 'gdoc') return 'doc';
@@ -1293,7 +1433,7 @@
   function openPreviewModal(f){
     const urls = getFileUrls(f);
     previewIcon.className = 'file-icon preview-icon' + (fileIconClass(f) ? ' ' + fileIconClass(f) : '');
-    previewIcon.textContent = fileIconLabel(f);
+    previewIcon.innerHTML = FILE_ICON_SVG;
     previewName.textContent = f.name;
     const folderName = folderNameById(f.folder);
     previewMeta.textContent = folderName ? `${fileTypeLabel(f)} • 📁 ${folderName}` : fileTypeLabel(f);
@@ -1512,7 +1652,7 @@
     // ملف فيه HTML/سكريبت متخزّن في Drive منفّذوش جوه الصفحة (XSS)
     const iconDiv = document.createElement('div');
     iconDiv.className = 'file-icon' + (fileIconClass(f) ? ' ' + fileIconClass(f) : '');
-    iconDiv.textContent = fileIconLabel(f);
+    iconDiv.innerHTML = FILE_ICON_SVG;
 
     const nameDiv = document.createElement('div');
     nameDiv.className = 'file-name';
@@ -1688,7 +1828,7 @@
     const sortedMatched = sortByRelevance(matched, term, words);
 
     showResultsPage(sortedMatched, false);
-    setStatus(matched.length ? `Found ${matched.length} results` : "No matching results");
+    setStatus(matched.length ? `Found ${matched.length} results` : "🔍 No matching results");
     saveRecentSearch(term);
   }
 
