@@ -1,14 +1,14 @@
 {
   "name": "JIG SEARCH",
   "short_name": "JIG SEARCH",
-  "description": "بحث عن ملفات الجيجات (PDF, Word, Excel, PowerPoint, صور) في Google Drive",
+  "description": "Search for files (PDF, Word, Excel, PowerPoint, images) in Google Drive",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#eef1f6",
   "theme_color": "#1a56db",
-  "lang": "ar",
-  "dir": "rtl",
+  "lang": "en",
+  "dir": "ltr",
   "orientation": "portrait-primary",
   "icons": [
     {
