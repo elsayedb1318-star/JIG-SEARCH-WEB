@@ -177,22 +177,6 @@
     font-size:13px;
     margin-top:18px;
   }
-  .refresh-index-btn{
-    display:block;
-    margin:14px auto 0;
-    padding:9px 20px;
-    background:var(--card);
-    border:1px solid var(--border);
-    color:var(--blue);
-    border-radius:999px;
-    cursor:pointer;
-    font-size:13px;
-    font-weight:500;
-    font-family:inherit;
-    transition:border-color .15s ease, transform .12s ease, box-shadow .15s ease;
-  }
-  .refresh-index-btn:hover{ border-color:var(--blue); box-shadow:var(--shadow-sm); transform:translateY(-1px); }
-  .refresh-index-btn:disabled{ opacity:.6; cursor:default; transform:none; box-shadow:none; }
   .help-btn{ color:#3a4152; }
   html.dark .help-btn{ color:var(--text); }
   .search-highlight{
@@ -265,14 +249,6 @@
   .help-modal-body p{ margin:0 0 4px; }
   .help-modal-body ul{ margin:4px 0; padding-inline-start:20px; }
   .help-modal-body li{ margin-bottom:4px; }
-  .secondary-actions{
-    display:flex;
-    justify-content:center;
-    gap:10px;
-    margin-top:14px;
-    flex-wrap:wrap;
-  }
-  .secondary-actions .refresh-index-btn{ margin-top:0; }
   .sde-link-btn{
     display:inline-block;
     margin:0;
@@ -301,7 +277,13 @@
     align-items:center;
     justify-content:center;
     gap:10px;
+    cursor:pointer;
+    border-radius:12px;
+    padding:6px 10px;
+    transition:background .12s ease;
   }
+  .status:hover{ background:rgba(26,86,219,.06); }
+  html.dark .status:hover{ background:rgba(255,255,255,.05); }
   .status.status-error{
     color:#c0392b;
     font-weight:600;
@@ -505,32 +487,39 @@
   .search-tools-row{
     max-width:520px;
     margin:16px auto 0;
+    padding:0 4px;
     display:flex;
     align-items:center;
     justify-content:center;
-    gap:10px;
-    flex-wrap:wrap;
+    gap:8px;
+    flex-wrap:nowrap;
+    overflow-x:auto;
   }
   .folder-filter-wrap{
     display:flex;
     align-items:center;
-    gap:8px;
-    flex-wrap:wrap;
+    gap:6px;
+    flex-wrap:nowrap;
     justify-content:center;
+    min-width:0;
+    flex:1 1 auto;
   }
-  .folder-filter-label{ font-size:12.5px; color:var(--muted); }
+  .folder-filter-label{ font-size:12.5px; color:var(--muted); white-space:nowrap; flex:0 0 auto; }
   .folder-filter-select{
     border:1px solid var(--border);
     border-radius:999px;
-    padding:8px 14px;
-    font-size:13px;
+    padding:8px 10px;
+    font-size:12.5px;
     font-family:inherit;
     background:var(--card);
     color:var(--text);
-    max-width:260px;
+    width:100%;
+    min-width:0;
+    max-width:140px;
     text-align:center;
   }
   html.dark .folder-filter-select{ background:var(--card); }
+  .advanced-search{ flex:0 0 auto; }
   .list-clear-all-wrap{
     display:flex;
     justify-content:center;
@@ -583,6 +572,7 @@
     transition:border-color .15s ease, transform .12s ease;
   }
   .tool-btn:hover{ border-color:var(--blue); transform:translateY(-1px); }
+  #advancedSearchBtn{ padding:8px 12px; font-size:12.5px; white-space:nowrap; }
   .home-tabs{
     display:flex;
     justify-content:center;
@@ -729,20 +719,16 @@
         </div>
       </div>
     </div>
-    <div class="secondary-actions">
-      <button id="refreshIndexBtn" class="refresh-index-btn">🔄 Tap to update file data</button>
-      <button id="themeToggleBtn" class="refresh-index-btn help-btn">🌙 Dark Mode</button>
-    </div>
   </div>
 
   <div class="content">
     <div id="setupWarning" class="setup-warning" style="display:none;"></div>
     <div id="homeTabs" class="home-tabs">
       <button type="button" class="home-tab" data-tab="recent">🕘 Recent Files</button>
-      <button type="button" class="home-tab" data-tab="most">📈 Most Used</button>
       <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
+      <button id="themeToggleBtn" class="home-tab help-btn">🌙 Dark Mode</button>
     </div>
-    <div id="status" class="status" role="status" aria-live="polite">
+    <div id="status" class="status" role="status" aria-live="polite" title="Tap to re-index">
       <span id="spinner" class="spinner" aria-hidden="true"></span>
       <span id="statusText"></span>
     </div>
@@ -814,7 +800,7 @@
   const skeletonLoader = document.getElementById('skeletonLoader');
   const loadMoreBtn = document.getElementById('loadMoreBtn');
   const setupWarning = document.getElementById('setupWarning');
-  const refreshIndexBtn = document.getElementById('refreshIndexBtn');
+  const statusContainer = document.getElementById('status');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   const recentSearchesEl = document.getElementById('recentSearches');
   const folderFilterWrap = document.getElementById('folderFilterWrap');
@@ -920,9 +906,9 @@
   let activeHomeTab = null;
   function setActiveHomeTab(tab){
     activeHomeTab = tab;
-    homeTabsEl.querySelectorAll('.home-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    homeTabsEl.querySelectorAll('.home-tab[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   }
-  homeTabsEl.querySelectorAll('.home-tab').forEach(btn => {
+  homeTabsEl.querySelectorAll('.home-tab[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.dataset.tab;
       if(activeHomeTab === tab){
@@ -934,7 +920,6 @@
       setActiveHomeTab(tab);
       currentFiles = []; renderedCount = 0;
       if(tab === 'recent') renderRecentTab();
-      else if(tab === 'most') renderMostUsedTab();
       else renderFavoritesTab();
     });
   });
@@ -2052,14 +2037,18 @@
     showResultsPage(currentFiles, true);
   });
 
-  refreshIndexBtn.addEventListener('click', async () => {
-    refreshIndexBtn.disabled = true;
+  let isReindexing = false;
+  statusContainer.addEventListener('click', async () => {
+    if(isReindexing) return;
+    isReindexing = true;
+    statusContainer.style.cursor = 'default';
     resultsEl.innerHTML = "";
     currentFiles = [];
     renderedCount = 0;
     loadMoreBtn.style.display = "none";
     await ensureIndex(true); // forceRefresh = true
-    refreshIndexBtn.disabled = false;
+    isReindexing = false;
+    statusContainer.style.cursor = 'pointer';
   });
 
   checkSetup();
