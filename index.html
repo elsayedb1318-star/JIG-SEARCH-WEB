@@ -1977,7 +1977,9 @@
     cameraCanvasEl.getContext('2d').drawImage(cameraVideoEl, 0, 0, cameraCanvasEl.width, cameraCanvasEl.height);
     try{
       await loadScript(TESSERACT_CDN);
-      const { data } = await window.Tesseract.recognize(cameraCanvasEl, 'eng+ara');
+      const { data } = await window.Tesseract.recognize(cameraCanvasEl, 'eng', {
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_./,:'
+      });
       const text = ((data && data.text) || '').replace(/\s+/g, ' ').trim();
       cameraCaptureBtn.disabled = false;
       if(!text){
