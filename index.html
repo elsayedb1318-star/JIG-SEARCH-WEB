@@ -1749,6 +1749,7 @@
       chip.textContent = term;
       chip.addEventListener('click', () => {
         qInput.value = term;
+        qClear.style.display = 'flex';
         runSearch();
       });
       const removeBtn = document.createElement('button');
@@ -2002,7 +2003,7 @@
   cameraSearchBtn.addEventListener('click', () => {
     const val = cameraResultTextEl.value.trim();
     closeCamera();
-    if(val){ qInput.value = val; runSearch(); }
+    if(val){ qInput.value = val; qClear.style.display = 'flex'; runSearch(); }
   });
 
   scanBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('scan'); });
