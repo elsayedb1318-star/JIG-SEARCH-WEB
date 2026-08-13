@@ -283,6 +283,11 @@
     background:#f3e8fd;
     color:#7e22ce;
   }
+  .file-icon.custom{
+    background:var(--card);
+    border:1px solid var(--border);
+    overflow:hidden;
+  }
   .file-name{
     flex:1;
     min-width:0;
@@ -785,7 +790,7 @@
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
   const CACHE_KEY = 'jigsearch_index_v7'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
-  const STALE_INDEX_MS = 7 * 24 * 60 * 60 * 1000; // فهرس أقدم من أسبوع بيتحدث تلقائيًا في الخلفية
+  const STALE_INDEX_MS = 5 * 24 * 60 * 60 * 1000; // فهرس أقدم من 5 أيام بيتحدث تلقائيًا في الخلفية
 
   const qInput = document.getElementById('q');
   const qClear = document.getElementById('qClear');
@@ -1317,6 +1322,12 @@
         note = ` (skipped ${skippedFolderCount} folders: ${parts.join(', ')})`;
       }
       setStatus(`Indexed ${allFolderIds.length} folders and ${indexedFiles.length} PDF/Office/image files${note}. Type your search term.`);
+      if(background){
+        // التحديث التلقائي في الخلفية خلص - بنعمل refresh للصفحة عشان أي تحديثات
+        // جديدة في ملف الواجهة (index.html) تتطبق فورًا من غير ما المستخدم يعمل حاجة
+        location.reload();
+        return true;
+      }
     }catch(err){
       if(background){
         // فشل تحديث تلقائي في الخلفية - نسيب الفهرس القديم شغال زي ما هو
@@ -1354,6 +1365,31 @@
     if(f.type === 'ppt' || f.type === 'gslides') return 'ppt';
     if(f.type === 'image') return 'img';
     return '';
+  }
+  // ===== أيقونات مخصصة لكل فولدر رئيسي - بتحل محل أيقونة نوع الملف لو الفولدر ليه أيقونة معرّفة =====
+  const FOLDER_ICONS = {
+    'tsk': 'icons/tsk.png',
+    'probe location': 'icons/connectors.png',
+    'dinefer': 'icons/dinefer.png',
+    'divmac': 'icons/divmac.png',
+    'others': 'icons/multimeter.png',
+    'emdep': 'icons/emdep.png',
+    'sde': 'icons/sde.png'
+  };
+  function folderIconUrl(f){
+    const folderName = folderNameById(f.folder);
+    if(!folderName) return null;
+    return FOLDER_ICONS[folderName.trim().toLowerCase()] || null;
+  }
+  // بيرجع اسم كلاس اللون المناسب لأيقونة الملف: 'custom' لو الفولدر ليه أيقونة مخصصة، وإلا حسب نوع الملف
+  function fileIconClassName(f){
+    return folderIconUrl(f) ? 'custom' : fileIconClass(f);
+  }
+  // بيرجع HTML الأيقونة المناسبة للملف: أيقونة الفولدر المخصصة لو موجودة، وإلا أيقونة نوع الملف العامة
+  function fileIconHtml(f){
+    const url = folderIconUrl(f);
+    if(url) return `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+    return FILE_ICON_SVG;
   }
   function fileTypeLabel(f){
     if(f.type === 'gsheet') return 'Google Sheets';
@@ -1399,8 +1435,8 @@
   // ===== نافذة معاينة الملف: معلومات + أزرار فتح/تحميل/مشاركة =====
   function openPreviewModal(f){
     const urls = getFileUrls(f);
-    previewIcon.className = 'file-icon preview-icon' + (fileIconClass(f) ? ' ' + fileIconClass(f) : '');
-    previewIcon.innerHTML = FILE_ICON_SVG;
+    previewIcon.className = 'file-icon preview-icon' + (fileIconClassName(f) ? ' ' + fileIconClassName(f) : '');
+    previewIcon.innerHTML = fileIconHtml(f);
     previewName.textContent = f.name;
     const folderName = folderNameById(f.folder);
     previewMeta.textContent = folderName ? `${fileTypeLabel(f)} • 📁 ${folderName}` : fileTypeLabel(f);
@@ -1618,8 +1654,8 @@
     // بنبني العناصر بـ createElement/textContent مش innerHTML، عشان لو اسم
     // ملف فيه HTML/سكريبت متخزّن في Drive منفّذوش جوه الصفحة (XSS)
     const iconDiv = document.createElement('div');
-    iconDiv.className = 'file-icon' + (fileIconClass(f) ? ' ' + fileIconClass(f) : '');
-    iconDiv.innerHTML = FILE_ICON_SVG;
+    iconDiv.className = 'file-icon' + (fileIconClassName(f) ? ' ' + fileIconClassName(f) : '');
+    iconDiv.innerHTML = fileIconHtml(f);
 
     const nameDiv = document.createElement('div');
     nameDiv.className = 'file-name';
