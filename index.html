@@ -622,6 +622,29 @@
     color:var(--muted);
   }
   .preview-actions{ flex-wrap:wrap; }
+  .modal-link-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding:16px 18px 20px;
+  }
+  .modal-link-btn{
+    display:block;
+    width:100%;
+    box-sizing:border-box;
+    text-align:center;
+    padding:13px 16px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--card);
+    color:var(--blue-dark);
+    font-weight:600;
+    font-size:14.5px;
+    font-family:inherit;
+    text-decoration:none;
+    transition:border-color .15s ease, transform .12s ease, box-shadow .15s ease;
+  }
+  .modal-link-btn:hover{ border-color:var(--blue); box-shadow:var(--shadow-sm); transform:translateY(-1px); }
   .camera-result-text{
     width:100%;
     box-sizing:border-box;
@@ -670,6 +693,7 @@
         <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
           <button type="button" id="scanBtn" class="advanced-menu-item">📷 Scan Barcode/QR</button>
           <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 Scan Number (OCR)</button>
+          <button type="button" id="importantLinksBtn" class="advanced-menu-item">🔗 Important Links</button>
         </div>
       </div>
     </div>
@@ -740,6 +764,21 @@
     </div>
   </div>
 
+  <div id="linksModalOverlay" class="camera-modal-overlay" style="display:none;">
+    <div class="camera-modal" role="dialog" aria-modal="true" aria-labelledby="linksModalTitle">
+      <div class="help-modal-header">
+        <h2 id="linksModalTitle">🔗 Important Links</h2>
+        <button id="linksModalClose" class="help-modal-close" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-link-list">
+        <a href="https://forms.cloud.microsoft/pages/responsepage.aspx?id=pxQdSj6D6E6k2PRcq5xr-aI8yUQwp9VBsNVE0z4bP_BUREFZNUIyTVZRRFVPMUgxRTU0TTdCVE41Qy4u&origin=QRCode" target="_blank" rel="noopener" class="modal-link-btn">DOWN TIME</a>
+        <a href="https://tsk.direct.komaxgroup.com/eCatalog/Machine/DisplayAllPlantManagerMachines" target="_blank" rel="noopener" class="modal-link-btn">TSK</a>
+        <a href="https://ecos.emdep.com/orders" target="_blank" rel="noopener" class="modal-link-btn">EMDEP</a>
+        <a href="http://202.15.143.7/jigsearchE/index.htm" target="_blank" rel="noopener" class="modal-link-btn">SDE - Jig Search</a>
+      </div>
+    </div>
+  </div>
+
 <script>
   // إعدادات لازم تتظبط قبل ما الصفحة تشتغل:
   const PROXY_URL = "https://jigsearch.elsayedb1318.workers.dev/";
@@ -763,6 +802,9 @@
   const folderFilterWrap = document.getElementById('folderFilterWrap');
   const folderFilterSelect = document.getElementById('folderFilterSelect');
   const previewModalOverlay = document.getElementById('previewModalOverlay');
+  const linksModalOverlay = document.getElementById('linksModalOverlay');
+  const linksModalClose = document.getElementById('linksModalClose');
+  const importantLinksBtn = document.getElementById('importantLinksBtn');
   const previewModalClose = document.getElementById('previewModalClose');
   const previewIcon = document.getElementById('previewIcon');
   const previewName = document.getElementById('previewName');
@@ -1199,7 +1241,13 @@
     allOpt.value = '';
     allOpt.textContent = 'All';
     folderFilterSelect.appendChild(allOpt);
-    allTopFolders.slice().sort((a, b) => a.name.localeCompare(b.name, 'ar')).forEach(tf => {
+    allTopFolders.slice().sort((a, b) => {
+      const aOther = a.name.trim().toUpperCase() === 'OTHERS';
+      const bOther = b.name.trim().toUpperCase() === 'OTHERS';
+      if(aOther && !bOther) return 1;
+      if(bOther && !aOther) return -1;
+      return a.name.localeCompare(b.name, 'ar');
+    }).forEach(tf => {
       const opt = document.createElement('option');
       opt.value = tf.id;
       opt.textContent = tf.name;
@@ -1767,6 +1815,7 @@
     closeAdvancedMenu();
     if(previewModalOverlay.style.display !== 'none') closePreviewModal();
     if(cameraModalOverlay.style.display !== 'none') closeCamera();
+    if(linksModalOverlay.style.display !== 'none') closeLinksModal();
   });
 
   // ===== تحميل مكتبات خارجية عند الحاجة بس (Barcode/QR و OCR) عشان متأثرش على سرعة فتح الصفحة =====
@@ -1995,6 +2044,10 @@
 
   scanBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('scan'); });
   ocrBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('ocr'); });
+  function closeLinksModal(){ linksModalOverlay.style.display = 'none'; }
+  importantLinksBtn.addEventListener('click', () => { closeAdvancedMenu(); linksModalOverlay.style.display = 'flex'; });
+  linksModalClose.addEventListener('click', closeLinksModal);
+  linksModalOverlay.addEventListener('click', (e) => { if(e.target === linksModalOverlay) closeLinksModal(); });
 
   searchBtn.addEventListener('click', runSearch);
   qInput.addEventListener('keydown', (e) => {
