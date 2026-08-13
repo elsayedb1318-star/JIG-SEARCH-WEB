@@ -185,27 +185,6 @@
     padding:0 1px;
     border-radius:2px;
   }
-  .help-modal-overlay{
-    position:fixed;
-    inset:0;
-    background:rgba(20,25,35,.55);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:16px;
-    z-index:100;
-  }
-  .help-modal{
-    background:#fff;
-    border-radius:14px;
-    max-width:520px;
-    width:100%;
-    max-height:85vh;
-    display:flex;
-    flex-direction:column;
-    overflow:hidden;
-    box-shadow:0 12px 40px rgba(0,0,0,.25);
-  }
   .help-modal-header{
     display:flex;
     align-items:center;
@@ -232,37 +211,6 @@
   }
   html.dark .help-modal-close{ background:var(--border); }
   .help-modal-close:hover{ background:var(--border); }
-  .help-modal-body{
-    padding:16px 18px 20px;
-    overflow-y:auto;
-    text-align:right;
-    line-height:1.7;
-    font-size:14px;
-    color:#2c3444;
-  }
-  .help-modal-body h3{
-    color:var(--blue);
-    font-size:15px;
-    margin:16px 0 6px;
-  }
-  .help-modal-body h3:first-child{ margin-top:0; }
-  .help-modal-body p{ margin:0 0 4px; }
-  .help-modal-body ul{ margin:4px 0; padding-inline-start:20px; }
-  .help-modal-body li{ margin-bottom:4px; }
-  .sde-link-btn{
-    display:inline-block;
-    margin:0;
-    padding:8px 18px;
-    background:#fff;
-    border:1px solid var(--border);
-    color:var(--blue);
-    border-radius:10px;
-    cursor:pointer;
-    font-size:13px;
-    text-decoration:none;
-    line-height:1.4;
-  }
-  .sde-link-btn:hover{ border-color:var(--blue); }
   .content{
     width:100%;
     max-width:640px;
@@ -425,13 +373,6 @@
     background-size:200% 100%;
   }
   @keyframes shimmer{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
-  .cache-note{
-    text-align:center;
-    color:#9aa3b2;
-    font-size:12.5px;
-    margin-top:-4px;
-    margin-bottom:8px;
-  }
   .recent-searches{
     max-width:520px;
     margin:12px auto 0;
@@ -517,7 +458,6 @@
     max-width:100px;
     text-align:center;
   }
-  html.dark .folder-filter-select{ background:var(--card); }
   .advanced-search{ flex:0 0 auto; }
   .list-clear-all-wrap{
     display:flex;
@@ -848,9 +788,8 @@
   const cameraOpenLinkBtn = document.getElementById('cameraOpenLinkBtn');
   const cameraSearchBtn = document.getElementById('cameraSearchBtn');
 
-  // ===== سجل الملفات المفتوحة، الأكثر استخدامًا، والمفضلة - كله محليًا في المتصفح =====
+  // ===== سجل الملفات المفتوحة والمفضلة - كله محليًا في المتصفح =====
   const RECENT_FILES_KEY = 'jigsearch_recent_files_v1';
-  const USAGE_KEY = 'jigsearch_usage_v1';
   const FAV_KEY = 'jigsearch_favorites_v1';
   const HOME_LIST_MAX = 20;
 
@@ -862,17 +801,11 @@
     try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* تجاهل لو التخزين ممتلئ */ }
   }
 
-  // بيتسجل كل ما المستخدم يفتح ملف: بيدخل في "آخر الملفات" وبيزود عداد "الأكثر استخدامًا"
+  // بيتسجل كل ما المستخدم يفتح ملف في "آخر الملفات"
   function recordFileOpen(f){
     let recent = loadJSON(RECENT_FILES_KEY, []).filter(x => x.id !== f.id);
     recent.unshift({ id: f.id, name: f.name, type: f.type });
     saveJSON(RECENT_FILES_KEY, recent.slice(0, HOME_LIST_MAX));
-
-    const usage = loadJSON(USAGE_KEY, {});
-    const cur = usage[f.id] || { id: f.id, count: 0 };
-    cur.name = f.name; cur.type = f.type; cur.count++;
-    usage[f.id] = cur;
-    saveJSON(USAGE_KEY, usage);
   }
   function getRecentFiles(){ return loadJSON(RECENT_FILES_KEY, []); }
   function removeRecentFile(id){
@@ -882,20 +815,6 @@
   function clearRecentFiles(){
     saveJSON(RECENT_FILES_KEY, []);
     if(activeHomeTab === 'recent') renderRecentTab();
-  }
-
-  function getMostUsedFiles(){
-    return Object.values(loadJSON(USAGE_KEY, {})).sort((a, b) => b.count - a.count).slice(0, HOME_LIST_MAX);
-  }
-  function removeUsageEntry(id){
-    const usage = loadJSON(USAGE_KEY, {});
-    delete usage[id];
-    saveJSON(USAGE_KEY, usage);
-    if(activeHomeTab === 'most') renderMostUsedTab();
-  }
-  function clearUsage(){
-    saveJSON(USAGE_KEY, {});
-    if(activeHomeTab === 'most') renderMostUsedTab();
   }
 
   function isFavorite(id){ return !!loadJSON(FAV_KEY, {})[id]; }
@@ -913,9 +832,6 @@
 
   function renderRecentTab(){
     renderPlainList(getRecentFiles(), "🕘 You haven't opened any files yet", { onRemove: f => removeRecentFile(f.id), onClearAll: clearRecentFiles });
-  }
-  function renderMostUsedTab(){
-    renderPlainList(getMostUsedFiles(), "📈 No frequently used files yet", { onRemove: f => removeUsageEntry(f.id), onClearAll: clearUsage });
   }
   function renderFavoritesTab(){
     renderPlainList(getFavoriteFiles(), "⭐ No favorite files saved yet", { onClearAll: clearFavorites });
@@ -1906,7 +1822,14 @@
       return;
     }
     try{
-      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          focusMode: 'continuous'
+        }
+      });
     }catch(e){
       cameraStatusEl.textContent = '❌ Could not open the camera. Make sure you allowed the site to access the camera.';
       return;
@@ -1999,17 +1922,42 @@
     const vw = cameraVideoEl.videoWidth, vh = cameraVideoEl.videoHeight;
     const sx = Math.round(vw * 0.08), sy = Math.round(vh * 0.40);
     const sw = Math.round(vw * 0.84), sh = Math.round(vh * 0.20);
-    cameraCanvasEl.width = sw;
-    cameraCanvasEl.height = sh;
-    const ctx = cameraCanvasEl.getContext('2d');
-    ctx.drawImage(cameraVideoEl, sx, sy, sw, sh, 0, 0, sw, sh);
 
-    // تحويل للتدرج الرمادي + رفع التباين (threshold) عشان النص يبقى أوضح للماسح
-    const imgData = ctx.getImageData(0, 0, sw, sh);
+    // بنكبّر المنطقة المقصوصة x2 عشان ارتفاع الحروف يبقى كافي لدقة أعلى في القراءة
+    const SCALE = 2;
+    cameraCanvasEl.width = sw * SCALE;
+    cameraCanvasEl.height = sh * SCALE;
+    const ctx = cameraCanvasEl.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(cameraVideoEl, sx, sy, sw, sh, 0, 0, cameraCanvasEl.width, cameraCanvasEl.height);
+
+    // تحويل لتدرج رمادي وحساب حد تباين مثالي تلقائيًا (Otsu) بدل رقم ثابت،
+    // عشان يشتغل صح مع إضاءات مختلفة مش بس إضاءة واحدة معينة
+    const imgData = ctx.getImageData(0, 0, cameraCanvasEl.width, cameraCanvasEl.height);
     const px = imgData.data;
-    for(let i = 0; i < px.length; i += 4){
-      const gray = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
-      const v = gray > 150 ? 255 : (gray < 90 ? 0 : gray);
+    const total = px.length / 4;
+    const gray = new Float32Array(total);
+    const hist = new Array(256).fill(0);
+    for(let i = 0, g = 0; i < px.length; i += 4, g++){
+      const v = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
+      gray[g] = v;
+      hist[Math.min(255, Math.round(v))]++;
+    }
+    let sum = 0; for(let t = 0; t < 256; t++) sum += t * hist[t];
+    let sumB = 0, wB = 0, varMax = 0, threshold = 140;
+    for(let t = 0; t < 256; t++){
+      wB += hist[t];
+      if(wB === 0) continue;
+      const wF = total - wB;
+      if(wF === 0) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB, mF = (sum - sumB) / wF;
+      const varBetween = wB * wF * (mB - mF) * (mB - mF);
+      if(varBetween > varMax){ varMax = varBetween; threshold = t; }
+    }
+    for(let i = 0, g = 0; i < px.length; i += 4, g++){
+      const v = gray[g] > threshold ? 255 : 0;
       px[i] = px[i+1] = px[i+2] = v;
     }
     ctx.putImageData(imgData, 0, 0);
@@ -2018,7 +1966,7 @@
       await loadScript(TESSERACT_CDN);
       const { data } = await window.Tesseract.recognize(cameraCanvasEl, 'eng', {
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_./,:',
-        tessedit_pageseg_mode: '11'
+        tessedit_pageseg_mode: '7'
       });
       const text = ((data && data.text) || '').replace(/\s+/g, ' ').trim();
       cameraCaptureBtn.disabled = false;
