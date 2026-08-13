@@ -621,11 +621,26 @@
     overflow:hidden;
     box-shadow:var(--shadow-lg);
   }
+  .camera-video-wrap{
+    position:relative;
+    line-height:0;
+  }
   .camera-modal video{
     width:100%;
     display:block;
     background:#000;
     max-height:55vh;
+  }
+  .ocr-guide-box{
+    position:absolute;
+    left:8%;
+    right:8%;
+    top:40%;
+    height:20%;
+    border:2px solid #4ade80;
+    border-radius:8px;
+    box-shadow:0 0 0 1000px rgba(0,0,0,.35);
+    pointer-events:none;
   }
   .camera-status{
     text-align:center;
@@ -747,7 +762,10 @@
         <h2 id="cameraModalTitle">📷 Scan Barcode / QR</h2>
         <button id="cameraModalClose" class="help-modal-close" aria-label="Close">✕</button>
       </div>
-      <video id="cameraVideo" autoplay playsinline muted></video>
+      <div class="camera-video-wrap">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <div id="ocrGuideBox" class="ocr-guide-box" style="display:none;"></div>
+      </div>
       <canvas id="cameraCanvas" style="display:none;"></canvas>
       <div id="cameraStatus" class="camera-status"></div>
       <div class="camera-actions">
@@ -822,6 +840,7 @@
   const cameraModalClose = document.getElementById('cameraModalClose');
   const cameraVideoEl = document.getElementById('cameraVideo');
   const cameraCanvasEl = document.getElementById('cameraCanvas');
+  const ocrGuideBox = document.getElementById('ocrGuideBox');
   const cameraStatusEl = document.getElementById('cameraStatus');
   const cameraCaptureBtn = document.getElementById('cameraCaptureBtn');
   const cameraResultEl = document.getElementById('cameraResult');
@@ -1878,6 +1897,7 @@
     cameraVideoEl.style.display = 'block';
     cameraCaptureBtn.style.display = mode === 'ocr' ? 'inline-block' : 'none';
     cameraCaptureBtn.disabled = false;
+    ocrGuideBox.style.display = mode === 'ocr' ? 'block' : 'none';
     cameraStatusEl.textContent = 'Opening camera...';
     cameraModalOverlay.style.display = 'flex';
 
@@ -1898,7 +1918,7 @@
       cameraStatusEl.textContent = 'Point the camera at the barcode (any type) or QR code...';
       await startBarcodeScan();
     } else {
-      cameraStatusEl.textContent = 'Point the camera at the number and tap "Capture"';
+      cameraStatusEl.textContent = 'Line the number/text up inside the green box and tap "Capture"';
     }
   }
 
@@ -1973,13 +1993,32 @@
   cameraCaptureBtn.addEventListener('click', async () => {
     cameraStatusEl.textContent = 'Analyzing image...';
     cameraCaptureBtn.disabled = true;
-    cameraCanvasEl.width = cameraVideoEl.videoWidth;
-    cameraCanvasEl.height = cameraVideoEl.videoHeight;
-    cameraCanvasEl.getContext('2d').drawImage(cameraVideoEl, 0, 0, cameraCanvasEl.width, cameraCanvasEl.height);
+
+    // بنقص الصورة على منطقة المربع الأخضر بس (زي ما هو ظاهر على الشاشة)
+    // ده بيشيل الخلفية والرسومات المشتتة حوالين الرقم/الكلمة ويحسّن الدقة
+    const vw = cameraVideoEl.videoWidth, vh = cameraVideoEl.videoHeight;
+    const sx = Math.round(vw * 0.08), sy = Math.round(vh * 0.40);
+    const sw = Math.round(vw * 0.84), sh = Math.round(vh * 0.20);
+    cameraCanvasEl.width = sw;
+    cameraCanvasEl.height = sh;
+    const ctx = cameraCanvasEl.getContext('2d');
+    ctx.drawImage(cameraVideoEl, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    // تحويل للتدرج الرمادي + رفع التباين (threshold) عشان النص يبقى أوضح للماسح
+    const imgData = ctx.getImageData(0, 0, sw, sh);
+    const px = imgData.data;
+    for(let i = 0; i < px.length; i += 4){
+      const gray = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
+      const v = gray > 150 ? 255 : (gray < 90 ? 0 : gray);
+      px[i] = px[i+1] = px[i+2] = v;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
     try{
       await loadScript(TESSERACT_CDN);
       const { data } = await window.Tesseract.recognize(cameraCanvasEl, 'eng', {
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_./,:'
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_./,:',
+        tessedit_pageseg_mode: '11'
       });
       const text = ((data && data.text) || '').replace(/\s+/g, ' ').trim();
       cameraCaptureBtn.disabled = false;
