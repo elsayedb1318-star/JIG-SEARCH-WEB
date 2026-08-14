@@ -811,7 +811,6 @@
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
   const CACHE_KEY = 'jigsearch_index_v7'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
-  const STALE_INDEX_MS = 5 * 24 * 60 * 60 * 1000; // فهرس أقدم من 5 أيام بيتحدث تلقائيًا في الخلفية
 
   const qInput = document.getElementById('q');
   const qClear = document.getElementById('qClear');
@@ -1294,7 +1293,7 @@
   // من غير ما توقف البحث. زرار التحديث اليدوي لسه شغال في أي وقت.
   // background=true = تحديث تلقائي بالخلفية: من غير سبينر، ولو فشل بنسيب
   // الفهرس القديم شغال بدل ما نمسحه.
-  async function ensureIndex(forceRefresh, background){
+  async function ensureIndex(forceRefresh){
     if(allFolderIds && indexedFiles && !forceRefresh) return true;
 
     if(!forceRefresh){
@@ -1304,30 +1303,23 @@
         indexedFiles = cached.files;
         allTopFolders = cached.topFolders || [];
         renderFolderFilterOptions();
-        const age = Date.now() - (cached.ts || 0);
         const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString('en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown';
         setStatus(`Last index update: ${lastIndexDate}.`);
-        if(age > STALE_INDEX_MS){
-          // الفهرس بقاله أكتر من أسبوع - نحدّثه تلقائيًا في الخلفية
-          ensureIndex(true, true);
-        }
         return true;
       }
       // مفيش فهرس محفوظ - نعمل فهرسة تلقائية أول مرة من غير أي تدخل من المستخدم
     }
 
-    if(!background){
-      setStatus("Automatically preparing the index of folders and files... (this happens once and is saved)");
-      setLoading(true);
-      skeletonLoader.style.display = 'flex';
-    }
+    setStatus("Automatically preparing the index of folders and files... (this happens once and is saved)");
+    setLoading(true);
+    skeletonLoader.style.display = 'flex';
     try{
       skippedFolderCount = 0;
       skippedByCategory = { permission: 0, network: 0, server: 0, unknown: 0 };
       consecutiveRateErrors = 0;
       CRAWL_CONCURRENCY = CRAWL_CONCURRENCY_DEFAULT;
       const result = await crawlAllFoldersAndFiles(ROOT_FOLDER_ID, (folderCount, fileCount, level) => {
-        if(!background) setStatus(`Indexing... ${folderCount} folders and ${fileCount} PDF/Office/image files so far (level ${level})`);
+        setStatus(`Indexing... ${folderCount} folders and ${fileCount} PDF/Office/image files so far (level ${level})`);
       });
       allFolderIds = result.folderIds;
       indexedFiles = result.files;
@@ -1344,26 +1336,13 @@
         note = ` (skipped ${skippedFolderCount} folders: ${parts.join(', ')})`;
       }
       setStatus(`Indexed ${allFolderIds.length} folders and ${indexedFiles.length} PDF/Office/image files${note}. Type your search term.`);
-      if(background){
-        // التحديث التلقائي في الخلفية خلص - بنعمل refresh للصفحة عشان أي تحديثات
-        // جديدة في ملف الواجهة (index.html) تتطبق فورًا من غير ما المستخدم يعمل حاجة
-        location.reload();
-        return true;
-      }
     }catch(err){
-      if(background){
-        // فشل تحديث تلقائي في الخلفية - نسيب الفهرس القديم شغال زي ما هو
-        // ونتجاهل الخطأ (المستخدم أصلاً شايف حالة الفهرس القديم فوق)
-      } else {
-        setStatus(friendlyErrorMessage(err), true);
-        allFolderIds = null;
-        indexedFiles = null;
-      }
+      setStatus(friendlyErrorMessage(err), true);
+      allFolderIds = null;
+      indexedFiles = null;
     }finally{
-      if(!background){
-        setLoading(false);
-        skeletonLoader.style.display = 'none';
-      }
+      setLoading(false);
+      skeletonLoader.style.display = 'none';
     }
     return !!(allFolderIds && indexedFiles);
   }
@@ -2192,7 +2171,7 @@
   checkSetup();
   renderRecentSearches();
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، ولو مفيش يعمل فهرسة
-  // تلقائية أول مرة، ولو الفهرس قديم (أكتر من 5 أيام) يحدّثه تلقائيًا بالخلفية
+  // تلقائية أول مرة بس (مفيش تحديث تلقائي دوري للفهرس القديم بعد كده)
   ensureIndex(false);
 
   window.addEventListener('load', () => {
