@@ -330,6 +330,26 @@
     direction:ltr;
     unicode-bidi:embed;
   }
+  .new-files-banner{
+    display:block;
+    width:100%;
+    max-width:520px;
+    margin:16px auto 0;
+    padding:12px 16px;
+    background:linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    border:none;
+    color:#fff;
+    font-size:14px;
+    font-weight:600;
+    font-family:inherit;
+    border-radius:14px;
+    cursor:pointer;
+    box-shadow:0 6px 16px rgba(22,163,74,.3);
+    animation:banner-in .25s ease;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .new-files-banner:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(22,163,74,.38); }
+  @keyframes banner-in{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:translateY(0); } }
   .spinner{
     display:none;
     width:18px;
@@ -711,6 +731,7 @@
       <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
       <button id="themeToggleBtn" class="home-tab help-btn">🌙 Dark Mode</button>
     </div>
+    <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
     <div id="status" class="status" role="status" aria-live="polite" title="Tap to re-index">
       <span id="spinner" class="spinner" aria-hidden="true"></span>
       <span id="statusText"></span>
@@ -802,6 +823,7 @@
   const loadMoreBtn = document.getElementById('loadMoreBtn');
   const setupWarning = document.getElementById('setupWarning');
   const statusContainer = document.getElementById('status');
+  const newFilesBanner = document.getElementById('newFilesBanner');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   const recentSearchesEl = document.getElementById('recentSearches');
   const folderFilterWrap = document.getElementById('folderFilterWrap');
@@ -2116,10 +2138,11 @@
   });
 
   let isReindexing = false;
-  statusContainer.addEventListener('click', async () => {
+  async function runManualReindex(){
     if(isReindexing) return;
     isReindexing = true;
     statusContainer.style.cursor = 'default';
+    newFilesBanner.style.display = 'none';
     resultsEl.innerHTML = "";
     currentFiles = [];
     renderedCount = 0;
@@ -2127,13 +2150,43 @@
     await ensureIndex(true); // forceRefresh = true
     isReindexing = false;
     statusContainer.style.cursor = 'pointer';
-  });
+  }
+  statusContainer.addEventListener('click', runManualReindex);
+  newFilesBanner.addEventListener('click', runManualReindex);
+
+  // ===== فحص خفيف بعد ما الصفحة تخلص تحميل بالكامل: هل فيه ملفات اتضافت/اتعدلت
+  // بعد آخر فهرسة؟ لو لقى حاجة، بيظهر بانر بدل ما المستخدم يستنى الـ 5 أيام =====
+  async function checkForNewFiles(){
+    try{
+      const cached = await loadCachedIndex();
+      if(!cached || !cached.folderIds || !cached.folderIds.length || !cached.ts) return;
+      const isoTs = new Date(cached.ts).toISOString();
+      const ids = cached.folderIds;
+      const CHUNK = 25;
+      for(let i = 0; i < ids.length; i += CHUNK){
+        const chunk = ids.slice(i, i + CHUNK);
+        const q = `(${chunk.map(id => `'${id}' in parents`).join(' or ')}) and modifiedTime > '${isoTs}' and trashed = false`;
+        const data = await driveList(q, null, 1); // retry واحدة بس - ده فحص خفيف مش حرج
+        if(data && data.files && data.files.length){
+          newFilesBanner.style.display = 'block';
+          return;
+        }
+      }
+    }catch(e){
+      // فشل الفحص (مفيش نت مثلاً) - نتجاهله بصمت، الفهرسة كل 5 أيام هي الشبكة الأساسية
+    }
+  }
 
   checkSetup();
   renderRecentSearches();
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، ولو مفيش يعمل فهرسة
-  // تلقائية أول مرة، ولو الفهرس قديم (أكتر من أسبوع) يحدّثه تلقائيًا بالخلفية
+  // تلقائية أول مرة، ولو الفهرس قديم (أكتر من 5 أيام) يحدّثه تلقائيًا بالخلفية
   ensureIndex(false);
+
+  window.addEventListener('load', () => {
+    // بنستنى شوية عشان الفحص ده ميأثرش خالص على سرعة أول ظهور للصفحة
+    setTimeout(checkForNewFiles, 2000);
+  });
 
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(()=>{});
