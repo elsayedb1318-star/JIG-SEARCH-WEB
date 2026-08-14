@@ -2160,20 +2160,32 @@
     try{
       const cached = await loadCachedIndex();
       if(!cached || !cached.folderIds || !cached.folderIds.length || !cached.ts) return;
-      const isoTs = new Date(cached.ts).toISOString();
+      // نفس صيغة استعلام "فولدر واحد في parents" اللي الفهرسة العادية بتستخدمها
+      // وبتشتغل مضمون، بس بنضيف شرط modifiedTime. بنشيل الميلي ثانية من التاريخ
+      // (Google Drive query parser بيرفض أحيانًا التنسيق اللي فيه .000Z)
+      const isoTs = new Date(cached.ts).toISOString().replace(/\.\d{3}Z$/, 'Z');
       const ids = cached.folderIds;
-      const CHUNK = 25;
-      for(let i = 0; i < ids.length; i += CHUNK){
-        const chunk = ids.slice(i, i + CHUNK);
-        const q = `(${chunk.map(id => `'${id}' in parents`).join(' or ')}) and modifiedTime > '${isoTs}' and trashed = false`;
-        const data = await driveList(q, null, 1); // retry واحدة بس - ده فحص خفيف مش حرج
-        if(data && data.files && data.files.length){
-          newFilesBanner.style.display = 'block';
-          return;
+      let found = false;
+      let i = 0;
+      const CONCURRENCY = 6;
+      async function worker(){
+        while(i < ids.length && !found){
+          const id = ids[i++];
+          const q = `'${id}' in parents and modifiedTime > '${isoTs}' and trashed = false`;
+          try{
+            const data = await driveList(q, null, 1); // retry واحدة بس - ده فحص خفيف مش حرج
+            if(data && data.files && data.files.length) found = true;
+          }catch(e){
+            // فولدر واحد فشل (صلاحيات مثلاً) - نتخطاه ونكمل الباقي
+          }
         }
       }
+      const workers = [];
+      for(let k = 0; k < Math.min(CONCURRENCY, ids.length); k++) workers.push(worker());
+      await Promise.all(workers);
+      if(found) newFilesBanner.style.display = 'block';
     }catch(e){
-      // فشل الفحص (مفيش نت مثلاً) - نتجاهله بصمت، الفهرسة كل 5 أيام هي الشبكة الأساسية
+      // فشل الفحص كله (مفيش نت مثلاً) - نتجاهله بصمت، الفهرسة كل 5 أيام هي الشبكة الأساسية
     }
   }
 
