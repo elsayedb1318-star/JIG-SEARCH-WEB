@@ -607,6 +607,50 @@
     box-shadow:0 0 0 1000px rgba(0,0,0,.35);
     pointer-events:none;
   }
+  .ocr-crop-stage{
+    background:#000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    max-height:55vh;
+    overflow:hidden;
+  }
+  .ocr-crop-wrap{
+    position:relative;
+    max-width:100%;
+    max-height:55vh;
+    line-height:0;
+    touch-action:none;
+  }
+  .ocr-crop-wrap img{
+    display:block;
+    max-width:100%;
+    max-height:55vh;
+    -webkit-user-select:none;
+    user-select:none;
+    pointer-events:none;
+  }
+  .crop-box{
+    position:absolute;
+    border:2px solid #4ade80;
+    box-shadow:0 0 0 2000px rgba(0,0,0,.45);
+    cursor:move;
+    touch-action:none;
+  }
+  .crop-handle{
+    position:absolute;
+    width:26px;
+    height:26px;
+    margin:-13px;
+    background:#4ade80;
+    border:2px solid #fff;
+    border-radius:50%;
+    touch-action:none;
+  }
+  .crop-handle[data-handle="nw"]{ top:0; left:0; cursor:nwse-resize; }
+  .crop-handle[data-handle="ne"]{ top:0; right:0; margin-right:-13px; cursor:nesw-resize; }
+  .crop-handle[data-handle="sw"]{ bottom:0; left:0; margin-bottom:-13px; cursor:nesw-resize; }
+  .crop-handle[data-handle="se"]{ bottom:0; right:0; margin-right:-13px; margin-bottom:-13px; cursor:nwse-resize; }
   .camera-status{
     text-align:center;
     padding:10px 16px 0;
@@ -756,10 +800,23 @@
         <video id="cameraVideo" autoplay playsinline muted></video>
         <div id="ocrGuideBox" class="ocr-guide-box" style="display:none;"></div>
       </div>
+      <div id="ocrCropStage" class="ocr-crop-stage" style="display:none;">
+        <div id="ocrCropWrap" class="ocr-crop-wrap">
+          <img id="ocrCropImage" alt="">
+          <div id="ocrCropBox" class="crop-box">
+            <div class="crop-handle" data-handle="nw"></div>
+            <div class="crop-handle" data-handle="ne"></div>
+            <div class="crop-handle" data-handle="sw"></div>
+            <div class="crop-handle" data-handle="se"></div>
+          </div>
+        </div>
+      </div>
       <canvas id="cameraCanvas" style="display:none;"></canvas>
       <div id="cameraStatus" class="camera-status"></div>
       <div class="camera-actions">
         <button type="button" id="cameraCaptureBtn" class="tool-btn" style="display:none;">📸 Capture</button>
+        <button type="button" id="ocrCropConfirmBtn" class="tool-btn" style="display:none;">✅ Extract Text</button>
+        <button type="button" id="ocrCropRetakeBtn" class="tool-btn" style="display:none;">🔄 Retake</button>
       </div>
       <div id="cameraResult" class="camera-result" style="display:none;">
         <textarea id="cameraResultText" class="camera-result-text" rows="3"></textarea>
@@ -851,6 +908,12 @@
   const ocrGuideBox = document.getElementById('ocrGuideBox');
   const cameraStatusEl = document.getElementById('cameraStatus');
   const cameraCaptureBtn = document.getElementById('cameraCaptureBtn');
+  const ocrCropStage = document.getElementById('ocrCropStage');
+  const ocrCropWrap = document.getElementById('ocrCropWrap');
+  const ocrCropImage = document.getElementById('ocrCropImage');
+  const ocrCropBox = document.getElementById('ocrCropBox');
+  const ocrCropConfirmBtn = document.getElementById('ocrCropConfirmBtn');
+  const ocrCropRetakeBtn = document.getElementById('ocrCropRetakeBtn');
   const cameraResultEl = document.getElementById('cameraResult');
   const cameraResultTextEl = document.getElementById('cameraResultText');
   const cameraOpenLinkBtn = document.getElementById('cameraOpenLinkBtn');
@@ -1875,6 +1938,7 @@
   let cameraStream = null;
   let scanRAF = null;
   let zxingReader = null;
+  let cropDrag = null;
 
   function looksLikeUrl(s){ return /^(https?:\/\/|www\.)/i.test(s.trim()); }
 
@@ -1882,6 +1946,7 @@
   // اختيار المستخدم يفتح اللينك (لو لينك) أو يبحث بالمحتوى (بعد ما يعدّله لو حب)
   function showCameraResult(text, isUrl){
     stopCameraStream();
+    resetOcrCropStage();
     cameraStatusEl.textContent = '';
     cameraCaptureBtn.style.display = 'none';
     cameraResultTextEl.value = text;
@@ -1892,10 +1957,19 @@
     cameraResultEl.style.display = 'none';
     cameraResultTextEl.value = '';
   }
+  // بيرجّع مرحلة قص الـ OCR لوضعها الأصلي (كاميرا شغالة، من غير صورة ملتقطة)
+  function resetOcrCropStage(){
+    cropDrag = null;
+    ocrCropStage.style.display = 'none';
+    ocrCropConfirmBtn.style.display = 'none';
+    ocrCropRetakeBtn.style.display = 'none';
+    ocrCropImage.src = '';
+  }
 
   async function openCamera(mode){
     cameraModalTitle.textContent = mode === 'scan' ? '📷 Scan Barcode / QR' : '🔎 Scan Number (OCR)';
     hideCameraResult();
+    resetOcrCropStage();
     cameraVideoEl.style.display = 'block';
     cameraCaptureBtn.style.display = mode === 'ocr' ? 'inline-block' : 'none';
     cameraCaptureBtn.disabled = false;
@@ -1993,33 +2067,120 @@
   }
   function closeCamera(){
     stopCameraStream();
+    resetOcrCropStage();
     cameraModalOverlay.style.display = 'none';
     hideCameraResult();
   }
   cameraModalClose.addEventListener('click', closeCamera);
   cameraModalOverlay.addEventListener('click', (e) => { if(e.target === cameraModalOverlay) closeCamera(); });
 
-  cameraCaptureBtn.addEventListener('click', async () => {
-    cameraStatusEl.textContent = 'Analyzing image...';
-    cameraCaptureBtn.disabled = true;
-
-    // بنقص الصورة على منطقة المربع الأخضر بس (زي ما هو ظاهر على الشاشة)
-    // ده بيشيل الخلفية والرسومات المشتتة حوالين الرقم/الكلمة ويحسّن الدقة
+  cameraCaptureBtn.addEventListener('click', () => {
+    // بناخد لقطة من الفيديو بالدقة الكاملة، ونعرضها في شاشة القص عشان
+    // المستخدم يحدد بنفسه الجزء اللي هيتعمل عليه OCR بدل القص التلقائي
     const vw = cameraVideoEl.videoWidth, vh = cameraVideoEl.videoHeight;
-    const sx = Math.round(vw * 0.08), sy = Math.round(vh * 0.40);
-    const sw = Math.round(vw * 0.84), sh = Math.round(vh * 0.20);
+    const shotCanvas = document.createElement('canvas');
+    shotCanvas.width = vw; shotCanvas.height = vh;
+    shotCanvas.getContext('2d').drawImage(cameraVideoEl, 0, 0, vw, vh);
+    ocrCropImage.onload = () => {
+      cameraVideoEl.style.display = 'none';
+      ocrGuideBox.style.display = 'none';
+      ocrCropStage.style.display = 'flex';
+      cameraCaptureBtn.style.display = 'none';
+      ocrCropConfirmBtn.style.display = 'inline-block';
+      ocrCropRetakeBtn.style.display = 'inline-block';
+      cameraStatusEl.textContent = 'Adjust the box around the text, then tap "Extract Text"';
+      initCropBox();
+    };
+    ocrCropImage.src = shotCanvas.toDataURL('image/jpeg', 0.92);
+  });
 
-    // بنكبّر المنطقة المقصوصة x2 عشان ارتفاع الحروف يبقى كافي لدقة أعلى في القراءة
+  ocrCropRetakeBtn.addEventListener('click', () => {
+    resetOcrCropStage();
+    cameraVideoEl.style.display = 'block';
+    ocrGuideBox.style.display = 'block';
+    cameraCaptureBtn.style.display = 'inline-block';
+    cameraCaptureBtn.disabled = false;
+    cameraStatusEl.textContent = 'Line the number/text up inside the green box and tap "Capture"';
+  });
+
+  // ===== قص يدوي لصورة الـ OCR: مربع أخضر قابل للسحب وتغيير الحجم من زواياه =====
+  function initCropBox(){
+    ocrCropBox.style.left = '8%';
+    ocrCropBox.style.top = '40%';
+    ocrCropBox.style.width = '84%';
+    ocrCropBox.style.height = '20%';
+  }
+  function clampNum(v, min, max){ return Math.max(min, Math.min(max, v)); }
+  function startCropDrag(mode, e){
+    const wrapRect = ocrCropWrap.getBoundingClientRect();
+    const boxRect = ocrCropBox.getBoundingClientRect();
+    cropDrag = {
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      startLeft: boxRect.left - wrapRect.left,
+      startTop: boxRect.top - wrapRect.top,
+      startWidth: boxRect.width,
+      startHeight: boxRect.height,
+      wrapW: wrapRect.width,
+      wrapH: wrapRect.height
+    };
+    try{ e.target.setPointerCapture(e.pointerId); }catch(err){ /* تجاهل */ }
+    e.preventDefault();
+  }
+  ocrCropBox.addEventListener('pointerdown', (e) => {
+    if(e.target.classList.contains('crop-handle')) return;
+    startCropDrag('move', e);
+  });
+  ocrCropBox.querySelectorAll('.crop-handle').forEach(h => {
+    h.addEventListener('pointerdown', (e) => { e.stopPropagation(); startCropDrag(h.dataset.handle, e); });
+  });
+  const MIN_CROP = 32;
+  ocrCropWrap.addEventListener('pointermove', (e) => {
+    if(!cropDrag) return;
+    const dx = e.clientX - cropDrag.startX;
+    const dy = e.clientY - cropDrag.startY;
+    let { startLeft: left, startTop: top, startWidth: width, startHeight: height, wrapW, wrapH } = cropDrag;
+    if(cropDrag.mode === 'move'){
+      left = clampNum(left + dx, 0, wrapW - width);
+      top = clampNum(top + dy, 0, wrapH - height);
+    }else{
+      if(cropDrag.mode.includes('w')){
+        const newLeft = clampNum(left + dx, 0, left + width - MIN_CROP);
+        width = width + (left - newLeft);
+        left = newLeft;
+      }
+      if(cropDrag.mode.includes('e')){
+        width = clampNum(width + dx, MIN_CROP, wrapW - left);
+      }
+      if(cropDrag.mode.includes('n')){
+        const newTop = clampNum(top + dy, 0, top + height - MIN_CROP);
+        height = height + (top - newTop);
+        top = newTop;
+      }
+      if(cropDrag.mode.includes('s')){
+        height = clampNum(height + dy, MIN_CROP, wrapH - top);
+      }
+    }
+    ocrCropBox.style.left = left + 'px';
+    ocrCropBox.style.top = top + 'px';
+    ocrCropBox.style.width = width + 'px';
+    ocrCropBox.style.height = height + 'px';
+  });
+  ocrCropWrap.addEventListener('pointerup', () => { cropDrag = null; });
+  ocrCropWrap.addEventListener('pointercancel', () => { cropDrag = null; });
+
+  // ===== خط أنابيب الـ OCR: تكبير x2 + تباين تلقائي (Otsu) + قراءة سطر واحد =====
+  async function runOcrOnRegion(sourceEl, sx, sy, sw, sh){
+    cameraStatusEl.textContent = 'Analyzing image...';
     const SCALE = 2;
     cameraCanvasEl.width = sw * SCALE;
     cameraCanvasEl.height = sh * SCALE;
     const ctx = cameraCanvasEl.getContext('2d');
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(cameraVideoEl, sx, sy, sw, sh, 0, 0, cameraCanvasEl.width, cameraCanvasEl.height);
+    ctx.drawImage(sourceEl, sx, sy, sw, sh, 0, 0, cameraCanvasEl.width, cameraCanvasEl.height);
 
-    // تحويل لتدرج رمادي وحساب حد تباين مثالي تلقائيًا (Otsu) بدل رقم ثابت،
-    // عشان يشتغل صح مع إضاءات مختلفة مش بس إضاءة واحدة معينة
     const imgData = ctx.getImageData(0, 0, cameraCanvasEl.width, cameraCanvasEl.height);
     const px = imgData.data;
     const total = px.length / 4;
@@ -2055,17 +2216,31 @@
         tessedit_pageseg_mode: '7'
       });
       const text = ((data && data.text) || '').replace(/\s+/g, ' ').trim();
-      cameraCaptureBtn.disabled = false;
       if(!text){
         cameraStatusEl.textContent = 'Couldn\'t find clear text, try again with better lighting.';
+        ocrCropConfirmBtn.disabled = false;
         return;
       }
       cameraStatusEl.textContent = 'Correct or delete any part you don\'t need, then tap search:';
       showCameraResult(text, false);
     }catch(e){
       cameraStatusEl.textContent = '❌ Failed to analyze the image. Check your internet connection and try again.';
-      cameraCaptureBtn.disabled = false;
+      ocrCropConfirmBtn.disabled = false;
     }
+  }
+
+  ocrCropConfirmBtn.addEventListener('click', async () => {
+    ocrCropConfirmBtn.disabled = true;
+    const wrapRect = ocrCropWrap.getBoundingClientRect();
+    const boxRect = ocrCropBox.getBoundingClientRect();
+    const scaleX = ocrCropImage.naturalWidth / wrapRect.width;
+    const scaleY = ocrCropImage.naturalHeight / wrapRect.height;
+    const sx = Math.round((boxRect.left - wrapRect.left) * scaleX);
+    const sy = Math.round((boxRect.top - wrapRect.top) * scaleY);
+    const sw = Math.round(boxRect.width * scaleX);
+    const sh = Math.round(boxRect.height * scaleY);
+    await runOcrOnRegion(ocrCropImage, sx, sy, sw, sh);
+    ocrCropConfirmBtn.disabled = false;
   });
 
   cameraOpenLinkBtn.addEventListener('click', () => {
