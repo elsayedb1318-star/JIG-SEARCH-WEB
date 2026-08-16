@@ -2441,6 +2441,24 @@
     window.getSelection().removeAllRanges();
   });
 
+  // ===== لو المستخدم فتح ملف (PDF مثلاً) في تاب تاني ونسخ كلمة منه، أول ما
+  // يرجع لتاب البرنامج بنحط الكلمة دي أوتوماتيك في مربع البحث =====
+  let lastClipboardText = '';
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState !== 'visible') return;
+    if(!navigator.clipboard || !navigator.clipboard.readText) return;
+    navigator.clipboard.readText().then(text => {
+      text = (text || '').replace(/\s+/g, ' ').trim();
+      if(!text || text.length > 150) return;
+      if(text === lastClipboardText || text === qInput.value) return;
+      lastClipboardText = text;
+      qInput.value = text;
+      qClear.style.display = 'flex';
+    }).catch(() => {
+      // المتصفح رفض إذن قراءة الحافظة (أو مش HTTPS/localhost) - نتجاهل بصمت
+    });
+  });
+
   checkSetup();
   renderRecentSearches();
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، ولو مفيش يعمل فهرسة
