@@ -350,6 +350,59 @@
   }
   .new-files-banner:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(22,163,74,.38); }
   @keyframes banner-in{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:translateY(0); } }
+  .selection-search-bar{
+    position:fixed;
+    left:12px;
+    right:12px;
+    bottom:16px;
+    z-index:60;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    max-width:520px;
+    margin:0 auto;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:10px;
+    box-shadow:var(--shadow-lg);
+    animation:banner-in .2s ease;
+  }
+  .selection-search-input{
+    flex:1;
+    min-width:0;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:9px 10px;
+    font-size:14px;
+    font-family:inherit;
+    background:var(--bg);
+    color:var(--text);
+  }
+  .selection-search-go{
+    flex:0 0 auto;
+    background:linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:9px 14px;
+    font-size:13.5px;
+    font-weight:600;
+    font-family:inherit;
+    white-space:nowrap;
+    cursor:pointer;
+  }
+  .selection-search-close{
+    flex:0 0 auto;
+    width:34px;height:34px;
+    border:none;
+    background:var(--bg);
+    color:var(--muted);
+    border-radius:10px;
+    font-size:15px;
+    font-family:inherit;
+    cursor:pointer;
+  }
   .spinner{
     display:none;
     width:18px;
@@ -862,6 +915,12 @@
     </div>
   </div>
 
+  <div id="selectionSearchBar" class="selection-search-bar" style="display:none;">
+    <input type="text" id="selectionSearchInput" class="selection-search-input" />
+    <button type="button" id="selectionSearchGo" class="selection-search-go">🔍 Search</button>
+    <button type="button" id="selectionSearchClose" class="selection-search-close" aria-label="Close">✕</button>
+  </div>
+
 <script>
   // إعدادات لازم تتظبط قبل ما الصفحة تشتغل:
   const PROXY_URL = "https://jigsearch.elsayedb1318.workers.dev/";
@@ -871,6 +930,10 @@
 
   const qInput = document.getElementById('q');
   const qClear = document.getElementById('qClear');
+  const selectionSearchBar = document.getElementById('selectionSearchBar');
+  const selectionSearchInput = document.getElementById('selectionSearchInput');
+  const selectionSearchGo = document.getElementById('selectionSearchGo');
+  const selectionSearchClose = document.getElementById('selectionSearchClose');
   const searchBtn = document.getElementById('searchBtn');
   const statusEl = document.getElementById('statusText');
   const spinnerEl = document.getElementById('spinner');
@@ -1916,6 +1979,10 @@
     if(previewModalOverlay.style.display !== 'none') closePreviewModal();
     if(cameraModalOverlay.style.display !== 'none') closeCamera();
     if(linksModalOverlay.style.display !== 'none') closeLinksModal();
+    if(selectionSearchBar.style.display !== 'none'){
+      selectionSearchBar.style.display = 'none';
+      window.getSelection().removeAllRanges();
+    }
   });
 
   // ===== تحميل مكتبات خارجية عند الحاجة بس (Barcode/QR و OCR) عشان متأثرش على سرعة فتح الصفحة =====
@@ -2342,6 +2409,37 @@
       // فشل الفحص كله (مفيش نت مثلاً) - نتجاهله بصمت، الفهرسة كل 5 أيام هي الشبكة الأساسية
     }
   }
+
+  // ===== لو المستخدم حدد/نسخ أي كلمة في أي مكان في الصفحة، بيظهرله شريط
+  // صغير يسأله "هل تريد البحث؟" مع إمكانية تعديل النص قبل البحث =====
+  let selectionCheckTimer = null;
+  document.addEventListener('selectionchange', () => {
+    clearTimeout(selectionCheckTimer);
+    selectionCheckTimer = setTimeout(() => {
+      const sel = window.getSelection();
+      const text = sel ? sel.toString().trim() : '';
+      if(text && text.length > 0 && text.length < 300){
+        selectionSearchInput.value = text;
+        selectionSearchBar.style.display = 'flex';
+      }else{
+        selectionSearchBar.style.display = 'none';
+      }
+    }, 200);
+  });
+  selectionSearchGo.addEventListener('click', () => {
+    const val = selectionSearchInput.value.trim();
+    selectionSearchBar.style.display = 'none';
+    window.getSelection().removeAllRanges();
+    if(val){
+      qInput.value = val;
+      qClear.style.display = 'flex';
+      runSearch();
+    }
+  });
+  selectionSearchClose.addEventListener('click', () => {
+    selectionSearchBar.style.display = 'none';
+    window.getSelection().removeAllRanges();
+  });
 
   checkSetup();
   renderRecentSearches();
