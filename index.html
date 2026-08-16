@@ -2442,10 +2442,11 @@
   });
 
   // ===== لو المستخدم فتح ملف (PDF مثلاً) في تاب تاني ونسخ كلمة منه، أول ما
-  // يرجع لتاب البرنامج بنحط الكلمة دي أوتوماتيك في مربع البحث =====
+  // يرجع لتاب البرنامج ويدوس على مربع البحث بنحط الكلمة أوتوماتيك.
+  // (كروم بيرفض قراءة الحافظة من غير لمسة/كليك فعلي من المستخدم على صفحتنا
+  // نفسها - عشان كده الفحص بيحصل عند الضغط على مربع البحث، مش أول ما التاب يرجع) =====
   let lastClipboardText = '';
-  document.addEventListener('visibilitychange', () => {
-    if(document.visibilityState !== 'visible') return;
+  function tryAutoFillFromClipboard(){
     if(!navigator.clipboard || !navigator.clipboard.readText) return;
     navigator.clipboard.readText().then(text => {
       text = (text || '').replace(/\s+/g, ' ').trim();
@@ -2457,7 +2458,9 @@
     }).catch(() => {
       // المتصفح رفض إذن قراءة الحافظة (أو مش HTTPS/localhost) - نتجاهل بصمت
     });
-  });
+  }
+  qInput.addEventListener('focus', tryAutoFillFromClipboard);
+  qInput.addEventListener('click', tryAutoFillFromClipboard);
 
   checkSetup();
   renderRecentSearches();
