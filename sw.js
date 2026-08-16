@@ -3,7 +3,7 @@
 // حتى من غير إنترنت. البحث نفسه بيتم محليًا على الفهرس المخزن في
 // IndexedDB جوه المتصفح، فمش محتاج إنترنت أصلاً بعد أول فهرسة.
 
-const CACHE_NAME = 'jigsearch-cache-v1';
+const CACHE_NAME = 'jigsearch-cache-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -34,22 +34,20 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
 
-  // نفس أصل التطبيق (index.html وملفاته) - cache-first مع تحديث في الخلفية
-  // (يظهر فورًا من الكاش لو موجود، وفي نفس الوقت بيتحدث من النت لو متاح)
+  // نفس أصل التطبيق (index.html وملفاته) - network-first: النسخة الجديدة
+  // دايمًا هي اللي بتتعرض لو فيه نت، والكاش بيتحدث في نفس اللحظة.
+  // الكاش بيتستخدم بس كخطة بديلة لو مفيش نت خالص (أوفلاين)
   if(url.origin === self.location.origin){
     event.respondWith(
-      caches.match(req).then((cached) => {
-        const networkFetch = fetch(req)
-          .then((res) => {
-            if(res && res.ok){
-              const clone = res.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-            }
-            return res;
-          })
-          .catch(() => cached);
-        return cached || networkFetch;
-      })
+      fetch(req)
+        .then((res) => {
+          if(res && res.ok){
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
     );
     return;
   }
