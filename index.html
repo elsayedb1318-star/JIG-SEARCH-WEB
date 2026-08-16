@@ -2455,6 +2455,7 @@
       lastClipboardText = text;
       qInput.value = text;
       qClear.style.display = 'flex';
+      runSearch();
     }).catch(() => {
       // المتصفح رفض إذن قراءة الحافظة (أو مش HTTPS/localhost) - نتجاهل بصمت
     });
