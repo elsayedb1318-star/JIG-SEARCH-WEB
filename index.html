@@ -995,19 +995,40 @@
     try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* تجاهل لو التخزين ممتلئ */ }
   }
 
+  // آخر 20 ملف فقط + نسخة فعلية من كل ملف محفوظة محليًا في IndexedDB.
+  // لما يدخل ملف رقم 21، أقدم ملف بيتشال من القائمة ومن التخزين المحلي.
+  const RECENT_FILE_BLOB_PREFIX = 'recent-file-';
+
+  function getRecentFileCacheKey(id){ return RECENT_FILE_BLOB_PREFIX + id; }
+
   // بيتسجل كل ما المستخدم يفتح ملف في "آخر الملفات"
-  function recordFileOpen(f){
+  async function recordFileOpen(f){
     let recent = loadJSON(RECENT_FILES_KEY, []).filter(x => x.id !== f.id);
-    recent.unshift({ id: f.id, name: f.name, type: f.type });
-    saveJSON(RECENT_FILES_KEY, recent.slice(0, HOME_LIST_MAX));
+    recent.unshift({ id: f.id, name: f.name, type: f.type, folder: f.folder || null });
+
+    const removed = recent.slice(HOME_LIST_MAX);
+    const kept = recent.slice(0, HOME_LIST_MAX);
+    saveJSON(RECENT_FILES_KEY, kept);
+
+    // امسح الملفات الأقدم من التخزين المحلي أيضًا، مش مجرد اسمها من القائمة.
+    await Promise.all(removed.map(x => idbDelete(getRecentFileCacheKey(x.id))));
+
+    // نزّل نسخة محلية لو مش موجودة بالفعل.
+    return cacheRecentFile(f).catch(() => false);
   }
-  function getRecentFiles(){ return loadJSON(RECENT_FILES_KEY, []); }
-  function removeRecentFile(id){
+
+  function getRecentFiles(){ return loadJSON(RECENT_FILES_KEY, []).slice(0, HOME_LIST_MAX); }
+
+  async function removeRecentFile(id){
     saveJSON(RECENT_FILES_KEY, getRecentFiles().filter(x => x.id !== id));
+    await idbDelete(getRecentFileCacheKey(id));
     if(activeHomeTab === 'recent') renderRecentTab();
   }
-  function clearRecentFiles(){
+
+  async function clearRecentFiles(){
+    const recent = getRecentFiles();
     saveJSON(RECENT_FILES_KEY, []);
+    await Promise.all(recent.map(x => idbDelete(getRecentFileCacheKey(x.id))));
     if(activeHomeTab === 'recent') renderRecentTab();
   }
 
@@ -1353,6 +1374,94 @@
     });
   }
 
+  async function idbDelete(key){
+    const db = await openIDB();
+    if(!db) return false;
+    return new Promise((resolve) => {
+      try{
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(key);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      }catch(e){ resolve(false); }
+    });
+  }
+
+  // بيحمّل الملف الحقيقي مرة واحدة ويحفظه كـ Blob على جهاز المستخدم.
+  // Google Docs/Sheets/Slides بيتحفظوا كنسخة Office قابلة للفتح بدون إنترنت.
+  async function cacheRecentFile(f){
+    if(!f || !f.id) return false;
+
+    const key = getRecentFileCacheKey(f.id);
+    const existing = await idbGet(key);
+    if(existing && existing.blob instanceof Blob && existing.blob.size > 0) return true;
+
+    const urls = getFileUrls(f);
+    const res = await fetch(urls.download, { method:'GET', credentials:'omit', cache:'no-store' });
+    if(!res.ok) throw new Error('Could not download file (' + res.status + ')');
+
+    const blob = await res.blob();
+    if(!blob || !blob.size) throw new Error('Downloaded file is empty');
+
+    const saved = await idbSet(key, {
+      id: f.id,
+      name: f.name,
+      type: f.type,
+      mime: blob.type || '',
+      savedAt: Date.now(),
+      blob
+    });
+    if(!saved) throw new Error('Local storage is unavailable or full');
+    return true;
+  }
+
+  async function getCachedRecentFile(f){
+    const cached = await idbGet(getRecentFileCacheKey(f.id));
+    return cached && cached.blob instanceof Blob && cached.blob.size > 0 ? cached : null;
+  }
+
+  function openLocalBlob(cached, f, download){
+    const objectUrl = URL.createObjectURL(cached.blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    if(download){
+      a.download = f.name;
+    }else{
+      a.target = '_blank';
+      a.rel = 'noopener';
+    }
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+  }
+
+  async function openOrDownloadFile(f, download){
+    await recordFileOpen(f);
+
+    // لو النسخة موجودة على الجهاز: افتحها/حمّلها بدون أي إنترنت.
+    const cached = await getCachedRecentFile(f);
+    if(cached){
+      openLocalBlob(cached, f, download);
+      return;
+    }
+
+    // أول مرة: نزّلها، خزّنها، وبعدها افتح النسخة المحلية.
+    try{
+      await cacheRecentFile(f);
+      const saved = await getCachedRecentFile(f);
+      if(saved){
+        openLocalBlob(saved, f, download);
+        return;
+      }
+    }catch(e){
+      // لو التخزين المحلي أو CORS غير متاح، نرجع للسلوك القديم أونلاين.
+    }
+
+    const urls = getFileUrls(f);
+    window.open(download ? urls.download : urls.view, '_blank', 'noopener');
+  }
+
   async function loadCachedIndex(){
     try{
       let parsed = await idbGet(CACHE_KEY);
@@ -1568,8 +1677,8 @@
     const folderName = folderNameById(f.folder);
     previewMeta.textContent = folderName ? `${fileTypeLabel(f)} • 📁 ${folderName}` : fileTypeLabel(f);
 
-    previewOpenBtn.onclick = () => { recordFileOpen(f); window.open(urls.view, '_blank', 'noopener'); };
-    previewDownloadBtn.onclick = () => { recordFileOpen(f); window.open(urls.download, '_blank', 'noopener'); };
+    previewOpenBtn.onclick = () => { openOrDownloadFile(f, false); };
+    previewDownloadBtn.onclick = () => { openOrDownloadFile(f, true); };
     previewShareBtn.onclick = async () => {
       recordFileOpen(f);
       if(navigator.share){
@@ -1767,15 +1876,9 @@
     a.href = getFileUrls(f).view;
     a.addEventListener('click', (e) => {
       e.preventDefault();
-      // لو الملف PDF يتفتح على طول في تاب جديدة، ولو صيغة تانية يتحمّل على طول
-      // من غير ما نعدي على نافذة المعاينة
-      const urls = getFileUrls(f);
-      recordFileOpen(f);
-      if(f.type === 'pdf'){
-        window.open(urls.view, '_blank', 'noopener');
-      } else {
-        window.open(urls.download, '_blank', 'noopener');
-      }
+      // افتح النسخة المحلية إن وجدت؛ وإلا نزّلها مرة واحدة ثم خزّنها.
+      // ده يسمح بفتح الملفات من Recent Files لاحقًا بدون إنترنت.
+      openOrDownloadFile(f, false);
     });
 
     // بنبني العناصر بـ createElement/textContent مش innerHTML، عشان لو اسم
