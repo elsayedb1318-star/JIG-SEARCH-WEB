@@ -815,6 +815,7 @@
         <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
           <button type="button" id="scanBtn" class="advanced-menu-item">📷 Scan Barcode/QR</button>
           <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 Scan Number (OCR)</button>
+          <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 TEST DECONENT</button>
           <button type="button" id="importantLinksBtn" class="advanced-menu-item">🔗 Important Links</button>
         </div>
       </div>
@@ -951,6 +952,7 @@
   const linksModalOverlay = document.getElementById('linksModalOverlay');
   const linksModalClose = document.getElementById('linksModalClose');
   const importantLinksBtn = document.getElementById('importantLinksBtn');
+  const testDeconentBtn = document.getElementById('testDeconentBtn');
   const previewModalClose = document.getElementById('previewModalClose');
   const previewIcon = document.getElementById('previewIcon');
   const previewName = document.getElementById('previewName');
@@ -985,7 +987,14 @@
   // ===== سجل الملفات المفتوحة والمفضلة - كله محليًا في المتصفح =====
   const RECENT_FILES_KEY = 'jigsearch_recent_files_v1';
   const FAV_KEY = 'jigsearch_favorites_v1';
-  const HOME_LIST_MAX = 20;
+  const RECENT_FILES_MAX = 30;
+  const FILES_CACHE_NAME = 'jigsearch-files-v1';
+
+  // بنطلب تخزين دائم (persistent storage) عشان المتصفح ميمسحش الملفات
+  // المحفوظة تلقائيًا لو الجهاز محتاج مساحة - أفضل جهد بس، مش كل المتصفحات بتدعمها
+  if(navigator.storage && navigator.storage.persist){
+    navigator.storage.persist().catch(() => {});
+  }
 
   function loadJSON(key, fallback){
     try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -995,40 +1004,73 @@
     try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* تجاهل لو التخزين ممتلئ */ }
   }
 
-  // آخر 20 ملف فقط + نسخة فعلية من كل ملف محفوظة محليًا في IndexedDB.
-  // لما يدخل ملف رقم 21، أقدم ملف بيتشال من القائمة ومن التخزين المحلي.
-  const RECENT_FILE_BLOB_PREFIX = 'recent-file-';
-
-  function getRecentFileCacheKey(id){ return RECENT_FILE_BLOB_PREFIX + id; }
-
-  // بيتسجل كل ما المستخدم يفتح ملف في "آخر الملفات"
-  async function recordFileOpen(f){
-    let recent = loadJSON(RECENT_FILES_KEY, []).filter(x => x.id !== f.id);
-    recent.unshift({ id: f.id, name: f.name, type: f.type, folder: f.folder || null });
-
-    const removed = recent.slice(HOME_LIST_MAX);
-    const kept = recent.slice(0, HOME_LIST_MAX);
-    saveJSON(RECENT_FILES_KEY, kept);
-
-    // امسح الملفات الأقدم من التخزين المحلي أيضًا، مش مجرد اسمها من القائمة.
-    await Promise.all(removed.map(x => idbDelete(getRecentFileCacheKey(x.id))));
-
-    // نزّل نسخة محلية لو مش موجودة بالفعل.
-    return cacheRecentFile(f).catch(() => false);
+  // بيخزن نسخة من محتوى الملف نفسه في الخلفية (من غير ما يعطّل فتح الملف
+  // أول مرة) عشان المرات الجاية يتفتح من الجهاز على طول من غير نت أو تحميل
+  async function cacheFileInBackground(url){
+    if(!url || !('caches' in window)) return;
+    try{
+      const cache = await caches.open(FILES_CACHE_NAME);
+      const already = await cache.match(url);
+      if(already) return;
+      const res = await fetch(url, { mode: 'no-cors' });
+      await cache.put(url, res);
+    }catch(e){
+      // فشل التخزين (مفيش نت، أو الطلب اترفض) - نتجاهل بصمت، الفتح هيفضل
+      // شغال أونلاين عادي زي ما كان قبل كده
+    }
+  }
+  // بيدور على نسخة محفوظة للملف ولو لقاها بيفتحها من غير أي اتصال بالإنترنت
+  async function tryOpenFromCache(url, f){
+    if(!url || !('caches' in window)) return false;
+    try{
+      const cache = await caches.open(FILES_CACHE_NAME);
+      const res = await cache.match(url);
+      if(!res) return false;
+      const blob = await res.blob();
+      if(!blob || !blob.size) return false;
+      const blobUrl = URL.createObjectURL(blob);
+      if(f.type === 'pdf' || f.type === 'image'){
+        window.open(blobUrl, '_blank', 'noopener');
+      } else {
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = f.name || 'file';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+  function deleteCachedFile(id){
+    if(!('caches' in window)) return;
+    caches.open(FILES_CACHE_NAME)
+      .then(cache => cache.delete(`https://drive.google.com/uc?export=download&id=${id}`))
+      .catch(() => {});
   }
 
-  function getRecentFiles(){ return loadJSON(RECENT_FILES_KEY, []).slice(0, HOME_LIST_MAX); }
-
-  async function removeRecentFile(id){
+  // بيتسجل كل ما المستخدم يفتح ملف في "آخر الملفات" - وبيمسح أقدم ملف
+  // (وأي نسخة محفوظة منه) لو العدد عدّى الحد الأقصى
+  function recordFileOpen(f){
+    let recent = loadJSON(RECENT_FILES_KEY, []).filter(x => x.id !== f.id);
+    recent.unshift({ id: f.id, name: f.name, type: f.type });
+    const trimmed = recent.slice(0, RECENT_FILES_MAX);
+    const evicted = recent.slice(RECENT_FILES_MAX);
+    saveJSON(RECENT_FILES_KEY, trimmed);
+    evicted.forEach(ev => deleteCachedFile(ev.id));
+  }
+  function getRecentFiles(){ return loadJSON(RECENT_FILES_KEY, []); }
+  function removeRecentFile(id){
     saveJSON(RECENT_FILES_KEY, getRecentFiles().filter(x => x.id !== id));
-    await idbDelete(getRecentFileCacheKey(id));
+    deleteCachedFile(id);
     if(activeHomeTab === 'recent') renderRecentTab();
   }
-
-  async function clearRecentFiles(){
-    const recent = getRecentFiles();
+  function clearRecentFiles(){
+    getRecentFiles().forEach(f => deleteCachedFile(f.id));
     saveJSON(RECENT_FILES_KEY, []);
-    await Promise.all(recent.map(x => idbDelete(getRecentFileCacheKey(x.id))));
     if(activeHomeTab === 'recent') renderRecentTab();
   }
 
@@ -1374,94 +1416,6 @@
     });
   }
 
-  async function idbDelete(key){
-    const db = await openIDB();
-    if(!db) return false;
-    return new Promise((resolve) => {
-      try{
-        const tx = db.transaction(IDB_STORE, 'readwrite');
-        tx.objectStore(IDB_STORE).delete(key);
-        tx.oncomplete = () => resolve(true);
-        tx.onerror = () => resolve(false);
-      }catch(e){ resolve(false); }
-    });
-  }
-
-  // بيحمّل الملف الحقيقي مرة واحدة ويحفظه كـ Blob على جهاز المستخدم.
-  // Google Docs/Sheets/Slides بيتحفظوا كنسخة Office قابلة للفتح بدون إنترنت.
-  async function cacheRecentFile(f){
-    if(!f || !f.id) return false;
-
-    const key = getRecentFileCacheKey(f.id);
-    const existing = await idbGet(key);
-    if(existing && existing.blob instanceof Blob && existing.blob.size > 0) return true;
-
-    const urls = getFileUrls(f);
-    const res = await fetch(urls.download, { method:'GET', credentials:'omit', cache:'no-store' });
-    if(!res.ok) throw new Error('Could not download file (' + res.status + ')');
-
-    const blob = await res.blob();
-    if(!blob || !blob.size) throw new Error('Downloaded file is empty');
-
-    const saved = await idbSet(key, {
-      id: f.id,
-      name: f.name,
-      type: f.type,
-      mime: blob.type || '',
-      savedAt: Date.now(),
-      blob
-    });
-    if(!saved) throw new Error('Local storage is unavailable or full');
-    return true;
-  }
-
-  async function getCachedRecentFile(f){
-    const cached = await idbGet(getRecentFileCacheKey(f.id));
-    return cached && cached.blob instanceof Blob && cached.blob.size > 0 ? cached : null;
-  }
-
-  function openLocalBlob(cached, f, download){
-    const objectUrl = URL.createObjectURL(cached.blob);
-    const a = document.createElement('a');
-    a.href = objectUrl;
-    if(download){
-      a.download = f.name;
-    }else{
-      a.target = '_blank';
-      a.rel = 'noopener';
-    }
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-  }
-
-  async function openOrDownloadFile(f, download){
-    await recordFileOpen(f);
-
-    // لو النسخة موجودة على الجهاز: افتحها/حمّلها بدون أي إنترنت.
-    const cached = await getCachedRecentFile(f);
-    if(cached){
-      openLocalBlob(cached, f, download);
-      return;
-    }
-
-    // أول مرة: نزّلها، خزّنها، وبعدها افتح النسخة المحلية.
-    try{
-      await cacheRecentFile(f);
-      const saved = await getCachedRecentFile(f);
-      if(saved){
-        openLocalBlob(saved, f, download);
-        return;
-      }
-    }catch(e){
-      // لو التخزين المحلي أو CORS غير متاح، نرجع للسلوك القديم أونلاين.
-    }
-
-    const urls = getFileUrls(f);
-    window.open(download ? urls.download : urls.view, '_blank', 'noopener');
-  }
-
   async function loadCachedIndex(){
     try{
       let parsed = await idbGet(CACHE_KEY);
@@ -1677,8 +1631,24 @@
     const folderName = folderNameById(f.folder);
     previewMeta.textContent = folderName ? `${fileTypeLabel(f)} • 📁 ${folderName}` : fileTypeLabel(f);
 
-    previewOpenBtn.onclick = () => { openOrDownloadFile(f, false); };
-    previewDownloadBtn.onclick = () => { openOrDownloadFile(f, true); };
+    previewOpenBtn.onclick = async () => {
+      recordFileOpen(f);
+      const openedFromCache = await tryOpenFromCache(urls.download, f);
+      if(!openedFromCache){
+        window.open(urls.view, '_blank', 'noopener');
+        cacheFileInBackground(urls.download);
+      }
+      closePreviewModal();
+    };
+    previewDownloadBtn.onclick = async () => {
+      recordFileOpen(f);
+      const openedFromCache = await tryOpenFromCache(urls.download, f);
+      if(!openedFromCache){
+        window.open(urls.download, '_blank', 'noopener');
+        cacheFileInBackground(urls.download);
+      }
+      closePreviewModal();
+    };
     previewShareBtn.onclick = async () => {
       recordFileOpen(f);
       if(navigator.share){
@@ -1874,11 +1844,21 @@
     // وخيارات (فتح / تحميل / مشاركة). الـ href هنا لسه بيتحط كـ fallback
     // (مثلاً لو المستخدم عمل right-click "فتح في تاب جديدة")
     a.href = getFileUrls(f).view;
-    a.addEventListener('click', (e) => {
+    a.addEventListener('click', async (e) => {
       e.preventDefault();
-      // افتح النسخة المحلية إن وجدت؛ وإلا نزّلها مرة واحدة ثم خزّنها.
-      // ده يسمح بفتح الملفات من Recent Files لاحقًا بدون إنترنت.
-      openOrDownloadFile(f, false);
+      // لو الملف PDF يتفتح على طول في تاب جديدة، ولو صيغة تانية يتحمّل على طول
+      // من غير ما نعدي على نافذة المعاينة
+      const urls = getFileUrls(f);
+      recordFileOpen(f);
+      const openedFromCache = await tryOpenFromCache(urls.download, f);
+      if(!openedFromCache){
+        if(f.type === 'pdf'){
+          window.open(urls.view, '_blank', 'noopener');
+        } else {
+          window.open(urls.download, '_blank', 'noopener');
+        }
+        cacheFileInBackground(urls.download); // نخزنه محليًا عشان المرة الجاية
+      }
     });
 
     // بنبني العناصر بـ createElement/textContent مش innerHTML، عشان لو اسم
@@ -2426,6 +2406,10 @@
 
   scanBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('scan'); });
   ocrBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('ocr'); });
+  testDeconentBtn.addEventListener('click', () => {
+    closeAdvancedMenu();
+    window.open('https://drive.google.com/drive/folders/1o2UwDHE3CCn11td1ewQpRW0iYCtGyb09', '_blank', 'noopener');
+  });
   function closeLinksModal(){ linksModalOverlay.style.display = 'none'; }
   importantLinksBtn.addEventListener('click', () => { closeAdvancedMenu(); linksModalOverlay.style.display = 'flex'; });
   linksModalClose.addEventListener('click', closeLinksModal);
