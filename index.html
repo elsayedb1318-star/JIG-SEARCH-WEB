@@ -990,8 +990,8 @@
   const RECENT_FILES_MAX = 30;
   const FILES_CACHE_NAME = 'jigsearch-files-v1';
 
-  // بنطلب تخزين دائم (persistent storage) عشان المتصفح ميمسحش الملفات
-  // المحفوظة تلقائيًا لو الجهاز محتاج مساحة - أفضل جهد بس، مش كل المتصفحات بتدعمها
+  // بنطلب تخزين دائم عشان المتصفح ميمسحش الملفات المحفوظة تلقائيًا لو
+  // الجهاز محتاج مساحة - أفضل جهد بس، مش كل المتصفحات بتدعمها
   if(navigator.storage && navigator.storage.persist){
     navigator.storage.persist().catch(() => {});
   }
@@ -1004,7 +1004,30 @@
     try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* تجاهل لو التخزين ممتلئ */ }
   }
 
-  // بيدور على نسخة محفوظة للملف ولو لقاها بيفتحها من غير أي اتصال بالإنترنت
+  // رابط محتوى الملف نفسه (بايتات الملف) عن طريق الـ Worker - بيرجع CORS
+  // صح، فمقدر أقرأ محتواه فعليًا كـ blob وأفتحه مباشرة من غير ما أعدي على
+  // صفحة Google Drive نفسها
+  function getFileContentUrl(id){
+    const url = new URL(PROXY_URL);
+    url.searchParams.set('fileId', id);
+    return url.toString();
+  }
+  function openBlob(blob, f){
+    const blobUrl = URL.createObjectURL(blob);
+    if(f.type === 'pdf' || f.type === 'image'){
+      window.open(blobUrl, '_blank', 'noopener');
+    } else {
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = f.name || 'file';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  }
+  // بيدور على نسخة محفوظة للملف على الجهاز، ولو لقاها بيفتحها من غير أي
+  // اتصال بالإنترنت
   async function tryOpenFromCache(url, f){
     if(!url || !('caches' in window)) return false;
     try{
@@ -1013,48 +1036,26 @@
       if(!res) return false;
       const blob = await res.blob();
       if(!blob || !blob.size) return false;
-      const blobUrl = URL.createObjectURL(blob);
-      if(f.type === 'pdf' || f.type === 'image'){
-        window.open(blobUrl, '_blank', 'noopener');
-      } else {
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = f.name || 'file';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      openBlob(blob, f);
       return true;
     }catch(e){
       return false;
     }
   }
-  // بيحاول يفتح الملف مباشرة (من غير ما يعدي على صفحة Google Drive نفسها) حتى
-  // أول مرة - بيسحب محتوى الملف ويفتحه كنسخة محلية في نفس اللحظة، وبيخزنها
-  // كمان للمرة الجاية. لو فشل لأي سبب (قيود المتصفح على المحتوى من مصدر
-  // خارجي) بيرجع false عادي وبنكمل بالطريقة القديمة (فتح صفحة Drive)
+  // بيسحب محتوى الملف من الـ Worker ويفتحه مباشرة (من غير الدخول على صفحة
+  // Drive) حتى أول مرة، وبيخزنه كمان للمرة الجاية
   async function tryOpenDirect(url, f){
     if(!url) return false;
     try{
-      const res = await fetch(url, { mode: 'no-cors' });
+      const res = await fetch(url);
+      if(!res.ok) return false;
+      const clone = res.clone();
       if('caches' in window){
-        caches.open(FILES_CACHE_NAME).then(cache => cache.put(url, res.clone())).catch(() => {});
+        caches.open(FILES_CACHE_NAME).then(cache => cache.put(url, clone)).catch(() => {});
       }
       const blob = await res.blob();
       if(!blob || !blob.size) return false;
-      const blobUrl = URL.createObjectURL(blob);
-      if(f.type === 'pdf' || f.type === 'image'){
-        window.open(blobUrl, '_blank', 'noopener');
-      } else {
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = f.name || 'file';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      openBlob(blob, f);
       return true;
     }catch(e){
       return false;
@@ -1063,7 +1064,7 @@
   function deleteCachedFile(id){
     if(!('caches' in window)) return;
     caches.open(FILES_CACHE_NAME)
-      .then(cache => cache.delete(`https://drive.google.com/uc?export=download&id=${id}`))
+      .then(cache => cache.delete(getFileContentUrl(id)))
       .catch(() => {});
   }
 
@@ -1648,18 +1649,16 @@
 
     previewOpenBtn.onclick = async () => {
       recordFileOpen(f);
-      const openedFromCache = await tryOpenFromCache(urls.download, f);
-      if(!openedFromCache && !(await tryOpenDirect(urls.download, f))){
-        window.open(urls.view, '_blank', 'noopener');
-      }
+      const contentUrl = getFileContentUrl(f.id);
+      const opened = (await tryOpenFromCache(contentUrl, f)) || (await tryOpenDirect(contentUrl, f));
+      if(!opened) window.open(urls.view, '_blank', 'noopener');
       closePreviewModal();
     };
     previewDownloadBtn.onclick = async () => {
       recordFileOpen(f);
-      const openedFromCache = await tryOpenFromCache(urls.download, f);
-      if(!openedFromCache && !(await tryOpenDirect(urls.download, f))){
-        window.open(urls.download, '_blank', 'noopener');
-      }
+      const contentUrl = getFileContentUrl(f.id);
+      const opened = (await tryOpenFromCache(contentUrl, f)) || (await tryOpenDirect(contentUrl, f));
+      if(!opened) window.open(urls.download, '_blank', 'noopener');
       closePreviewModal();
     };
     previewShareBtn.onclick = async () => {
@@ -1859,12 +1858,13 @@
     a.href = getFileUrls(f).view;
     a.addEventListener('click', async (e) => {
       e.preventDefault();
-      // لو الملف PDF يتفتح على طول في تاب جديدة، ولو صيغة تانية يتحمّل على طول
-      // من غير ما نعدي على نافذة المعاينة
+      // بنحاول نفتح الملف مباشرة (من غير الدخول على صفحة Google Drive) عن
+      // طريق الـ Worker - ولو فشل لأي سبب، نرجع للطريقة الاحتياطية القديمة
       const urls = getFileUrls(f);
       recordFileOpen(f);
-      const openedFromCache = await tryOpenFromCache(urls.download, f);
-      if(!openedFromCache && !(await tryOpenDirect(urls.download, f))){
+      const contentUrl = getFileContentUrl(f.id);
+      const opened = (await tryOpenFromCache(contentUrl, f)) || (await tryOpenDirect(contentUrl, f));
+      if(!opened){
         if(f.type === 'pdf'){
           window.open(urls.view, '_blank', 'noopener');
         } else {
