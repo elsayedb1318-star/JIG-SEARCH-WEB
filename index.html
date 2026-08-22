@@ -2516,7 +2516,7 @@
   // ===== فحص خفيف بعد ما الصفحة تخلص تحميل بالكامل: هل فيه ملفات اتضافت/اتعدلت
   // بعد آخر فهرسة؟ لو لقى حاجة، بيظهر بانر بدل ما المستخدم يستنى الـ 5 أيام =====
   const NEW_FILES_CHECK_KEY = 'jigsearch_last_newfiles_check';
-  const NEW_FILES_CHECK_COOLDOWN_MS = 60 * 60 * 1000; // مرة كل ساعة كحد أقصى
+  const NEW_FILES_CHECK_COOLDOWN_MS = 24 * 60 * 60 * 1000; // مرة كل يوم كحد أقصى
   async function checkForNewFiles(){
     try{
       const lastCheck = parseInt(localStorage.getItem(NEW_FILES_CHECK_KEY) || '0', 10);
