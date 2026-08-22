@@ -3,7 +3,7 @@
 // حتى من غير إنترنت. البحث نفسه بيتم محليًا على الفهرس المخزن في
 // IndexedDB جوه المتصفح، فمش محتاج إنترنت أصلاً بعد أول فهرسة.
 
-const CACHE_NAME = 'jigsearch-cache-v2';
+const CACHE_NAME = 'jigsearch-cache-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -13,9 +13,14 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
+  // كل ملف بيتخزن على حدة (مش addAll) عشان لو ملف واحد ناقص أو فشل تحميله،
+  // باقي الملفات تتخزن عادي والتثبيت مايفشلش بالكامل - فشل تثبيت كامل
+  // معناه المتصفح بيفضل شغال بالنسخة القديمة من الـ Service Worker للأبد
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => Promise.all(
+        APP_SHELL.map((url) => cache.add(url).catch(() => {}))
+      ))
       .then(() => self.skipWaiting())
   );
 });

@@ -257,6 +257,7 @@
     transition:transform .12s ease, box-shadow .15s ease, border-color .15s ease;
   }
   .result-item:hover{ border-color:var(--blue-light); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+  .result-item.is-opening{ opacity:.55; pointer-events:none; }
   .result-item:active{ transform:translateY(0); }
   .file-icon{
     flex:0 0 auto;
@@ -589,6 +590,7 @@
     transition:border-color .15s ease, transform .12s ease;
   }
   .tool-btn:hover{ border-color:var(--blue); transform:translateY(-1px); }
+  .tool-btn:disabled{ opacity:.55; cursor:default; transform:none; }
   #advancedSearchBtn{ padding:7px 11px; font-size:11.5px; white-space:nowrap; flex:0 0 auto; }
   .home-tabs{
     display:flex;
@@ -1066,6 +1068,16 @@
     caches.open(FILES_CACHE_NAME)
       .then(cache => cache.delete(getFileContentUrl(id)))
       .catch(() => {});
+  }
+  // بيمنع فتح نفس الملف أكتر من مرة في نفس اللحظة (لو المستخدم دوس مرتين
+  // بسرعة وهو مستني)
+  const openingFileIds = new Set();
+  // بيحاول يفتح الملف من الكاش، ولو مش موجود بيحاول يجيبه مباشرة من الـ
+  // Worker. بيرجع true لو نجح، أو false لو محتاج المتصفح يرجع للطريقة
+  // الاحتياطية (فتح صفحة Drive)
+  async function resolveFileOpen(f){
+    const contentUrl = getFileContentUrl(f.id);
+    return (await tryOpenFromCache(contentUrl, f)) || (await tryOpenDirect(contentUrl, f));
   }
 
   // بيتسجل كل ما المستخدم يفتح ملف في "آخر الملفات" - وبيمسح أقدم ملف
@@ -1648,17 +1660,37 @@
     previewMeta.textContent = folderName ? `${fileTypeLabel(f)} • 📁 ${folderName}` : fileTypeLabel(f);
 
     previewOpenBtn.onclick = async () => {
+      if(previewOpenBtn.disabled) return;
+      const original = previewOpenBtn.textContent;
+      previewOpenBtn.disabled = true;
+      previewDownloadBtn.disabled = true;
+      previewOpenBtn.textContent = '⏳ Opening...';
       recordFileOpen(f);
-      const contentUrl = getFileContentUrl(f.id);
-      const opened = (await tryOpenFromCache(contentUrl, f)) || (await tryOpenDirect(contentUrl, f));
-      if(!opened) window.open(urls.view, '_blank', 'noopener');
+      try{
+        const opened = await resolveFileOpen(f);
+        if(!opened) window.open(urls.view, '_blank', 'noopener');
+      }finally{
+        previewOpenBtn.disabled = false;
+        previewDownloadBtn.disabled = false;
+        previewOpenBtn.textContent = original;
+      }
       closePreviewModal();
     };
     previewDownloadBtn.onclick = async () => {
+      if(previewDownloadBtn.disabled) return;
+      const original = previewDownloadBtn.textContent;
+      previewOpenBtn.disabled = true;
+      previewDownloadBtn.disabled = true;
+      previewDownloadBtn.textContent = '⏳ Downloading...';
       recordFileOpen(f);
-      const contentUrl = getFileContentUrl(f.id);
-      const opened = (await tryOpenFromCache(contentUrl, f)) || (await tryOpenDirect(contentUrl, f));
-      if(!opened) window.open(urls.download, '_blank', 'noopener');
+      try{
+        const opened = await resolveFileOpen(f);
+        if(!opened) window.open(urls.download, '_blank', 'noopener');
+      }finally{
+        previewOpenBtn.disabled = false;
+        previewDownloadBtn.disabled = false;
+        previewDownloadBtn.textContent = original;
+      }
       closePreviewModal();
     };
     previewShareBtn.onclick = async () => {
@@ -1858,18 +1890,25 @@
     a.href = getFileUrls(f).view;
     a.addEventListener('click', async (e) => {
       e.preventDefault();
+      if(openingFileIds.has(f.id)) return; // منع الفتح المزدوج لو دوس مرتين بسرعة
+      openingFileIds.add(f.id);
+      a.classList.add('is-opening');
       // بنحاول نفتح الملف مباشرة (من غير الدخول على صفحة Google Drive) عن
       // طريق الـ Worker - ولو فشل لأي سبب، نرجع للطريقة الاحتياطية القديمة
       const urls = getFileUrls(f);
       recordFileOpen(f);
-      const contentUrl = getFileContentUrl(f.id);
-      const opened = (await tryOpenFromCache(contentUrl, f)) || (await tryOpenDirect(contentUrl, f));
-      if(!opened){
-        if(f.type === 'pdf'){
-          window.open(urls.view, '_blank', 'noopener');
-        } else {
-          window.open(urls.download, '_blank', 'noopener');
+      try{
+        const opened = await resolveFileOpen(f);
+        if(!opened){
+          if(f.type === 'pdf'){
+            window.open(urls.view, '_blank', 'noopener');
+          } else {
+            window.open(urls.download, '_blank', 'noopener');
+          }
         }
+      }finally{
+        openingFileIds.delete(f.id);
+        a.classList.remove('is-opening');
       }
     });
 
@@ -2476,33 +2515,35 @@
 
   // ===== فحص خفيف بعد ما الصفحة تخلص تحميل بالكامل: هل فيه ملفات اتضافت/اتعدلت
   // بعد آخر فهرسة؟ لو لقى حاجة، بيظهر بانر بدل ما المستخدم يستنى الـ 5 أيام =====
+  const NEW_FILES_CHECK_KEY = 'jigsearch_last_newfiles_check';
+  const NEW_FILES_CHECK_COOLDOWN_MS = 60 * 60 * 1000; // مرة كل ساعة كحد أقصى
   async function checkForNewFiles(){
     try{
+      const lastCheck = parseInt(localStorage.getItem(NEW_FILES_CHECK_KEY) || '0', 10);
+      if(Date.now() - lastCheck < NEW_FILES_CHECK_COOLDOWN_MS) return;
+      localStorage.setItem(NEW_FILES_CHECK_KEY, String(Date.now()));
+
       const cached = await loadCachedIndex();
       if(!cached || !cached.folderIds || !cached.folderIds.length || !cached.ts) return;
-      // نفس صيغة استعلام "فولدر واحد في parents" اللي الفهرسة العادية بتستخدمها
-      // وبتشتغل مضمون، بس بنضيف شرط modifiedTime. بنشيل الميلي ثانية من التاريخ
-      // (Google Drive query parser بيرفض أحيانًا التنسيق اللي فيه .000Z)
+      // بنشيل الميلي ثانية من التاريخ (Google Drive query parser بيرفض
+      // أحيانًا التنسيق اللي فيه .000Z)
       const isoTs = new Date(cached.ts).toISOString().replace(/\.\d{3}Z$/, 'Z');
       const ids = cached.folderIds;
+      // بندمج مجموعة فولدرات في استعلام واحد (OR) بدل طلب منفصل لكل فولدر -
+      // بيقلل عدد الطلبات من "بعدد الفولدرات" لحفنة طلبات بس، مهما كان
+      // عددهم كبير
+      const CHUNK_SIZE = 30;
       let found = false;
-      let i = 0;
-      const CONCURRENCY = 6;
-      async function worker(){
-        while(i < ids.length && !found){
-          const id = ids[i++];
-          const q = `'${id}' in parents and modifiedTime > '${isoTs}' and trashed = false`;
-          try{
-            const data = await driveList(q, null, 1); // retry واحدة بس - ده فحص خفيف مش حرج
-            if(data && data.files && data.files.length) found = true;
-          }catch(e){
-            // فولدر واحد فشل (صلاحيات مثلاً) - نتخطاه ونكمل الباقي
-          }
+      for(let i = 0; i < ids.length && !found; i += CHUNK_SIZE){
+        const chunk = ids.slice(i, i + CHUNK_SIZE);
+        const q = `(${chunk.map(id => `'${id}' in parents`).join(' or ')}) and modifiedTime > '${isoTs}' and trashed = false`;
+        try{
+          const data = await driveList(q, null, 1); // retry واحدة بس - ده فحص خفيف مش حرج
+          if(data && data.files && data.files.length) found = true;
+        }catch(e){
+          // مجموعة فولدرات فشلت - نتخطاها ونكمل الباقي
         }
       }
-      const workers = [];
-      for(let k = 0; k < Math.min(CONCURRENCY, ids.length); k++) workers.push(worker());
-      await Promise.all(workers);
       if(found) newFilesBanner.style.display = 'block';
     }catch(e){
       // فشل الفحص كله (مفيش نت مثلاً) - نتجاهله بصمت، الفهرسة كل 5 أيام هي الشبكة الأساسية
