@@ -1004,21 +1004,6 @@
     try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* تجاهل لو التخزين ممتلئ */ }
   }
 
-  // بيخزن نسخة من محتوى الملف نفسه في الخلفية (من غير ما يعطّل فتح الملف
-  // أول مرة) عشان المرات الجاية يتفتح من الجهاز على طول من غير نت أو تحميل
-  async function cacheFileInBackground(url){
-    if(!url || !('caches' in window)) return;
-    try{
-      const cache = await caches.open(FILES_CACHE_NAME);
-      const already = await cache.match(url);
-      if(already) return;
-      const res = await fetch(url, { mode: 'no-cors' });
-      await cache.put(url, res);
-    }catch(e){
-      // فشل التخزين (مفيش نت، أو الطلب اترفض) - نتجاهل بصمت، الفتح هيفضل
-      // شغال أونلاين عادي زي ما كان قبل كده
-    }
-  }
   // بيدور على نسخة محفوظة للملف ولو لقاها بيفتحها من غير أي اتصال بالإنترنت
   async function tryOpenFromCache(url, f){
     if(!url || !('caches' in window)) return false;
@@ -1026,6 +1011,36 @@
       const cache = await caches.open(FILES_CACHE_NAME);
       const res = await cache.match(url);
       if(!res) return false;
+      const blob = await res.blob();
+      if(!blob || !blob.size) return false;
+      const blobUrl = URL.createObjectURL(blob);
+      if(f.type === 'pdf' || f.type === 'image'){
+        window.open(blobUrl, '_blank', 'noopener');
+      } else {
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = f.name || 'file';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+  // بيحاول يفتح الملف مباشرة (من غير ما يعدي على صفحة Google Drive نفسها) حتى
+  // أول مرة - بيسحب محتوى الملف ويفتحه كنسخة محلية في نفس اللحظة، وبيخزنها
+  // كمان للمرة الجاية. لو فشل لأي سبب (قيود المتصفح على المحتوى من مصدر
+  // خارجي) بيرجع false عادي وبنكمل بالطريقة القديمة (فتح صفحة Drive)
+  async function tryOpenDirect(url, f){
+    if(!url) return false;
+    try{
+      const res = await fetch(url, { mode: 'no-cors' });
+      if('caches' in window){
+        caches.open(FILES_CACHE_NAME).then(cache => cache.put(url, res.clone())).catch(() => {});
+      }
       const blob = await res.blob();
       if(!blob || !blob.size) return false;
       const blobUrl = URL.createObjectURL(blob);
@@ -1634,18 +1649,16 @@
     previewOpenBtn.onclick = async () => {
       recordFileOpen(f);
       const openedFromCache = await tryOpenFromCache(urls.download, f);
-      if(!openedFromCache){
+      if(!openedFromCache && !(await tryOpenDirect(urls.download, f))){
         window.open(urls.view, '_blank', 'noopener');
-        cacheFileInBackground(urls.download);
       }
       closePreviewModal();
     };
     previewDownloadBtn.onclick = async () => {
       recordFileOpen(f);
       const openedFromCache = await tryOpenFromCache(urls.download, f);
-      if(!openedFromCache){
+      if(!openedFromCache && !(await tryOpenDirect(urls.download, f))){
         window.open(urls.download, '_blank', 'noopener');
-        cacheFileInBackground(urls.download);
       }
       closePreviewModal();
     };
@@ -1851,13 +1864,12 @@
       const urls = getFileUrls(f);
       recordFileOpen(f);
       const openedFromCache = await tryOpenFromCache(urls.download, f);
-      if(!openedFromCache){
+      if(!openedFromCache && !(await tryOpenDirect(urls.download, f))){
         if(f.type === 'pdf'){
           window.open(urls.view, '_blank', 'noopener');
         } else {
           window.open(urls.download, '_blank', 'noopener');
         }
-        cacheFileInBackground(urls.download); // نخزنه محليًا عشان المرة الجاية
       }
     });
 
