@@ -171,6 +171,54 @@
   button#searchBtn:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(26,86,219,.35); }
   button#searchBtn:active{ transform:translateY(0); }
   button#searchBtn:disabled{ background:#9db4e8; box-shadow:none; cursor:default; transform:none; }
+  .pdf-search-toggle{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    margin:10px auto 0;
+    color:var(--muted);
+    font-size:12.5px;
+    user-select:none;
+    cursor:pointer;
+  }
+  .pdf-search-toggle input{
+    width:15px;
+    height:15px;
+    margin:0;
+    accent-color:var(--blue);
+    cursor:pointer;
+  }
+  .search-suggestions{
+    position:relative;
+    z-index:25;
+    margin-top:7px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:var(--shadow-md);
+    overflow:hidden;
+    text-align:left;
+  }
+  .search-suggestion{
+    display:block;
+    width:100%;
+    border:0;
+    border-bottom:1px solid var(--border);
+    background:var(--card);
+    color:var(--text);
+    padding:10px 13px;
+    font:13px inherit;
+    text-align:left;
+    cursor:pointer;
+  }
+  .search-suggestion:last-child{ border-bottom:0; }
+  .search-suggestion:hover,.search-suggestion.active{ background:rgba(26,86,219,.08); color:var(--blue-dark); }
+  .pdf-search-progress{
+    display:inline-block;
+    margin-inline-start:5px;
+    color:var(--blue);
+  }
   .powered{
     text-align:center;
     color:var(--muted);
@@ -802,6 +850,11 @@
         <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
       </div>
       <button id="searchBtn">🔍 Search</button>
+      <label class="pdf-search-toggle">
+        <input type="checkbox" id="searchInsidePdf">
+        <span>Search inside PDF</span>
+      </label>
+      <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
     </div>
     <div class="powered">Prepared by Elsayed adel</div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
@@ -817,7 +870,7 @@
         <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
           <button type="button" id="scanBtn" class="advanced-menu-item">📷 Scan Barcode/QR</button>
           <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 Scan Number (OCR)</button>
-          <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 TEST DECONENT</button>
+          <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 Test Documents</button>
           <button type="button" id="importantLinksBtn" class="advanced-menu-item">🔗 Important Links</button>
         </div>
       </div>
@@ -924,6 +977,7 @@
     <button type="button" id="selectionSearchClose" class="selection-search-close" aria-label="Close">✕</button>
   </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
   // إعدادات لازم تتظبط قبل ما الصفحة تشتغل:
   const PROXY_URL = "https://jigsearch.elsayedb1318.workers.dev/";
@@ -933,6 +987,8 @@
 
   const qInput = document.getElementById('q');
   const qClear = document.getElementById('qClear');
+  const searchInsidePdf = document.getElementById('searchInsidePdf');
+  const searchSuggestions = document.getElementById('searchSuggestions');
   const selectionSearchBar = document.getElementById('selectionSearchBar');
   const selectionSearchInput = document.getElementById('selectionSearchInput');
   const selectionSearchGo = document.getElementById('selectionSearchGo');
@@ -991,6 +1047,18 @@
   const FAV_KEY = 'jigsearch_favorites_v1';
   const RECENT_FILES_MAX = 30;
   const FILES_CACHE_NAME = 'jigsearch-files-v1';
+  const PDF_TEXT_CACHE_PREFIX = 'jigsearch-pdf-text-v1:';
+  const PDF_TEXT_MAX_CHARS = 120000;
+
+  // PDF.js is loaded near the bottom of the page. The worker is configured once it exists.
+  function configurePdfJs(){
+    if(window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions){
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      return true;
+    }
+    return false;
+  }
 
   // بنطلب تخزين دائم عشان المتصفح ميمسحش الملفات المحفوظة تلقائيًا لو
   // الجهاز محتاج مساحة - أفضل جهد بس، مش كل المتصفحات بتدعمها
@@ -1455,12 +1523,15 @@
       if(!parsed) return null;
       if(parsed.rootId !== ROOT_FOLDER_ID) return null;
       if(!parsed.folderIds || !parsed.files) return null;
+      // v8 adds background integrity checking so deleted/moved files cannot stay
+      // visible indefinitely from an old local index.
+      if(parsed.indexVersion && parsed.indexVersion < 8) return null;
       return parsed;
     }catch(e){ return null; }
   }
 
   async function saveCachedIndex(folderIds, files, topFolders){
-    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), folderIds, files, topFolders: topFolders || [] };
+    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), indexVersion: 8, folderIds, files, topFolders: topFolders || [] };
     const savedToIDB = await idbSet(CACHE_KEY, payload);
     if(!savedToIDB){
       // fallback لو IndexedDB فشل أو مش متاح
@@ -1510,6 +1581,83 @@
   // من غير ما توقف البحث. زرار التحديث اليدوي لسه شغال في أي وقت.
   // background=true = تحديث تلقائي بالخلفية: من غير سبينر، ولو فشل بنسيب
   // الفهرس القديم شغال بدل ما نمسحه.
+  // فحص سريع للفهرس المحفوظ: نقارن الملفات الموجودة فعليًا داخل كل فولدر
+  // بالنسخة المحلية. ده يعالج الحذف والنقل خارج الفولدر، مش بس الملفات الجديدة/المعدلة.
+  // الفحص يتم مرة واحدة في الجلسة وبشكل متوازي، ولو اكتشف اختلاف يعمل re-index تلقائيًا.
+  let integrityCheckPromise = null;
+  async function checkCachedIndexIntegrity(cached){
+    if(!cached || !cached.folderIds || !cached.files) return false;
+    if(integrityCheckPromise) return integrityCheckPromise;
+
+    integrityCheckPromise = (async () => {
+      try{
+        const cachedById = new Map(cached.files.map(f => [f.id, f]));
+        const liveIds = new Set();
+        let mismatch = false;
+        let i = 0;
+        const folderIds = cached.folderIds.slice();
+        const CONCURRENCY = 6;
+
+        async function worker(){
+          while(i < folderIds.length && !mismatch){
+            const folderId = folderIds[i++];
+            try{
+              const live = await fetchFolderChildrenRaw(folderId);
+              live.pdfs.forEach(f => liveIds.add(f.id));
+              live.subfolders.forEach(sf => {
+                if(!cached.folderIds.includes(sf.id)) mismatch = true;
+              });
+              // لو عدد/هوية الملفات اختلفت، نحتاج فهرسة جديدة.
+              // نقارن IDs فقط لأن الاسم/النوع لا يهمان لاكتشاف الحذف أو النقل.
+              for(const f of live.pdfs){
+                if(!cachedById.has(f.id)) { mismatch = true; break; }
+              }
+              if(!mismatch){
+                for(const f of cached.files){
+                  if(f.folder === null && folderId !== ROOT_FOLDER_ID) continue;
+                  if(cached.folderIds.includes(folderId) && !liveIds.has(f.id) && f.folder === folderId){
+                    mismatch = true; break;
+                  }
+                }
+              }
+            }catch(e){
+              // فشل فحص فولدر لا يعني أن الملف محذوف؛ نترك الفهرس كما هو.
+            }
+          }
+        }
+
+        const workers = [];
+        for(let k=0;k<Math.min(CONCURRENCY, folderIds.length);k++) workers.push(worker());
+        await Promise.all(workers);
+
+        // فحص نهائي أدق: كل ملف في الكاش يجب أن يظهر في أحد مجلداته الحاليّة.
+        if(!mismatch){
+          const liveAll = new Set();
+          let j = 0;
+          async function collectWorker(){
+            while(j < folderIds.length){
+              const folderId = folderIds[j++];
+              try{
+                const live = await fetchFolderChildrenRaw(folderId);
+                live.pdfs.forEach(f => liveAll.add(f.id));
+              }catch(e){}
+            }
+          }
+          const collectors = [];
+          for(let k=0;k<Math.min(CONCURRENCY, folderIds.length);k++) collectors.push(collectWorker());
+          await Promise.all(collectors);
+          for(const f of cached.files){
+            if(!liveAll.has(f.id)){ mismatch = true; break; }
+          }
+        }
+        return mismatch;
+      }finally{
+        integrityCheckPromise = null;
+      }
+    })();
+    return integrityCheckPromise;
+  }
+
   async function ensureIndex(forceRefresh){
     if(allFolderIds && indexedFiles && !forceRefresh) return true;
 
@@ -1522,6 +1670,15 @@
         renderFolderFilterOptions();
         const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString('en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown';
         setStatus(`Last index update: ${lastIndexDate}.`);
+        // Validate in the background. Search can use the cache immediately, while
+        // deletions/moves/new files trigger an automatic refresh without a manual re-index.
+        checkCachedIndexIntegrity(cached).then(changed => {
+          if(changed && !isReindexing){
+            newFilesBanner.textContent = '🔄 Index changed — updating automatically…';
+            newFilesBanner.style.display = 'block';
+            runManualReindex();
+          }
+        }).catch(() => {});
         return true;
       }
       // مفيش فهرس محفوظ - نعمل فهرسة تلقائية أول مرة من غير أي تدخل من المستخدم
@@ -2062,8 +2219,159 @@
     renderRecentSearches();
   }
 
+  let suggestionIndex = [];
+  let activeSuggestionIndex = -1;
+  let suggestionTimer = null;
+
+  function hideSearchSuggestions(){
+    searchSuggestions.style.display = 'none';
+    searchSuggestions.innerHTML = '';
+    activeSuggestionIndex = -1;
+  }
+
+  function buildSuggestionIndex(){
+    if(!indexedFiles) return;
+    suggestionIndex = Array.from(new Set(indexedFiles.map(f => f.name).filter(Boolean)));
+  }
+
+  function renderSearchSuggestions(term){
+    const clean = term.trim().toLowerCase();
+    if(!clean || !suggestionIndex.length){ hideSearchSuggestions(); return; }
+    const words = clean.split(/\s+/).filter(Boolean);
+    const matches = suggestionIndex
+      .filter(name => {
+        const n = name.toLowerCase();
+        return words.every(w => n.includes(w));
+      })
+      .sort((a,b) => {
+        const al = a.toLowerCase(), bl = b.toLowerCase();
+        const ap = al.startsWith(clean) ? 0 : 1;
+        const bp = bl.startsWith(clean) ? 0 : 1;
+        return ap - bp || a.length - b.length || a.localeCompare(b);
+      })
+      .slice(0, 7);
+
+    searchSuggestions.innerHTML = '';
+    if(!matches.length){ hideSearchSuggestions(); return; }
+    matches.forEach((name, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'search-suggestion';
+      btn.textContent = name;
+      btn.addEventListener('mousedown', e => e.preventDefault());
+      btn.addEventListener('click', () => {
+        qInput.value = name;
+        qClear.style.display = 'flex';
+        hideSearchSuggestions();
+        runSearch();
+      });
+      searchSuggestions.appendChild(btn);
+    });
+    searchSuggestions.style.display = 'block';
+  }
+
+  async function updateSearchSuggestions(){
+    const term = qInput.value.trim();
+    if(!term){ hideSearchSuggestions(); return; }
+    try{
+      const ready = await ensureIndex(false);
+      if(ready){
+        buildSuggestionIndex();
+        renderSearchSuggestions(term);
+      }
+    }catch(e){ hideSearchSuggestions(); }
+  }
+
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
   // من غير أي طلبات جديدة لـ Google Drive - أسرع بكتير ومش بيستهلك quota الـ API
+  async function getCachedPdfText(fileId){
+    try{
+      const value = await idbGet(PDF_TEXT_CACHE_PREFIX + fileId);
+      if(typeof value === 'string') return value;
+    }catch(e){}
+    return null;
+  }
+
+  async function setCachedPdfText(fileId, text){
+    try{ await idbSet(PDF_TEXT_CACHE_PREFIX + fileId, text.slice(0, PDF_TEXT_MAX_CHARS)); }catch(e){}
+  }
+
+  async function extractPdfText(file){
+    const cached = await getCachedPdfText(file.id);
+    if(cached !== null) return cached;
+    if(!configurePdfJs()) throw new Error('PDF search library is not ready');
+
+    const res = await fetch(getFileContentUrl(file.id));
+    if(!res.ok) throw new Error('Could not download PDF');
+    const data = new Uint8Array(await res.arrayBuffer());
+    const pdf = await window.pdfjsLib.getDocument({data}).promise;
+    let text = '';
+    for(let pageNo=1; pageNo<=pdf.numPages; pageNo++){
+      const page = await pdf.getPage(pageNo);
+      const content = await page.getTextContent();
+      text += content.items.map(item => item.str || '').join(' ') + '\n';
+      if(text.length >= PDF_TEXT_MAX_CHARS) break;
+    }
+    text = text.slice(0, PDF_TEXT_MAX_CHARS);
+    await setCachedPdfText(file.id, text);
+    return text;
+  }
+
+  async function runPdfContentSearch(term, words, token){
+    const candidates = indexedFiles.filter(f =>
+      f.type === 'pdf' && (activeFolderFilter === null || f.folder === activeFolderFilter)
+    );
+    if(!candidates.length){
+      showResultsPage([], false);
+      setStatus('🔍 No PDF files available');
+      return;
+    }
+
+    setLoading(true);
+    skeletonLoader.style.display = 'flex';
+    resultsEl.innerHTML = '';
+    loadMoreBtn.style.display = 'none';
+
+    const normalizedTerm = normalizeArabic(term).toLowerCase();
+    const matches = [];
+    let next = 0;
+    const CONCURRENCY = 3;
+
+    async function worker(){
+      while(next < candidates.length){
+        const idx = next++;
+        const file = candidates[idx];
+        if(token !== searchToken) return;
+        try{
+          const text = await extractPdfText(file);
+          const normalized = normalizeArabic(text).toLowerCase();
+          const ok = words.every(w => {
+            const nw = normalizeArabic(w).toLowerCase();
+            return normalized.includes(nw);
+          });
+          if(ok) matches.push(file);
+          setStatus(`Searching PDF content… ${Math.min(idx + 1, candidates.length)}/${candidates.length}<span class="pdf-search-progress"></span>`);
+        }catch(e){
+          // تجاهل ملف PDF واحد لو محتواه غير قابل للاستخراج.
+        }
+      }
+    }
+
+    try{
+      const workers = [];
+      for(let k=0;k<Math.min(CONCURRENCY,candidates.length);k++) workers.push(worker());
+      await Promise.all(workers);
+      if(token !== searchToken) return;
+      const sorted = sortByRelevance(matches, term, words);
+      showResultsPage(sorted, false);
+      setStatus(sorted.length ? `Found ${sorted.length} PDFs containing "${term}"` : `🔍 No PDF contains "${term}"`);
+      saveRecentSearch(term);
+    }finally{
+      setLoading(false);
+      skeletonLoader.style.display = 'none';
+    }
+  }
+
   async function runSearch(){
     const term = qInput.value.trim();
     setActiveHomeTab(null);
@@ -2087,13 +2395,19 @@
 
     const words = splitSearchWords(term);
     lastSearchWordForms = words;
-    const matched = indexedFiles.filter(f =>
+    const nameMatched = indexedFiles.filter(f =>
       matchesAllWords(f.name, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
     );
-    const sortedMatched = sortByRelevance(matched, term, words);
 
+    if(searchInsidePdf.checked){
+      hideSearchSuggestions();
+      await runPdfContentSearch(term, words, myToken);
+      return;
+    }
+
+    const sortedMatched = sortByRelevance(nameMatched, term, words);
     showResultsPage(sortedMatched, false);
-    setStatus(matched.length ? `Found ${matched.length} results` : "🔍 No matching results");
+    setStatus(nameMatched.length ? `Found ${nameMatched.length} results` : "🔍 No matching results");
     saveRecentSearch(term);
   }
 
@@ -2467,19 +2781,57 @@
   linksModalOverlay.addEventListener('click', (e) => { if(e.target === linksModalOverlay) closeLinksModal(); });
 
   searchBtn.addEventListener('click', runSearch);
-  qInput.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter') runSearch();
+  searchInsidePdf.addEventListener('change', () => {
+    if(searchInsidePdf.checked){
+      setStatus('PDF content search enabled');
+    }else if(!qInput.value.trim()){
+      setStatus('');
+    }
   });
-  // البحث بيتم بس لما تدوس زرار "بحث" أو Enter - مفيش بحث تلقائي أثناء الكتابة
+  qInput.addEventListener('keydown', (e) => {
+    const items = Array.from(searchSuggestions.querySelectorAll('.search-suggestion'));
+    if(e.key === 'ArrowDown' && items.length){
+      e.preventDefault();
+      activeSuggestionIndex = (activeSuggestionIndex + 1) % items.length;
+      items.forEach((b,i) => b.classList.toggle('active', i === activeSuggestionIndex));
+      return;
+    }
+    if(e.key === 'ArrowUp' && items.length){
+      e.preventDefault();
+      activeSuggestionIndex = (activeSuggestionIndex - 1 + items.length) % items.length;
+      items.forEach((b,i) => b.classList.toggle('active', i === activeSuggestionIndex));
+      return;
+    }
+    if(e.key === 'Enter'){
+      if(activeSuggestionIndex >= 0 && items[activeSuggestionIndex]){
+        e.preventDefault();
+        items[activeSuggestionIndex].click();
+      }else{
+        hideSearchSuggestions();
+        runSearch();
+      }
+    }
+    if(e.key === 'Escape') hideSearchSuggestions();
+  });
   qInput.addEventListener('input', () => {
     qClear.style.display = qInput.value ? 'flex' : 'none';
+    clearTimeout(suggestionTimer);
     if(qInput.value.trim() === ""){
+      hideSearchSuggestions();
       resultsEl.innerHTML = "";
       currentFiles = [];
       renderedCount = 0;
       loadMoreBtn.style.display = "none";
       setStatus("");
+      return;
     }
+    suggestionTimer = setTimeout(updateSearchSuggestions, 120);
+  });
+  qInput.addEventListener('focus', () => {
+    if(qInput.value.trim()) updateSearchSuggestions();
+  });
+  document.addEventListener('click', e => {
+    if(!e.target.closest('.search-box')) hideSearchSuggestions();
   });
   qClear.addEventListener('click', () => {
     qInput.value = "";
