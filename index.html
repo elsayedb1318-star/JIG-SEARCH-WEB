@@ -131,6 +131,37 @@
     transition:box-shadow .15s ease;
   }
   input#q:focus{ box-shadow:0 0 0 4px rgba(26,86,219,.2); }
+  .search-suggestions{
+    position:absolute;
+    left:0;
+    right:0;
+    top:calc(100% + 6px);
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    box-shadow:var(--shadow-lg);
+    overflow:hidden;
+    z-index:25;
+    text-align:left;
+  }
+  .search-suggestion-item{
+    display:block;
+    width:100%;
+    box-sizing:border-box;
+    padding:13px 16px;
+    border:none;
+    background:var(--card);
+    color:var(--text);
+    font-family:inherit;
+    font-size:16px;
+    text-align:left;
+    cursor:pointer;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .search-suggestion-item:hover{ background:rgba(26,86,219,.08); }
+  .search-suggestion-item + .search-suggestion-item{ border-top:1px solid var(--border); }
   .q-clear-btn{
     position:absolute;
     top:50%;
@@ -800,6 +831,7 @@
         </span>
         <input type="text" id="q" placeholder="Type your search term" />
         <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
+        <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
       </div>
       <button id="searchBtn">🔍 Search</button>
     </div>
@@ -817,7 +849,7 @@
         <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
           <button type="button" id="scanBtn" class="advanced-menu-item">📷 Scan Barcode/QR</button>
           <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 Scan Number (OCR)</button>
-          <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 TEST DECONENT</button>
+          <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 Test Documents</button>
           <button type="button" id="importantLinksBtn" class="advanced-menu-item">🔗 Important Links</button>
         </div>
       </div>
@@ -933,6 +965,7 @@
 
   const qInput = document.getElementById('q');
   const qClear = document.getElementById('qClear');
+  const searchSuggestions = document.getElementById('searchSuggestions');
   const selectionSearchBar = document.getElementById('selectionSearchBar');
   const selectionSearchInput = document.getElementById('selectionSearchInput');
   const selectionSearchGo = document.getElementById('selectionSearchGo');
@@ -1045,22 +1078,24 @@
     }
   }
   // بيسحب محتوى الملف من الـ Worker ويفتحه مباشرة (من غير الدخول على صفحة
-  // Drive) حتى أول مرة، وبيخزنه كمان للمرة الجاية
+  // Drive) حتى أول مرة، وبيخزنه كمان للمرة الجاية. بيرجع 'opened' لو نجح،
+  // 'gone' لو الملف اتحذف/اتنقل من Drive (404)، أو 'failed' لأي سبب تاني
   async function tryOpenDirect(url, f){
-    if(!url) return false;
+    if(!url) return 'failed';
     try{
       const res = await fetch(url);
-      if(!res.ok) return false;
+      if(res.status === 404) return 'gone';
+      if(!res.ok) return 'failed';
       const clone = res.clone();
       if('caches' in window){
         caches.open(FILES_CACHE_NAME).then(cache => cache.put(url, clone)).catch(() => {});
       }
       const blob = await res.blob();
-      if(!blob || !blob.size) return false;
+      if(!blob || !blob.size) return 'failed';
       openBlob(blob, f);
-      return true;
+      return 'opened';
     }catch(e){
-      return false;
+      return 'failed';
     }
   }
   function deleteCachedFile(id){
@@ -1073,11 +1108,37 @@
   // بسرعة وهو مستني)
   const openingFileIds = new Set();
   // بيحاول يفتح الملف من الكاش، ولو مش موجود بيحاول يجيبه مباشرة من الـ
-  // Worker. بيرجع true لو نجح، أو false لو محتاج المتصفح يرجع للطريقة
-  // الاحتياطية (فتح صفحة Drive)
+  // Worker. بيرجع 'opened'، 'gone' (الملف اتحذف/اتنقل)، أو 'failed'
+  // (محتاج المتصفح يرجع للطريقة الاحتياطية - فتح صفحة Drive)
   async function resolveFileOpen(f){
     const contentUrl = getFileContentUrl(f.id);
-    return (await tryOpenFromCache(contentUrl, f)) || (await tryOpenDirect(contentUrl, f));
+    if(await tryOpenFromCache(contentUrl, f)) return 'opened';
+    return await tryOpenDirect(contentUrl, f);
+  }
+  // بيتنفذ لو اتأكدنا إن الملف اتحذف أو اتنقل من Google Drive (404) -
+  // بيشيله من الفهرس المحلي (عشان مايفضلش يظهر في نتائج البحث الجاية)
+  // ومن آخر الملفات/المفضلة، وبيشيله من الشاشة على طول من غير ما ننتظر
+  // Re-index يدوي
+  async function handleFileGone(f){
+    if(indexedFiles){
+      indexedFiles = indexedFiles.filter(x => x.id !== f.id);
+      try{
+        const cached = await loadCachedIndex();
+        if(cached){
+          cached.files = (cached.files || []).filter(x => x.id !== f.id);
+          await idbSet(CACHE_KEY, cached); // بنحافظ على نفس تاريخ الفهرسة القديم (مش re-index كامل)
+        }
+      }catch(e){ /* تجاهل */ }
+    }
+    const favs = loadJSON(FAV_KEY, {});
+    if(favs[f.id]){ delete favs[f.id]; saveJSON(FAV_KEY, favs); }
+    const recent = loadJSON(RECENT_FILES_KEY, []);
+    if(recent.some(x => x.id === f.id)){
+      saveJSON(RECENT_FILES_KEY, recent.filter(x => x.id !== f.id));
+    }
+    deleteCachedFile(f.id);
+    document.querySelectorAll(`[data-file-id="${f.id}"]`).forEach(el => el.remove());
+    setStatus('⚠️ This file was deleted or moved on Google Drive — removed from the results.', true);
   }
 
   // بيتسجل كل ما المستخدم يفتح ملف في "آخر الملفات" - وبيمسح أقدم ملف
@@ -1665,10 +1726,14 @@
       previewOpenBtn.disabled = true;
       previewDownloadBtn.disabled = true;
       previewOpenBtn.textContent = '⏳ Opening...';
-      recordFileOpen(f);
       try{
-        const opened = await resolveFileOpen(f);
-        if(!opened) window.open(urls.view, '_blank', 'noopener');
+        const result = await resolveFileOpen(f);
+        if(result === 'gone'){
+          await handleFileGone(f);
+        } else {
+          recordFileOpen(f);
+          if(result !== 'opened') window.open(urls.view, '_blank', 'noopener');
+        }
       }finally{
         previewOpenBtn.disabled = false;
         previewDownloadBtn.disabled = false;
@@ -1682,10 +1747,14 @@
       previewOpenBtn.disabled = true;
       previewDownloadBtn.disabled = true;
       previewDownloadBtn.textContent = '⏳ Downloading...';
-      recordFileOpen(f);
       try{
-        const opened = await resolveFileOpen(f);
-        if(!opened) window.open(urls.download, '_blank', 'noopener');
+        const result = await resolveFileOpen(f);
+        if(result === 'gone'){
+          await handleFileGone(f);
+        } else {
+          recordFileOpen(f);
+          if(result !== 'opened') window.open(urls.download, '_blank', 'noopener');
+        }
       }finally{
         previewOpenBtn.disabled = false;
         previewDownloadBtn.disabled = false;
@@ -1884,6 +1953,7 @@
     opts = opts || {};
     const a = document.createElement('a');
     a.className = 'result-item';
+    a.dataset.fileId = f.id;
     // بدل ما نحمّل الملف مباشرة، بنفتح نافذة معاينة فيها معلومات الملف
     // وخيارات (فتح / تحميل / مشاركة). الـ href هنا لسه بيتحط كـ fallback
     // (مثلاً لو المستخدم عمل right-click "فتح في تاب جديدة")
@@ -1896,14 +1966,18 @@
       // بنحاول نفتح الملف مباشرة (من غير الدخول على صفحة Google Drive) عن
       // طريق الـ Worker - ولو فشل لأي سبب، نرجع للطريقة الاحتياطية القديمة
       const urls = getFileUrls(f);
-      recordFileOpen(f);
       try{
-        const opened = await resolveFileOpen(f);
-        if(!opened){
-          if(f.type === 'pdf'){
-            window.open(urls.view, '_blank', 'noopener');
-          } else {
-            window.open(urls.download, '_blank', 'noopener');
+        const result = await resolveFileOpen(f);
+        if(result === 'gone'){
+          await handleFileGone(f);
+        } else {
+          recordFileOpen(f);
+          if(result !== 'opened'){
+            if(f.type === 'pdf'){
+              window.open(urls.view, '_blank', 'noopener');
+            } else {
+              window.open(urls.download, '_blank', 'noopener');
+            }
           }
         }
       }finally{
@@ -2065,6 +2139,7 @@
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
   // من غير أي طلبات جديدة لـ Google Drive - أسرع بكتير ومش بيستهلك quota الـ API
   async function runSearch(){
+    searchSuggestions.style.display = 'none';
     const term = qInput.value.trim();
     setActiveHomeTab(null);
 
@@ -2466,13 +2541,56 @@
   linksModalClose.addEventListener('click', closeLinksModal);
   linksModalOverlay.addEventListener('click', (e) => { if(e.target === linksModalOverlay) closeLinksModal(); });
 
+  // اقتراحات أثناء الكتابة - مبنية على أسماء الملفات في الفهرس المحلي
+  // نفسه (من غير أي طلب شبكة إضافي)
+  function updateSearchSuggestions(){
+    const query = qInput.value.trim().toLowerCase();
+    if(query.length < 2 || !indexedFiles || !indexedFiles.length){
+      searchSuggestions.style.display = 'none';
+      searchSuggestions.innerHTML = '';
+      return;
+    }
+    const seen = new Set();
+    const matches = [];
+    for(const f of indexedFiles){
+      if(matches.length >= 6) break;
+      const name = f.name || '';
+      if(name.toLowerCase().includes(query) && !seen.has(name)){
+        seen.add(name);
+        matches.push(name);
+      }
+    }
+    if(!matches.length){
+      searchSuggestions.style.display = 'none';
+      searchSuggestions.innerHTML = '';
+      return;
+    }
+    searchSuggestions.innerHTML = '';
+    matches.forEach(name => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'search-suggestion-item';
+      btn.textContent = name;
+      btn.addEventListener('click', () => {
+        qInput.value = name;
+        qClear.style.display = 'flex';
+        searchSuggestions.style.display = 'none';
+        runSearch();
+      });
+      searchSuggestions.appendChild(btn);
+    });
+    searchSuggestions.style.display = 'block';
+  }
+
   searchBtn.addEventListener('click', runSearch);
   qInput.addEventListener('keydown', (e) => {
     if(e.key === 'Enter') runSearch();
+    if(e.key === 'Escape') searchSuggestions.style.display = 'none';
   });
   // البحث بيتم بس لما تدوس زرار "بحث" أو Enter - مفيش بحث تلقائي أثناء الكتابة
   qInput.addEventListener('input', () => {
     qClear.style.display = qInput.value ? 'flex' : 'none';
+    updateSearchSuggestions();
     if(qInput.value.trim() === ""){
       resultsEl.innerHTML = "";
       currentFiles = [];
@@ -2481,9 +2599,15 @@
       setStatus("");
     }
   });
+  qInput.addEventListener('focus', updateSearchSuggestions);
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest('.search-box')) searchSuggestions.style.display = 'none';
+  });
   qClear.addEventListener('click', () => {
     qInput.value = "";
     qClear.style.display = 'none';
+    searchSuggestions.style.display = 'none';
+    searchSuggestions.innerHTML = '';
     resultsEl.innerHTML = "";
     currentFiles = [];
     renderedCount = 0;
