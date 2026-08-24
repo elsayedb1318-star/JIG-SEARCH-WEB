@@ -851,9 +851,7 @@
       </div>
       <button id="searchBtn">🔍 Search</button>
       <label class="pdf-search-toggle">
-        <input type="checkbox" id="searchInsidePdf">
-        <span>Search inside PDF</span>
-      </label>
+</label>
       <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
     </div>
     <div class="powered">Prepared by Elsayed adel</div>
@@ -987,7 +985,6 @@
 
   const qInput = document.getElementById('q');
   const qClear = document.getElementById('qClear');
-  const searchInsidePdf = document.getElementById('searchInsidePdf');
   const searchSuggestions = document.getElementById('searchSuggestions');
   const selectionSearchBar = document.getElementById('selectionSearchBar');
   const selectionSearchInput = document.getElementById('selectionSearchInput');
@@ -2399,7 +2396,6 @@
       matchesAllWords(f.name, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
     );
 
-    if(searchInsidePdf.checked){
       hideSearchSuggestions();
       await runPdfContentSearch(term, words, myToken);
       return;
@@ -2781,8 +2777,6 @@
   linksModalOverlay.addEventListener('click', (e) => { if(e.target === linksModalOverlay) closeLinksModal(); });
 
   searchBtn.addEventListener('click', runSearch);
-  searchInsidePdf.addEventListener('change', () => {
-    if(searchInsidePdf.checked){
       setStatus('PDF content search enabled');
     }else if(!qInput.value.trim()){
       setStatus('');
