@@ -577,19 +577,6 @@
     transition:background .12s ease;
   }
   .advanced-menu-item:hover{ background:rgba(26,86,219,.08); }
-  .advanced-menu-item.active{ background:rgba(26,86,219,.12); color:var(--blue-dark); font-weight:700; }
-  .search-suggestions{
-    position:absolute; left:0; right:0; top:calc(100% + 6px); background:var(--card);
-    border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow-lg);
-    overflow:hidden; z-index:30; display:none;
-  }
-  .search-suggestion{ width:100%; border:0; border-bottom:1px solid var(--border); background:var(--card);
-    color:var(--text); text-align:left; padding:10px 14px; font:500 13px inherit; cursor:pointer;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .search-suggestion:last-child{ border-bottom:0; }
-  .search-suggestion:hover{ background:rgba(26,86,219,.08); }
-  html[dir="rtl"] .search-suggestion{ text-align:right; }
-  .lang-btn{ min-width:74px; }
   .advanced-menu-item + .advanced-menu-item{ border-top:1px solid var(--border); }
   .tool-btn{
     background:var(--card);
@@ -811,8 +798,7 @@
         <span class="search-input-icon">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </span>
-        <input type="text" id="q" placeholder="Type your search term" autocomplete="off" />
-        <div id="searchSuggestions" class="search-suggestions"></div>
+        <input type="text" id="q" placeholder="Type your search term" />
         <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
       </div>
       <button id="searchBtn">🔍 Search</button>
@@ -829,9 +815,9 @@
       <div class="advanced-search">
         <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ Advanced Search</button>
         <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
-          <button type="button" id="pdfContentSearchBtn" class="advanced-menu-item">📄 Search inside PDF</button>
           <button type="button" id="scanBtn" class="advanced-menu-item">📷 Scan Barcode/QR</button>
           <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 Scan Number (OCR)</button>
+          <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 TEST DECONENT</button>
           <button type="button" id="importantLinksBtn" class="advanced-menu-item">🔗 Important Links</button>
         </div>
       </div>
@@ -844,7 +830,6 @@
       <button type="button" class="home-tab" data-tab="recent">🕘 Recent Files</button>
       <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
       <button id="themeToggleBtn" class="home-tab help-btn">🌙 Dark Mode</button>
-      <button id="languageToggleBtn" class="home-tab help-btn lang-btn">العربية</button>
     </div>
     <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
     <div id="status" class="status" role="status" aria-live="polite" title="Tap to re-index">
@@ -963,15 +948,13 @@
   const newFilesBanner = document.getElementById('newFilesBanner');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   const recentSearchesEl = document.getElementById('recentSearches');
-  const searchSuggestions = document.getElementById('searchSuggestions');
-  const pdfContentSearchBtn = document.getElementById('pdfContentSearchBtn');
-  const languageToggleBtn = document.getElementById('languageToggleBtn');
   const folderFilterWrap = document.getElementById('folderFilterWrap');
   const folderFilterSelect = document.getElementById('folderFilterSelect');
   const previewModalOverlay = document.getElementById('previewModalOverlay');
   const linksModalOverlay = document.getElementById('linksModalOverlay');
   const linksModalClose = document.getElementById('linksModalClose');
   const importantLinksBtn = document.getElementById('importantLinksBtn');
+  const testDeconentBtn = document.getElementById('testDeconentBtn');
   const previewModalClose = document.getElementById('previewModalClose');
   const previewIcon = document.getElementById('previewIcon');
   const previewName = document.getElementById('previewName');
@@ -1086,15 +1069,6 @@
       .then(cache => cache.delete(getFileContentUrl(id)))
       .catch(() => {});
   }
-  async function deletePdfTextCache(id){
-    try{ await idbSet('pdftext:' + id, null); }catch(e){}
-  }
-  async function purgeRemovedFiles(oldFiles, newFiles){
-    const newIds = new Set((newFiles || []).map(f => f.id));
-    const removed = (oldFiles || []).filter(f => f && f.id && !newIds.has(f.id));
-    removed.forEach(f => { deleteCachedFile(f.id); deletePdfTextCache(f.id); });
-    return removed.length;
-  }
   // بيمنع فتح نفس الملف أكتر من مرة في نفس اللحظة (لو المستخدم دوس مرتين
   // بسرعة وهو مستني)
   const openingFileIds = new Set();
@@ -1142,10 +1116,10 @@
   }
 
   function renderRecentTab(){
-    renderPlainList(getRecentFiles(), currentLang === 'ar' ? "🕘 لم تفتح أي ملفات بعد" : "🕘 You haven't opened any files yet", { onRemove: f => removeRecentFile(f.id), onClearAll: clearRecentFiles });
+    renderPlainList(getRecentFiles(), "🕘 You haven't opened any files yet", { onRemove: f => removeRecentFile(f.id), onClearAll: clearRecentFiles });
   }
   function renderFavoritesTab(){
-    renderPlainList(getFavoriteFiles(), currentLang === 'ar' ? "⭐ لا توجد ملفات مفضلة محفوظة" : "⭐ No favorite files saved yet", { onClearAll: clearFavorites });
+    renderPlainList(getFavoriteFiles(), "⭐ No favorite files saved yet", { onClearAll: clearFavorites });
   }
 
   let activeHomeTab = null;
@@ -1170,7 +1144,10 @@
   });
 
   // ===== الوضع الليلي =====
-  function applyThemeButtonLabel(){ applyLanguage(); }
+  function applyThemeButtonLabel(){
+    const isDark = document.documentElement.classList.contains('dark');
+    themeToggleBtn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+  }
   applyThemeButtonLabel();
   themeToggleBtn.addEventListener('click', () => {
     const isDark = document.documentElement.classList.toggle('dark');
@@ -1182,55 +1159,8 @@
   let indexedFiles = null;   // كل ملفات الـ PDF (id + name) اللي اتفهرست جوه كل الفولدرات
   let allTopFolders = null;  // الفولدرات المباشرة جوه الروت بس (id + name) - المتاحة للفلترة
   let activeFolderFilter = null; // ID فولدر مباشر جوه الروت لو المستخدم فلتر النتايج بيه، أو null لكل الفولدرات
-  let pdfContentSearchEnabled = false;
-  let syncInProgress = false;
-  let suggestionTimer = null;
-  let currentLang = localStorage.getItem('jigsearch_lang') || 'en';
   let displayedCount = 0;
   let searchToken = 0; // بيتزود كل بحث جديد عشان نلغي نتيجة بحث قديم اتأخر
-
-  const I18N = {
-    en: {
-      searchPlaceholder:'Type your search term', search:'Search', advanced:'Advanced Search', filter:'Filter:', all:'All',
-      recent:'Recent Files', favorites:'Favorites', dark:'Dark Mode', light:'Light Mode', arabic:'العربية', english:'English',
-      pdfSearch:'Search inside PDF', pdfSearchOn:'✓ Search inside PDF', scan:'Scan Barcode/QR', ocr:'Scan Number (OCR)', links:'Important Links',
-      typeFirst:'Type a file name or part of it first', noResults:'🔍 No matching results', recentSearches:'Recent searches:', clearAll:'Clear all',
-      indexUpdated:'Last index update:', syncing:'Syncing index...', syncDone:'Index synchronized', suggestions:'Suggestions',
-      searchFileName:'Search by file name', searchPdfContent:'Search file names and PDF content', contentMatches:'content matches'
-    },
-    ar: {
-      searchPlaceholder:'اكتب كلمة البحث', search:'بحث', advanced:'بحث متقدم', filter:'فلترة:', all:'الكل',
-      recent:'آخر الملفات', favorites:'المفضلة', dark:'الوضع الليلي', light:'الوضع النهاري', arabic:'العربية', english:'English',
-      pdfSearch:'البحث داخل PDF', pdfSearchOn:'✓ البحث داخل PDF', scan:'مسح باركود/QR', ocr:'مسح رقم (OCR)', links:'روابط مهمة',
-      typeFirst:'اكتب اسم الملف أو جزءًا منه أولًا', noResults:'🔍 لا توجد نتائج مطابقة', recentSearches:'عمليات البحث الأخيرة:', clearAll:'مسح الكل',
-      indexUpdated:'آخر تحديث للفهرس:', syncing:'جاري مزامنة الفهرس...', syncDone:'تمت مزامنة الفهرس', suggestions:'اقتراحات',
-      searchFileName:'البحث في أسماء الملفات', searchPdfContent:'البحث في أسماء الملفات ومحتوى PDF', contentMatches:'مطابقة داخل المحتوى'
-    }
-  };
-  const t = key => (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
-  function applyLanguage(){
-    document.documentElement.lang = currentLang === 'ar' ? 'ar' : 'en';
-    document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-    qInput.placeholder = t('searchPlaceholder');
-    searchBtn.textContent = '🔍 ' + t('search');
-    advancedSearchBtn.textContent = '⚙️ ' + t('advanced');
-    themeToggleBtn.textContent = document.documentElement.classList.contains('dark') ? '☀️ ' + t('light') : '🌙 ' + t('dark');
-    languageToggleBtn.textContent = currentLang === 'ar' ? 'English' : 'العربية';
-    document.querySelectorAll('.home-tab[data-tab="recent"]').forEach(b => b.textContent = '🕘 ' + t('recent'));
-    document.querySelectorAll('.home-tab[data-tab="favorites"]').forEach(b => b.textContent = '⭐ ' + t('favorites'));
-    const ff = document.querySelector('.folder-filter-label'); if(ff) ff.textContent = '📁 ' + t('filter');
-    const allOpt = folderFilterSelect.querySelector('option[value=""]'); if(allOpt) allOpt.textContent = t('all');
-    pdfContentSearchBtn.textContent = pdfContentSearchEnabled ? '📄 ' + t('pdfSearchOn') : '📄 ' + t('pdfSearch');
-    scanBtn.textContent = '📷 ' + t('scan');
-    ocrBtn.textContent = '🔎 ' + t('ocr');
-    importantLinksBtn.textContent = '🔗 ' + t('links');
-  }
-  languageToggleBtn.addEventListener('click', () => {
-    currentLang = currentLang === 'en' ? 'ar' : 'en';
-    try{ localStorage.setItem('jigsearch_lang', currentLang); }catch(e){}
-    applyLanguage(); renderRecentSearches(); renderFolderFilterOptions();
-    if(qInput.value.trim()) runSearch();
-  });
 
   function setLoading(isLoading){
     spinnerEl.classList.toggle('active', !!isLoading);
@@ -1391,7 +1321,7 @@
         if(f.mimeType === 'application/vnd.google-apps.folder'){
           subfolders.push({ id: f.id, name: f.name });
         } else if(SUPPORTED_MIME_TYPES[f.mimeType]){
-          matches.push({ id: f.id, name: f.name, type: SUPPORTED_MIME_TYPES[f.mimeType], modifiedTime: f.modifiedTime || null, size: f.size || null });
+          matches.push({ id: f.id, name: f.name, type: SUPPORTED_MIME_TYPES[f.mimeType] });
         }
       });
       pageToken = data.nextPageToken || null;
@@ -1530,7 +1460,7 @@
   }
 
   async function saveCachedIndex(folderIds, files, topFolders){
-    const payload = { rootId: ROOT_FOLDER_ID, version: 8, ts: Date.now(), folderIds, files, topFolders: topFolders || [] };
+    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), folderIds, files, topFolders: topFolders || [] };
     const savedToIDB = await idbSet(CACHE_KEY, payload);
     if(!savedToIDB){
       // fallback لو IndexedDB فشل أو مش متاح
@@ -1591,8 +1521,7 @@
         allTopFolders = cached.topFolders || [];
         renderFolderFilterOptions();
         const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString('en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown';
-        setStatus(`${t('indexUpdated')} ${lastIndexDate}.`);
-        scheduleBackgroundIndexSync();
+        setStatus(`Last index update: ${lastIndexDate}.`);
         return true;
       }
       // مفيش فهرس محفوظ - نعمل فهرسة تلقائية أول مرة من غير أي تدخل من المستخدم
@@ -1609,12 +1538,10 @@
       const result = await crawlAllFoldersAndFiles(ROOT_FOLDER_ID, (folderCount, fileCount, level) => {
         setStatus(`Indexing... ${folderCount} folders and ${fileCount} PDF/Office/image files so far (level ${level})`);
       });
-      const oldFiles = indexedFiles || ((await loadCachedIndex()) || {}).files || [];
       allFolderIds = result.folderIds;
       indexedFiles = result.files;
       allTopFolders = result.topFolders;
       renderFolderFilterOptions();
-      const removedCount = await purgeRemovedFiles(oldFiles, indexedFiles);
       await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders);
       let note = '';
       if(skippedFolderCount){
@@ -2040,7 +1967,7 @@
       const clearBtn = document.createElement('button');
       clearBtn.type = 'button';
       clearBtn.className = 'recent-clear-all';
-      clearBtn.textContent = currentLang === 'ar' ? '🗑 مسح هذه القائمة' : '🗑 Clear this list';
+      clearBtn.textContent = '🗑 Clear this list';
       clearBtn.addEventListener('click', opts.onClearAll);
       clearWrap.appendChild(clearBtn);
       resultsEl.appendChild(clearWrap);
@@ -2091,7 +2018,7 @@
     }
     const label = document.createElement('span');
     label.className = 'recent-searches-label';
-    label.textContent = t('recentSearches');
+    label.textContent = 'Recent searches:';
     recentSearchesEl.appendChild(label);
     list.forEach(term => {
       const wrap = document.createElement('span');
@@ -2118,7 +2045,7 @@
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.className = 'recent-clear-all';
-    clearBtn.textContent = t('clearAll');
+    clearBtn.textContent = 'Clear all';
     clearBtn.addEventListener('click', clearRecentSearches);
     recentSearchesEl.appendChild(clearBtn);
     recentSearchesEl.style.display = 'flex';
@@ -2133,105 +2060,6 @@
   function clearRecentSearches(){
     try{ localStorage.removeItem(RECENT_SEARCH_KEY); }catch(e){ /* تجاهل */ }
     renderRecentSearches();
-  }
-
-  // ===== مزامنة كاملة للفهرس في الخلفية =====
-  const INDEX_SYNC_KEY = 'jigsearch_last_full_sync_v1';
-  const INDEX_SYNC_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-  async function syncIndexNow(){
-    if(syncInProgress || !checkSetup()) return false;
-    syncInProgress = true;
-    const oldFiles = indexedFiles ? indexedFiles.slice() : ((await loadCachedIndex()) || {}).files || [];
-    try{
-      setStatus(t('syncing'));
-      const result = await crawlAllFoldersAndFiles(ROOT_FOLDER_ID);
-      const oldIds = new Set(oldFiles.map(f => f.id));
-      const newIds = new Set(result.files.map(f => f.id));
-      let changed = oldFiles.length !== result.files.length || oldFiles.some(f => !newIds.has(f.id));
-      if(!changed){
-        const oldMap = new Map(oldFiles.map(f => [f.id, f]));
-        changed = result.files.some(f => { const o = oldMap.get(f.id); return !o || o.name !== f.name || o.modifiedTime !== f.modifiedTime; });
-      }
-      const removedCount = await purgeRemovedFiles(oldFiles, result.files);
-      allFolderIds = result.folderIds; indexedFiles = result.files; allTopFolders = result.topFolders;
-      renderFolderFilterOptions();
-      await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders);
-      try{ localStorage.setItem(INDEX_SYNC_KEY, String(Date.now())); }catch(e){}
-      if(changed || removedCount){
-        newFilesBanner.style.display = 'none';
-        setStatus(`${t('syncDone')}${removedCount ? ' • ' + removedCount + (currentLang === 'ar' ? ' ملف قديم تم حذفه' : ' removed old files') : ''}.`);
-        if(qInput.value.trim()) runSearch();
-      }
-      return true;
-    }catch(e){
-      // لا نمسح الفهرس القديم لو المزامنة فشلت
-      return false;
-    }finally{ syncInProgress = false; }
-  }
-  function scheduleBackgroundIndexSync(){
-    try{
-      const last = parseInt(localStorage.getItem(INDEX_SYNC_KEY) || '0', 10);
-      if(Date.now() - last < INDEX_SYNC_COOLDOWN_MS) return;
-      setTimeout(() => syncIndexNow(), 2500);
-    }catch(e){ setTimeout(() => syncIndexNow(), 2500); }
-  }
-
-  // ===== البحث داخل محتوى PDF =====
-  const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-  const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  let pdfJsReady = null;
-  async function ensurePdfJs(){
-    if(window.pdfjsLib) return window.pdfjsLib;
-    if(!pdfJsReady){
-      pdfJsReady = loadScript(PDFJS_CDN).then(() => {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
-        return window.pdfjsLib;
-      });
-    }
-    return pdfJsReady;
-  }
-  async function extractPdfText(file){
-    const cacheKey = 'pdftext:' + file.id;
-    try{
-      const cached = await idbGet(cacheKey);
-      const currentVersion = file.modifiedTime || '';
-      if(cached && cached.text && cached.version === currentVersion) return cached.text;
-    }catch(e){}
-    const pdfjs = await ensurePdfJs();
-    const res = await fetch(getFileContentUrl(file.id));
-    if(!res.ok) throw new Error('PDF download failed');
-    const data = new Uint8Array(await res.arrayBuffer());
-    const pdf = await pdfjs.getDocument({data}).promise;
-    const parts = [];
-    for(let pageNo=1; pageNo<=pdf.numPages; pageNo++){
-      const page = await pdf.getPage(pageNo);
-      const content = await page.getTextContent();
-      parts.push(content.items.map(i => i.str || '').join(' '));
-    }
-    const text = parts.join('\n').replace(/\s+/g, ' ').trim();
-    try{ await idbSet(cacheKey, {version: currentVersion, text, ts: Date.now()}); }catch(e){}
-    return text;
-  }
-  async function searchPdfContent(term, files){
-    const candidates = files.filter(f => f.type === 'pdf');
-    if(!candidates.length) return [];
-    const forms = splitSearchWords(term);
-    const hits = []; let next = 0;
-    const concurrency = Math.min(3, candidates.length);
-    async function worker(){
-      while(next < candidates.length){
-        const file = candidates[next++];
-        try{
-          setStatus(`${t('searchPdfContent')}... ${next}/${candidates.length}`);
-          const text = await extractPdfText(file);
-          const normalized = normalizeArabic(text.toLowerCase());
-          const ok = forms.every(group => group.some(f => normalized.includes(f)));
-          if(ok) hits.push({...file, _contentMatch:true});
-        }catch(e){ /* ملف واحد فشل، كمل الباقي */ }
-      }
-    }
-    await Promise.all(Array.from({length: concurrency}, worker));
-    return hits;
   }
 
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
@@ -2259,20 +2087,13 @@
 
     const words = splitSearchWords(term);
     lastSearchWordForms = words;
-    const nameMatched = indexedFiles.filter(f =>
+    const matched = indexedFiles.filter(f =>
       matchesAllWords(f.name, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
     );
-    let matched = nameMatched;
-    if(pdfContentSearchEnabled){
-      const contentMatched = await searchPdfContent(term, indexedFiles.filter(f => activeFolderFilter === null || f.folder === activeFolderFilter));
-      const map = new Map(nameMatched.map(f => [f.id, f]));
-      contentMatched.forEach(f => map.set(f.id, f));
-      matched = Array.from(map.values());
-    }
     const sortedMatched = sortByRelevance(matched, term, words);
 
     showResultsPage(sortedMatched, false);
-    setStatus(matched.length ? `Found ${matched.length} results` : t('noResults'));
+    setStatus(matched.length ? `Found ${matched.length} results` : "🔍 No matching results");
     saveRecentSearch(term);
   }
 
@@ -2285,7 +2106,6 @@
   });
   document.addEventListener('click', (e) => {
     if(!e.target.closest('.advanced-search')) closeAdvancedMenu();
-    if(!e.target.closest('.search-input-wrap')) hideSearchSuggestions();
   });
   document.addEventListener('keydown', (e) => {
     if(e.key !== 'Escape') return;
@@ -2635,16 +2455,12 @@
     if(val){ qInput.value = val; qClear.style.display = 'flex'; runSearch(); }
   });
 
-  pdfContentSearchBtn.addEventListener('click', () => {
-    pdfContentSearchEnabled = !pdfContentSearchEnabled;
-    pdfContentSearchBtn.classList.toggle('active', pdfContentSearchEnabled);
-    applyLanguage();
-    closeAdvancedMenu();
-    if(qInput.value.trim()) runSearch();
-  });
-
   scanBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('scan'); });
   ocrBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('ocr'); });
+  testDeconentBtn.addEventListener('click', () => {
+    closeAdvancedMenu();
+    window.open('https://drive.google.com/drive/folders/1o2UwDHE3CCn11td1ewQpRW0iYCtGyb09', '_blank', 'noopener');
+  });
   function closeLinksModal(){ linksModalOverlay.style.display = 'none'; }
   importantLinksBtn.addEventListener('click', () => { closeAdvancedMenu(); linksModalOverlay.style.display = 'flex'; });
   linksModalClose.addEventListener('click', closeLinksModal);
@@ -2652,37 +2468,12 @@
 
   searchBtn.addEventListener('click', runSearch);
   qInput.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter'){ hideSearchSuggestions(); runSearch(); }
-    if(e.key === 'Escape') hideSearchSuggestions();
+    if(e.key === 'Enter') runSearch();
   });
-  // ===== اقتراحات البحث أثناء الكتابة =====
-  function hideSearchSuggestions(){ searchSuggestions.style.display = 'none'; searchSuggestions.innerHTML = ''; }
-  function showSearchSuggestions(term){
-    if(!indexedFiles || term.trim().length < 2){ hideSearchSuggestions(); return; }
-    const q = normalizeArabic(term.trim().toLowerCase());
-    const seen = new Set();
-    const suggestions = [];
-    for(const f of indexedFiles){
-      if(suggestions.length >= 6) break;
-      const name = f.name || ''; const norm = normalizeArabic(name.toLowerCase());
-      if(norm.includes(q) && !seen.has(name)){ seen.add(name); suggestions.push(f); }
-    }
-    if(!suggestions.length){ hideSearchSuggestions(); return; }
-    searchSuggestions.innerHTML = '';
-    suggestions.forEach(f => {
-      const b = document.createElement('button'); b.type='button'; b.className='search-suggestion'; b.textContent=f.name;
-      b.addEventListener('mousedown', e => e.preventDefault());
-      b.addEventListener('click', () => { qInput.value=f.name; qClear.style.display='flex'; hideSearchSuggestions(); runSearch(); });
-      searchSuggestions.appendChild(b);
-    });
-    searchSuggestions.style.display='block';
-  }
+  // البحث بيتم بس لما تدوس زرار "بحث" أو Enter - مفيش بحث تلقائي أثناء الكتابة
   qInput.addEventListener('input', () => {
-    clearTimeout(suggestionTimer);
-    suggestionTimer = setTimeout(() => showSearchSuggestions(qInput.value), 120);
     qClear.style.display = qInput.value ? 'flex' : 'none';
     if(qInput.value.trim() === ""){
-      hideSearchSuggestions();
       resultsEl.innerHTML = "";
       currentFiles = [];
       renderedCount = 0;
@@ -2691,7 +2482,6 @@
     }
   });
   qClear.addEventListener('click', () => {
-    hideSearchSuggestions();
     qInput.value = "";
     qClear.style.display = 'none';
     resultsEl.innerHTML = "";
@@ -2709,7 +2499,6 @@
   let isReindexing = false;
   async function runManualReindex(){
     if(isReindexing) return;
-    hideSearchSuggestions();
     isReindexing = true;
     statusContainer.style.cursor = 'default';
     newFilesBanner.style.display = 'none';
@@ -2797,15 +2586,14 @@
   });
 
   checkSetup();
-  applyLanguage();
   renderRecentSearches();
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، ولو مفيش يعمل فهرسة
   // تلقائية أول مرة بس (مفيش تحديث تلقائي دوري للفهرس القديم بعد كده)
   ensureIndex(false);
 
   window.addEventListener('load', () => {
-    // مزامنة كاملة يومية لاكتشاف الإضافة والتعديل والحذف والنقل.
-    setTimeout(scheduleBackgroundIndexSync, 2000);
+    // بنستنى شوية عشان الفحص ده ميأثرش خالص على سرعة أول ظهور للصفحة
+    setTimeout(checkForNewFiles, 2000);
   });
 
   if('serviceWorker' in navigator){
