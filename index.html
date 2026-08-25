@@ -16,6 +16,12 @@
   try{
     if(localStorage.getItem('jigsearch_theme') === 'dark') document.documentElement.classList.add('dark');
   }catch(e){ /* تجاهل */ }
+  // بنطبّق اللغة المحفوظة بدري قبل ما الصفحة تترسم عشان مايحصلش وميض لغة غلط
+  try{
+    var __lang = localStorage.getItem('jigsearch_lang') || 'en';
+    document.documentElement.lang = __lang;
+    document.documentElement.dir = __lang === 'ar' ? 'rtl' : 'ltr';
+  }catch(e){ /* تجاهل */ }
 </script>
 <style>
   :root{
@@ -69,6 +75,32 @@
     border-bottom-right-radius:32px;
     position:relative;
   }
+  .header-corner-btn{
+    position:absolute;
+    top:16px;
+    z-index:5;
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:7px 13px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--card);
+    color:var(--text);
+    font-size:12px;
+    font-weight:700;
+    font-family:'Inter', Tahoma, Arial, sans-serif;
+    letter-spacing:.3px;
+    cursor:pointer;
+    box-shadow:var(--shadow-sm);
+    transition:transform .12s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .header-corner-btn:hover{ transform:translateY(-1px); box-shadow:var(--shadow-md); border-color:var(--blue); }
+  .header-corner-btn:active{ transform:translateY(0); }
+  #refreshBtn{ inset-inline-end:20px; }
+  #langToggleBtn{ inset-inline-start:20px; }
+  #refreshBtn.is-refreshing svg{ animation:refresh-spin .8s linear infinite; }
+  @keyframes refresh-spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
   .brand{
     display:flex;
     align-items:center;
@@ -818,6 +850,11 @@
 <body>
 
   <div class="header">
+    <button type="button" id="langToggleBtn" class="header-corner-btn" aria-label="Switch language">AR</button>
+    <button type="button" id="refreshBtn" class="header-corner-btn" aria-label="Refresh">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 11A8 8 0 1 0 18.5 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 5V11H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="refreshBtnLabel">REFRESH</span>
+    </button>
     <div class="brand">
       <div class="brand-icon">
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="#fff" stroke-width="2"/><path d="M19 19L15 15" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
@@ -986,6 +1023,8 @@
   const previewModalOverlay = document.getElementById('previewModalOverlay');
   const linksModalOverlay = document.getElementById('linksModalOverlay');
   const linksModalClose = document.getElementById('linksModalClose');
+  const linksModalTitle = document.getElementById('linksModalTitle');
+  const previewModalTitle = document.getElementById('previewModalTitle');
   const importantLinksBtn = document.getElementById('importantLinksBtn');
   const testDeconentBtn = document.getElementById('testDeconentBtn');
   const previewModalClose = document.getElementById('previewModalClose');
@@ -1018,6 +1057,264 @@
   const cameraResultTextEl = document.getElementById('cameraResultText');
   const cameraOpenLinkBtn = document.getElementById('cameraOpenLinkBtn');
   const cameraSearchBtn = document.getElementById('cameraSearchBtn');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const langToggleBtn = document.getElementById('langToggleBtn');
+
+  // ===== نظام اللغتين (عربي/إنجليزي) - كل نصوص الواجهة متجمعة هنا =====
+  const I18N = {
+    en: {
+      searchPlaceholder: 'Type your search term',
+      clearSearchAria: 'Clear search',
+      searchBtn: '🔍 Search',
+      poweredBy: 'Prepared by Elsayed adel',
+      filterLabel: '📁 Filter:',
+      filterAll: 'All',
+      advancedSearchBtn: '⚙️ Advanced Search',
+      scanBtn: '📷 Scan Barcode/QR',
+      ocrBtn: '🔎 Scan Number (OCR)',
+      testDeconentBtn: '📁 Test Documents',
+      importantLinksBtn: '🔗 Important Links',
+      tabRecent: '🕘 Recent Files',
+      tabFavorites: '⭐ Favorites',
+      darkMode: '🌙 Dark Mode',
+      lightMode: '☀️ Light Mode',
+      newFilesBanner: '🆕 New files found — tap to update the index',
+      loadMore: 'Load More',
+      loadMoreCount: 'Load More ({n} left)',
+      scanModalTitle: '📷 Scan Barcode / QR',
+      ocrModalTitle: '🔎 Scan Number (OCR)',
+      closeAria: 'Close',
+      captureBtn: '📸 Capture',
+      extractTextBtn: '✅ Extract Text',
+      retakeBtn: '🔄 Retake',
+      openLinkBtn: '🔗 Open Link',
+      searchForThisBtn: '🔍 Search for this',
+      previewModalTitle: 'File Preview',
+      previewOpenBtn: '📂 Open',
+      previewOpening: '⏳ Opening...',
+      previewDownloadBtn: '⬇️ Download',
+      previewDownloading: '⏳ Downloading...',
+      previewShareBtn: '📤 Share',
+      linkCopied: '✅ Link copied',
+      linksModalTitle: '🔗 Important Links',
+      selectionSearchGo: '🔍 Search',
+      saveToFavoritesAria: 'Save to favorites',
+      removeFromListAria: 'Remove from this list',
+      clearThisListBtn: '🗑 Clear this list',
+      recentSearchesLabel: 'Recent searches:',
+      removeSearchAria: 'Remove this search',
+      clearAllBtn: 'Clear all',
+      recentEmpty: "🕘 You haven't opened any files yet",
+      favoritesEmpty: '⭐ No favorite files saved yet',
+      typeFirst: 'Type a file name or part of it first',
+      unknownDate: 'Unknown',
+      lastIndexUpdate: 'Last index update: {date}.',
+      indexPreparing: 'Automatically preparing the index of folders and files... (this happens once and is saved)',
+      indexingProgress: 'Indexing... {folders} folders and {files} PDF/Office/image files so far (level {level})',
+      indexedDone: 'Indexed {folders} folders and {files} PDF/Office/image files{note}. Type your search term.',
+      skipNotePermission: '{n} due to permissions',
+      skipNoteNetwork: '{n} due to network issues',
+      skipNoteServer: '{n} due to temporary server issues',
+      skipNoteUnknown: '{n} for an unknown reason',
+      skipNoteWrap: ' (skipped {count} folders: {parts})',
+      listJoiner: ', ',
+      errNetwork: '❌ Internet connection problem. Make sure your device is connected and try again.',
+      errPermission: '❌ Permission problem: the app can\'t access the folder/files. Make sure the main folder on Google Drive is shared as "Anyone with the link – Viewer", and that the API Key is still enabled and correctly restricted to the Google Drive API and the site\'s domain.',
+      errServer: '❌ Google Drive servers are busy or having a temporary issue. Wait a minute and try refreshing again.',
+      errUnknown: '❌ An unexpected error occurred: {msg}. Try again, and if it persists contact the app administrator.',
+      unknownError: 'Unknown',
+      fileGone: '⚠️ This file was deleted or moved on Google Drive — removed from the results.',
+      foundResults: 'Found {n} results',
+      noResults: '🔍 No matching results',
+      setupWarningHtml: '⚠️ You still need to set the Proxy Worker URL for search to work.<br>Open the page file, find the <code>PROXY_URL</code> variable, and put the Worker URL in it after publishing it.<br>Also make sure the folder is shared as "Anyone with the link – Viewer".',
+      camOpening: 'Opening camera...',
+      camNoSupport: "❌ This browser doesn't support camera access.",
+      camNoPermission: '❌ Could not open the camera. Make sure you allowed the site to access the camera.',
+      camPointBarcode: 'Point the camera at the barcode (any type) or QR code...',
+      camLineNumber: 'Line the number/text up inside the green box and tap "Capture"',
+      camPreparingReader: 'Preparing barcode reader...',
+      camLibFail: '❌ Failed to load the barcode reading library. Check your internet connection.',
+      camReaderFail: '❌ Failed to start the barcode reader.',
+      camAdjustBox: 'Adjust the box around the text, then tap "Extract Text"',
+      camAnalyzing: 'Analyzing image...',
+      camNoText: "Couldn't find clear text, try again with better lighting.",
+      camCorrectText: "Correct or delete any part you don't need, then tap search:",
+      camAnalyzeFail: '❌ Failed to analyze the image. Check your internet connection and try again.',
+      refreshBtnLabel: 'REFRESH',
+      langToggleAria: 'Switch language',
+      tapToReindex: 'Tap to re-index'
+    },
+    ar: {
+      searchPlaceholder: 'اكتب كلمة البحث',
+      clearSearchAria: 'مسح البحث',
+      searchBtn: '🔍 بحث',
+      poweredBy: 'إعداد: السيد عادل',
+      filterLabel: '📁 فلترة:',
+      filterAll: 'الكل',
+      advancedSearchBtn: '⚙️ بحث متقدم',
+      scanBtn: '📷 مسح باركود/QR',
+      ocrBtn: '🔎 مسح رقم (OCR)',
+      testDeconentBtn: '📁 مستندات الاختبار',
+      importantLinksBtn: '🔗 روابط هامة',
+      tabRecent: '🕘 آخر الملفات',
+      tabFavorites: '⭐ المفضلة',
+      darkMode: '🌙 الوضع الليلي',
+      lightMode: '☀️ الوضع النهاري',
+      newFilesBanner: '🆕 تم العثور على ملفات جديدة — اضغط لتحديث الفهرس',
+      loadMore: 'تحميل المزيد',
+      loadMoreCount: 'تحميل المزيد (متبقي {n})',
+      scanModalTitle: '📷 مسح باركود / QR',
+      ocrModalTitle: '🔎 مسح رقم (OCR)',
+      closeAria: 'إغلاق',
+      captureBtn: '📸 التقاط',
+      extractTextBtn: '✅ استخراج النص',
+      retakeBtn: '🔄 إعادة التصوير',
+      openLinkBtn: '🔗 فتح الرابط',
+      searchForThisBtn: '🔍 بحث عن هذا',
+      previewModalTitle: 'معاينة الملف',
+      previewOpenBtn: '📂 فتح',
+      previewOpening: '⏳ جارِ الفتح...',
+      previewDownloadBtn: '⬇️ تحميل',
+      previewDownloading: '⏳ جارِ التحميل...',
+      previewShareBtn: '📤 مشاركة',
+      linkCopied: '✅ تم نسخ الرابط',
+      linksModalTitle: '🔗 روابط هامة',
+      selectionSearchGo: '🔍 بحث',
+      saveToFavoritesAria: 'إضافة للمفضلة',
+      removeFromListAria: 'حذف من هذه القائمة',
+      clearThisListBtn: '🗑 مسح هذه القائمة',
+      recentSearchesLabel: 'عمليات البحث الأخيرة:',
+      removeSearchAria: 'حذف عملية البحث هذه',
+      clearAllBtn: 'مسح الكل',
+      recentEmpty: '🕘 لم تفتح أي ملفات بعد',
+      favoritesEmpty: '⭐ لا توجد ملفات مفضلة بعد',
+      typeFirst: 'اكتب اسم الملف أو جزء منه أولاً',
+      unknownDate: 'غير معروف',
+      lastIndexUpdate: 'آخر تحديث للفهرس: {date}.',
+      indexPreparing: 'جارِ تجهيز فهرس الفولدرات والملفات تلقائيًا... (يحدث هذا مرة واحدة ويُحفظ)',
+      indexingProgress: 'جارِ الفهرسة... {folders} فولدر و{files} ملف PDF/أوفيس/صورة حتى الآن (المستوى {level})',
+      indexedDone: 'تم فهرسة {folders} فولدر و{files} ملف PDF/أوفيس/صورة{note}. اكتب كلمة البحث.',
+      skipNotePermission: '{n} بسبب الصلاحيات',
+      skipNoteNetwork: '{n} بسبب مشاكل الشبكة',
+      skipNoteServer: '{n} بسبب مشاكل مؤقتة في السيرفر',
+      skipNoteUnknown: '{n} لسبب غير معروف',
+      skipNoteWrap: ' (تم تخطي {count} فولدر: {parts})',
+      listJoiner: '، ',
+      errNetwork: '❌ مشكلة في الاتصال بالإنترنت. تأكد من اتصال جهازك وحاول مرة أخرى.',
+      errPermission: '❌ مشكلة صلاحيات: التطبيق لا يستطيع الوصول للفولدر/الملفات. تأكد من مشاركة الفولدر الرئيسي على Google Drive كـ "Anyone with the link – Viewer"، ومن أن الـ API Key ما زال مفعّلاً ومقيّدًا بشكل صحيح على Google Drive API ودومين الموقع.',
+      errServer: '❌ سيرفرات Google Drive مشغولة أو بها مشكلة مؤقتة. انتظر دقيقة وحاول تحديث الصفحة مرة أخرى.',
+      errUnknown: '❌ حدث خطأ غير متوقع: {msg}. حاول مرة أخرى، وإذا استمرت المشكلة تواصل مع مسؤول التطبيق.',
+      unknownError: 'غير معروف',
+      fileGone: '⚠️ تم حذف هذا الملف أو نقله من Google Drive — تمت إزالته من النتائج.',
+      foundResults: 'تم العثور على {n} نتيجة',
+      noResults: '🔍 لا توجد نتائج مطابقة',
+      setupWarningHtml: '⚠️ ما زلت بحاجة لضبط رابط الـ Proxy Worker حتى يعمل البحث.<br>افتح ملف الصفحة، ابحث عن المتغير <code>PROXY_URL</code>، وضع رابط الـ Worker فيه بعد نشره.<br>تأكد أيضًا من مشاركة الفولدر كـ "Anyone with the link – Viewer".',
+      camOpening: 'جارِ فتح الكاميرا...',
+      camNoSupport: '❌ هذا المتصفح لا يدعم الوصول للكاميرا.',
+      camNoPermission: '❌ تعذر فتح الكاميرا. تأكد من السماح للموقع بالوصول للكاميرا.',
+      camPointBarcode: 'وجّه الكاميرا نحو الباركود (أي نوع) أو كود QR...',
+      camLineNumber: 'ضع الرقم/النص داخل المربع الأخضر ثم اضغط "التقاط"',
+      camPreparingReader: 'جارِ تجهيز قارئ الباركود...',
+      camLibFail: '❌ فشل تحميل مكتبة قراءة الباركود. تحقق من اتصالك بالإنترنت.',
+      camReaderFail: '❌ فشل تشغيل قارئ الباركود.',
+      camAdjustBox: 'اضبط المربع حول النص، ثم اضغط "استخراج النص"',
+      camAnalyzing: 'جارِ تحليل الصورة...',
+      camNoText: 'لم يتم العثور على نص واضح، حاول مرة أخرى بإضاءة أفضل.',
+      camCorrectText: 'صحّح أو احذف أي جزء لا تحتاجه، ثم اضغط بحث:',
+      camAnalyzeFail: '❌ فشل تحليل الصورة. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
+      refreshBtnLabel: 'تحديث',
+      langToggleAria: 'تغيير اللغة',
+      tapToReindex: 'اضغط لإعادة الفهرسة'
+    }
+  };
+  let currentLang = 'en';
+  try{ currentLang = localStorage.getItem('jigsearch_lang') || 'en'; }catch(e){ /* تجاهل */ }
+
+  function t(key, params){
+    let str = (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en[key] || '');
+    if(params){
+      Object.keys(params).forEach(k => { str = str.split('{' + k + '}').join(params[k]); });
+    }
+    return str;
+  }
+
+  let lastStatusKey = null, lastStatusParams = null, lastStatusIsError = false;
+  function setStatusKey(key, params, isError){
+    lastStatusKey = key; lastStatusParams = params || null; lastStatusIsError = !!isError;
+    setStatus(t(key, params), isError);
+  }
+  let lastCamStatusKey = null, lastCamStatusParams = null;
+  function setCamStatusKey(key, params){
+    lastCamStatusKey = key; lastCamStatusParams = params || null;
+    cameraStatusEl.textContent = t(key, params);
+  }
+
+  function updateLoadMoreLabel(){
+    if(loadMoreBtn.style.display === 'none') return;
+    const remaining = currentFiles.length - renderedCount;
+    if(remaining > 0) loadMoreBtn.textContent = t('loadMoreCount', { n: remaining });
+  }
+
+  // بتطبّق اللغة على كل عناصر الواجهة الثابتة + بتعيد رسم أي جزء ديناميكي معروض حاليًا
+  function applyLanguage(lang){
+    currentLang = lang;
+    try{ localStorage.setItem('jigsearch_lang', lang); }catch(e){ /* تجاهل */ }
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    langToggleBtn.textContent = lang === 'ar' ? 'EN' : 'AR';
+    langToggleBtn.setAttribute('aria-label', t('langToggleAria'));
+    refreshBtn.setAttribute('aria-label', t('refreshBtnLabel'));
+    document.getElementById('refreshBtnLabel').textContent = t('refreshBtnLabel');
+
+    qInput.placeholder = t('searchPlaceholder');
+    qClear.setAttribute('aria-label', t('clearSearchAria'));
+    searchBtn.textContent = t('searchBtn');
+    const poweredEl = document.querySelector('.powered');
+    if(poweredEl) poweredEl.textContent = t('poweredBy');
+    const filterLabelEl = document.querySelector('.folder-filter-label');
+    if(filterLabelEl) filterLabelEl.textContent = t('filterLabel');
+    advancedSearchBtn.textContent = t('advancedSearchBtn');
+    scanBtn.textContent = t('scanBtn');
+    ocrBtn.textContent = t('ocrBtn');
+    testDeconentBtn.textContent = t('testDeconentBtn');
+    importantLinksBtn.textContent = t('importantLinksBtn');
+    const recentTabBtn = homeTabsEl.querySelector('[data-tab="recent"]');
+    if(recentTabBtn) recentTabBtn.textContent = t('tabRecent');
+    const favTabBtn = homeTabsEl.querySelector('[data-tab="favorites"]');
+    if(favTabBtn) favTabBtn.textContent = t('tabFavorites');
+    applyThemeButtonLabel();
+    newFilesBanner.textContent = t('newFilesBanner');
+    if(loadMoreBtn.style.display !== 'none') updateLoadMoreLabel();
+    else loadMoreBtn.textContent = t('loadMore');
+    cameraModalClose.setAttribute('aria-label', t('closeAria'));
+    cameraCaptureBtn.textContent = t('captureBtn');
+    ocrCropConfirmBtn.textContent = t('extractTextBtn');
+    ocrCropRetakeBtn.textContent = t('retakeBtn');
+    cameraOpenLinkBtn.textContent = t('openLinkBtn');
+    cameraSearchBtn.textContent = t('searchForThisBtn');
+    previewModalTitle.textContent = t('previewModalTitle');
+    previewModalClose.setAttribute('aria-label', t('closeAria'));
+    previewOpenBtn.textContent = t('previewOpenBtn');
+    previewDownloadBtn.textContent = t('previewDownloadBtn');
+    previewShareBtn.textContent = t('previewShareBtn');
+    linksModalTitle.textContent = t('linksModalTitle');
+    linksModalClose.setAttribute('aria-label', t('closeAria'));
+    selectionSearchGo.textContent = t('selectionSearchGo');
+    selectionSearchClose.setAttribute('aria-label', t('closeAria'));
+    statusContainer.setAttribute('title', t('tapToReindex'));
+
+    if(folderFilterWrap.style.display !== 'none') renderFolderFilterOptions();
+    renderRecentSearches();
+    checkSetup();
+
+    if(activeHomeTab === 'recent') renderRecentTab();
+    else if(activeHomeTab === 'favorites') renderFavoritesTab();
+    else if(currentFiles.length) showResultsPage(currentFiles, false);
+
+    if(lastStatusKey) setStatusKey(lastStatusKey, lastStatusParams, lastStatusIsError);
+    if(cameraModalOverlay.style.display !== 'none' && lastCamStatusKey) setCamStatusKey(lastCamStatusKey, lastCamStatusParams);
+  }
+  langToggleBtn.addEventListener('click', () => applyLanguage(currentLang === 'ar' ? 'en' : 'ar'));
 
   // ===== سجل الملفات المفتوحة والمفضلة - كله محليًا في المتصفح =====
   const RECENT_FILES_KEY = 'jigsearch_recent_files_v1';
@@ -1030,6 +1327,28 @@
   if(navigator.storage && navigator.storage.persist){
     navigator.storage.persist().catch(() => {});
   }
+
+  // ===== زرار REFRESH: ريفريش عميق - بيمسح كاش الصفحة (مش كاش الملفات) وبيلغي
+  // تسجيل الـ Service Worker عشان يضمن إن آخر نسخة من التطبيق هي اللي بتتحمّل =====
+  async function deepRefresh(){
+    if(refreshBtn.classList.contains('is-refreshing')) return;
+    refreshBtn.classList.add('is-refreshing');
+    refreshBtn.disabled = true;
+    try{
+      if('caches' in window){
+        const keys = await caches.keys();
+        await Promise.all(keys.filter(k => k !== FILES_CACHE_NAME).map(k => caches.delete(k)));
+      }
+      if('serviceWorker' in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+    }catch(e){ /* تجاهل */ }
+    const url = new URL(window.location.href);
+    url.searchParams.set('_r', Date.now());
+    window.location.replace(url.toString());
+  }
+  refreshBtn.addEventListener('click', deepRefresh);
 
   function loadJSON(key, fallback){
     try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -1138,7 +1457,7 @@
     }
     deleteCachedFile(f.id);
     document.querySelectorAll(`[data-file-id="${f.id}"]`).forEach(el => el.remove());
-    setStatus('⚠️ This file was deleted or moved on Google Drive — removed from the results.', true);
+    setStatusKey('fileGone', null, true);
   }
 
   // بيتسجل كل ما المستخدم يفتح ملف في "آخر الملفات" - وبيمسح أقدم ملف
@@ -1204,10 +1523,10 @@
   }
 
   function renderRecentTab(){
-    renderPlainList(getRecentFiles(), "🕘 You haven't opened any files yet", { onRemove: f => removeRecentFile(f.id), onClearAll: clearRecentFiles });
+    renderPlainList(getRecentFiles(), t('recentEmpty'), { onRemove: f => removeRecentFile(f.id), onClearAll: clearRecentFiles });
   }
   function renderFavoritesTab(){
-    renderPlainList(getFavoriteFiles(), "⭐ No favorite files saved yet", { onClearAll: clearFavorites });
+    renderPlainList(getFavoriteFiles(), t('favoritesEmpty'), { onClearAll: clearFavorites });
   }
 
   let activeHomeTab = null;
@@ -1221,7 +1540,7 @@
       if(activeHomeTab === tab){
         setActiveHomeTab(null);
         resultsEl.innerHTML = ""; loadMoreBtn.style.display = "none";
-        setStatus("Type a file name or part of it first");
+        setStatusKey('typeFirst');
         return;
       }
       setActiveHomeTab(tab);
@@ -1234,7 +1553,7 @@
   // ===== الوضع الليلي =====
   function applyThemeButtonLabel(){
     const isDark = document.documentElement.classList.contains('dark');
-    themeToggleBtn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+    themeToggleBtn.textContent = isDark ? t('lightMode') : t('darkMode');
   }
   applyThemeButtonLabel();
   themeToggleBtn.addEventListener('click', () => {
@@ -1260,28 +1579,25 @@
     statusEl.classList.toggle('status-error', !!isError);
   }
 
-  // بيحوّل خطأ (فيه .category أو مش فيه) لرسالة عربي واضحة وموجّهة للمستخدم
-  function friendlyErrorMessage(err){
+  // بيحوّل خطأ (فيه .category أو مش فيه) لمفتاح ترجمة + متغيرات لرسالة واضحة وموجّهة للمستخدم
+  function errorStatusKey(err){
     const category = err && err.category ? err.category : 'unknown';
-    if(category === 'network'){
-      return '❌ Internet connection problem. Make sure your device is connected and try again.';
-    }
-    if(category === 'permission'){
-      return '❌ Permission problem: the app can\'t access the folder/files. Make sure the main folder on Google Drive is shared as "Anyone with the link – Viewer", and that the API Key is still enabled and correctly restricted to the Google Drive API and the site\'s domain.';
-    }
-    if(category === 'server'){
-      return '❌ Google Drive servers are busy or having a temporary issue. Wait a minute and try refreshing again.';
-    }
-    return '❌ An unexpected error occurred: ' + (err && err.message ? err.message : 'Unknown') + '. Try again, and if it persists contact the app administrator.';
+    if(category === 'network') return 'errNetwork';
+    if(category === 'permission') return 'errPermission';
+    if(category === 'server') return 'errServer';
+    return 'errUnknown';
+  }
+  function errorStatusParams(err){
+    if(err && err.category === 'network') return null;
+    if(err && err.category === 'permission') return null;
+    if(err && err.category === 'server') return null;
+    return { msg: (err && err.message) ? err.message : t('unknownError') };
   }
 
   function checkSetup(){
     if(!PROXY_URL || PROXY_URL.includes("YOUR-SUBDOMAIN")){
       setupWarning.style.display = "block";
-      setupWarning.innerHTML =
-        "⚠️ You still need to set the Proxy Worker URL for search to work.<br>" +
-        "Open the page file, find the <code>PROXY_URL</code> variable, and put the Worker URL in it after publishing it.<br>" +
-        "Also make sure the folder is shared as \"Anyone with the link – Viewer\".";
+      setupWarning.innerHTML = t('setupWarningHtml');
       searchBtn.disabled = true;
       return false;
     }
@@ -1570,7 +1886,7 @@
     folderFilterSelect.innerHTML = '';
     const allOpt = document.createElement('option');
     allOpt.value = '';
-    allOpt.textContent = 'All';
+    allOpt.textContent = t('filterAll');
     folderFilterSelect.appendChild(allOpt);
     allTopFolders.slice().sort((a, b) => {
       const aOther = a.name.trim().toUpperCase() === 'OTHERS';
@@ -1608,14 +1924,14 @@
         indexedFiles = cached.files;
         allTopFolders = cached.topFolders || [];
         renderFolderFilterOptions();
-        const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString('en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown';
-        setStatus(`Last index update: ${lastIndexDate}.`);
+        const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('unknownDate');
+        setStatusKey('lastIndexUpdate', { date: lastIndexDate });
         return true;
       }
       // مفيش فهرس محفوظ - نعمل فهرسة تلقائية أول مرة من غير أي تدخل من المستخدم
     }
 
-    setStatus("Automatically preparing the index of folders and files... (this happens once and is saved)");
+    setStatusKey('indexPreparing');
     setLoading(true);
     skeletonLoader.style.display = 'flex';
     try{
@@ -1624,7 +1940,7 @@
       consecutiveRateErrors = 0;
       CRAWL_CONCURRENCY = CRAWL_CONCURRENCY_DEFAULT;
       const result = await crawlAllFoldersAndFiles(ROOT_FOLDER_ID, (folderCount, fileCount, level) => {
-        setStatus(`Indexing... ${folderCount} folders and ${fileCount} PDF/Office/image files so far (level ${level})`);
+        setStatusKey('indexingProgress', { folders: folderCount, files: fileCount, level: level });
       });
       allFolderIds = result.folderIds;
       indexedFiles = result.files;
@@ -1634,15 +1950,15 @@
       let note = '';
       if(skippedFolderCount){
         const parts = [];
-        if(skippedByCategory.permission) parts.push(`${skippedByCategory.permission} due to permissions`);
-        if(skippedByCategory.network) parts.push(`${skippedByCategory.network} due to network issues`);
-        if(skippedByCategory.server) parts.push(`${skippedByCategory.server} due to temporary server issues`);
-        if(skippedByCategory.unknown) parts.push(`${skippedByCategory.unknown} for an unknown reason`);
-        note = ` (skipped ${skippedFolderCount} folders: ${parts.join(', ')})`;
+        if(skippedByCategory.permission) parts.push(t('skipNotePermission', { n: skippedByCategory.permission }));
+        if(skippedByCategory.network) parts.push(t('skipNoteNetwork', { n: skippedByCategory.network }));
+        if(skippedByCategory.server) parts.push(t('skipNoteServer', { n: skippedByCategory.server }));
+        if(skippedByCategory.unknown) parts.push(t('skipNoteUnknown', { n: skippedByCategory.unknown }));
+        note = t('skipNoteWrap', { count: skippedFolderCount, parts: parts.join(t('listJoiner')) });
       }
-      setStatus(`Indexed ${allFolderIds.length} folders and ${indexedFiles.length} PDF/Office/image files${note}. Type your search term.`);
+      setStatusKey('indexedDone', { folders: allFolderIds.length, files: indexedFiles.length, note: note });
     }catch(err){
-      setStatus(friendlyErrorMessage(err), true);
+      setStatusKey(errorStatusKey(err), errorStatusParams(err), true);
       allFolderIds = null;
       indexedFiles = null;
     }finally{
@@ -1752,7 +2068,7 @@
       const original = previewOpenBtn.textContent;
       previewOpenBtn.disabled = true;
       previewDownloadBtn.disabled = true;
-      previewOpenBtn.textContent = '⏳ Opening...';
+      previewOpenBtn.textContent = t('previewOpening');
       try{
         const result = await resolveFileOpen(f);
         if(result === 'gone'){
@@ -1773,7 +2089,7 @@
       const original = previewDownloadBtn.textContent;
       previewOpenBtn.disabled = true;
       previewDownloadBtn.disabled = true;
-      previewDownloadBtn.textContent = '⏳ Downloading...';
+      previewDownloadBtn.textContent = t('previewDownloading');
       try{
         const result = await resolveFileOpen(f);
         if(result === 'gone'){
@@ -1799,7 +2115,7 @@
       try{
         await navigator.clipboard.writeText(urls.share);
         const original = previewShareBtn.textContent;
-        previewShareBtn.textContent = '✅ Link copied';
+        previewShareBtn.textContent = t('linkCopied');
         setTimeout(() => { previewShareBtn.textContent = original; }, 1800);
       }catch(e){
         window.open(urls.share, '_blank', 'noopener');
@@ -1970,7 +2286,7 @@
     const remaining = currentFiles.length - renderedCount;
     if(remaining > 0){
       loadMoreBtn.style.display = "block";
-      loadMoreBtn.textContent = `Load More (${remaining} left)`;
+      loadMoreBtn.textContent = t('loadMoreCount', { n: remaining });
     } else {
       loadMoreBtn.style.display = "none";
     }
@@ -2004,7 +2320,7 @@
     starBtn.type = 'button';
     starBtn.className = 'star-btn' + (isFavorite(f.id) ? ' active' : '');
     starBtn.textContent = isFavorite(f.id) ? '⭐' : '☆';
-    starBtn.setAttribute('aria-label', 'Save to favorites');
+    starBtn.setAttribute('aria-label', t('saveToFavoritesAria'));
     starBtn.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       toggleFavorite(f);
@@ -2022,7 +2338,7 @@
       removeBtn.type = 'button';
       removeBtn.className = 'star-btn remove-btn';
       removeBtn.textContent = '🗑';
-      removeBtn.setAttribute('aria-label', 'Remove from this list');
+      removeBtn.setAttribute('aria-label', t('removeFromListAria'));
       removeBtn.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         opts.onRemove(f);
@@ -2045,7 +2361,7 @@
       const clearBtn = document.createElement('button');
       clearBtn.type = 'button';
       clearBtn.className = 'recent-clear-all';
-      clearBtn.textContent = '🗑 Clear this list';
+      clearBtn.textContent = t('clearThisListBtn');
       clearBtn.addEventListener('click', opts.onClearAll);
       clearWrap.appendChild(clearBtn);
       resultsEl.appendChild(clearWrap);
@@ -2096,7 +2412,7 @@
     }
     const label = document.createElement('span');
     label.className = 'recent-searches-label';
-    label.textContent = 'Recent searches:';
+    label.textContent = t('recentSearchesLabel');
     recentSearchesEl.appendChild(label);
     list.forEach(term => {
       const wrap = document.createElement('span');
@@ -2114,7 +2430,7 @@
       removeBtn.type = 'button';
       removeBtn.className = 'recent-chip-remove';
       removeBtn.textContent = '×';
-      removeBtn.setAttribute('aria-label', 'Remove this search');
+      removeBtn.setAttribute('aria-label', t('removeSearchAria'));
       removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeRecentSearch(term); });
       wrap.appendChild(chip);
       wrap.appendChild(removeBtn);
@@ -2123,7 +2439,7 @@
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.className = 'recent-clear-all';
-    clearBtn.textContent = 'Clear all';
+    clearBtn.textContent = t('clearAllBtn');
     clearBtn.addEventListener('click', clearRecentSearches);
     recentSearchesEl.appendChild(clearBtn);
     recentSearchesEl.style.display = 'flex';
@@ -2148,7 +2464,7 @@
     setActiveHomeTab(null);
 
     if(!term){
-      setStatus("Type a file name or part of it first");
+      setStatusKey('typeFirst');
       resultsEl.innerHTML = "";
       currentFiles = [];
       renderedCount = 0;
@@ -2172,7 +2488,8 @@
     const sortedMatched = sortByRelevance(matched, term, words);
 
     showResultsPage(sortedMatched, false);
-    setStatus(matched.length ? `Found ${matched.length} results` : "🔍 No matching results");
+    if(matched.length) setStatusKey('foundResults', { n: matched.length });
+    else setStatusKey('noResults');
     saveRecentSearch(term);
   }
 
@@ -2246,19 +2563,21 @@
     ocrCropImage.src = '';
   }
 
+  let cameraMode = null;
   async function openCamera(mode){
-    cameraModalTitle.textContent = mode === 'scan' ? '📷 Scan Barcode / QR' : '🔎 Scan Number (OCR)';
+    cameraMode = mode;
+    cameraModalTitle.textContent = mode === 'scan' ? t('scanModalTitle') : t('ocrModalTitle');
     hideCameraResult();
     resetOcrCropStage();
     cameraVideoEl.style.display = 'block';
     cameraCaptureBtn.style.display = mode === 'ocr' ? 'inline-block' : 'none';
     cameraCaptureBtn.disabled = false;
     ocrGuideBox.style.display = mode === 'ocr' ? 'block' : 'none';
-    cameraStatusEl.textContent = 'Opening camera...';
+    setCamStatusKey('camOpening');
     cameraModalOverlay.style.display = 'flex';
 
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-      cameraStatusEl.textContent = '❌ This browser doesn\'t support camera access.';
+      setCamStatusKey('camNoSupport');
       return;
     }
     try{
@@ -2271,17 +2590,17 @@
         }
       });
     }catch(e){
-      cameraStatusEl.textContent = '❌ Could not open the camera. Make sure you allowed the site to access the camera.';
+      setCamStatusKey('camNoPermission');
       return;
     }
     cameraVideoEl.srcObject = cameraStream;
     await cameraVideoEl.play().catch(() => {});
 
     if(mode === 'scan'){
-      cameraStatusEl.textContent = 'Point the camera at the barcode (any type) or QR code...';
+      setCamStatusKey('camPointBarcode');
       await startBarcodeScan();
     } else {
-      cameraStatusEl.textContent = 'Line the number/text up inside the green box and tap "Capture"';
+      setCamStatusKey('camLineNumber');
     }
   }
 
@@ -2301,10 +2620,10 @@
       scanWithBarcodeDetector(detector);
       return;
     }
-    cameraStatusEl.textContent = 'Preparing barcode reader...';
+    setCamStatusKey('camPreparingReader');
     try{ await loadScript(ZXING_CDN); }
-    catch(e){ cameraStatusEl.textContent = '❌ Failed to load the barcode reading library. Check your internet connection.'; return; }
-    cameraStatusEl.textContent = 'Point the camera at the barcode (any type) or QR code...';
+    catch(e){ setCamStatusKey('camLibFail'); return; }
+    setCamStatusKey('camPointBarcode');
     scanWithZXing();
   }
 
@@ -2333,7 +2652,7 @@
       }
       // أي error تاني (زي NotFoundException) طبيعي لما مفيش كود في الفريم - نتجاهله
     }).catch(() => {
-      cameraStatusEl.textContent = '❌ Failed to start the barcode reader.';
+      setCamStatusKey('camReaderFail');
     });
   }
 
@@ -2368,7 +2687,7 @@
       cameraCaptureBtn.style.display = 'none';
       ocrCropConfirmBtn.style.display = 'inline-block';
       ocrCropRetakeBtn.style.display = 'inline-block';
-      cameraStatusEl.textContent = 'Adjust the box around the text, then tap "Extract Text"';
+      setCamStatusKey('camAdjustBox');
       initCropBox();
     };
     ocrCropImage.src = shotCanvas.toDataURL('image/jpeg', 0.92);
@@ -2380,7 +2699,7 @@
     ocrGuideBox.style.display = 'block';
     cameraCaptureBtn.style.display = 'inline-block';
     cameraCaptureBtn.disabled = false;
-    cameraStatusEl.textContent = 'Line the number/text up inside the green box and tap "Capture"';
+    setCamStatusKey('camLineNumber');
   });
 
   // ===== قص يدوي لصورة الـ OCR: مربع أخضر قابل للسحب وتغيير الحجم من زواياه =====
@@ -2452,7 +2771,7 @@
 
   // ===== خط أنابيب الـ OCR: تكبير x2 + تباين تلقائي (Otsu) + قراءة سطر واحد =====
   async function runOcrOnRegion(sourceEl, sx, sy, sw, sh){
-    cameraStatusEl.textContent = 'Analyzing image...';
+    setCamStatusKey('camAnalyzing');
     const SCALE = 2;
     cameraCanvasEl.width = sw * SCALE;
     cameraCanvasEl.height = sh * SCALE;
@@ -2497,14 +2816,14 @@
       });
       const text = ((data && data.text) || '').replace(/\s+/g, ' ').trim();
       if(!text){
-        cameraStatusEl.textContent = 'Couldn\'t find clear text, try again with better lighting.';
+        setCamStatusKey('camNoText');
         ocrCropConfirmBtn.disabled = false;
         return;
       }
-      cameraStatusEl.textContent = 'Correct or delete any part you don\'t need, then tap search:';
+      setCamStatusKey('camCorrectText');
       showCameraResult(text, false);
     }catch(e){
-      cameraStatusEl.textContent = '❌ Failed to analyze the image. Check your internet connection and try again.';
+      setCamStatusKey('camAnalyzeFail');
       ocrCropConfirmBtn.disabled = false;
     }
   }
@@ -2713,8 +3032,7 @@
     window.getSelection().removeAllRanges();
   });
 
-  checkSetup();
-  renderRecentSearches();
+  applyLanguage(currentLang);
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، ولو مفيش يعمل فهرسة
   // تلقائية أول مرة بس (مفيش تحديث تلقائي دوري للفهرس القديم بعد كده)
   ensureIndex(false);
