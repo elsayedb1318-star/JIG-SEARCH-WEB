@@ -105,7 +105,8 @@
     justify-content:space-between;
     gap:8px;
     width:100%;
-    margin:0 0 26px;
+    max-width:520px;
+    margin:0 auto 26px;
   }
   .brand-center{
     display:flex;
@@ -1347,12 +1348,16 @@
     navigator.storage.persist().catch(() => {});
   }
 
-  // ===== زرار REFRESH: ريفريش عميق - بيمسح كاش الصفحة (مش كاش الملفات) وبيلغي
-  // تسجيل الـ Service Worker عشان يضمن إن آخر نسخة من التطبيق هي اللي بتتحمّل =====
+  // ===== زرار REFRESH: بيعمل تحديث فوري للفهرس (زي إعادة الفهرسة اليدوية)
+  // وبعدين ريفريش عميق - بيمسح كاش الصفحة (مش كاش الملفات) وبيلغي تسجيل
+  // الـ Service Worker عشان يضمن إن آخر نسخة من التطبيق هي اللي بتتحمّل =====
   async function deepRefresh(){
     if(refreshBtn.classList.contains('is-refreshing')) return;
     refreshBtn.classList.add('is-refreshing');
     refreshBtn.disabled = true;
+    try{
+      await runManualReindex();
+    }catch(e){ /* تجاهل */ }
     try{
       if('caches' in window){
         const keys = await caches.keys();
