@@ -69,15 +69,14 @@
   .header{
     width:100%;
     background:linear-gradient(160deg, var(--card) 0%, var(--card) 55%, rgba(26,86,219,.06) 100%);
-    padding:40px 20px 30px;
+    padding:24px 20px 30px;
     box-shadow:var(--shadow-sm);
     border-bottom-left-radius:32px;
     border-bottom-right-radius:32px;
     position:relative;
   }
   .header-corner-btn{
-    position:absolute;
-    top:16px;
+    flex:0 0 auto;
     z-index:5;
     display:inline-flex;
     align-items:center;
@@ -94,19 +93,27 @@
     cursor:pointer;
     box-shadow:var(--shadow-sm);
     transition:transform .12s ease, box-shadow .15s ease, border-color .15s ease;
+    white-space:nowrap;
   }
   .header-corner-btn:hover{ transform:translateY(-1px); box-shadow:var(--shadow-md); border-color:var(--blue); }
   .header-corner-btn:active{ transform:translateY(0); }
-  #refreshBtn{ inset-inline-end:20px; }
-  #langToggleBtn{ inset-inline-start:20px; }
   #refreshBtn.is-refreshing svg{ animation:refresh-spin .8s linear infinite; }
   @keyframes refresh-spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
   .brand{
     display:flex;
     align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    width:100%;
+    margin:0 0 26px;
+  }
+  .brand-center{
+    display:flex;
+    align-items:center;
     justify-content:center;
     gap:10px;
-    margin:0 0 26px;
+    flex:1 1 auto;
+    min-width:0;
   }
   .brand-icon{
     width:38px;
@@ -128,6 +135,16 @@
     color:var(--text);
     margin:0;
     font-family:'Inter', Tahoma, Arial, sans-serif;
+    white-space:nowrap;
+  }
+  @media (max-width:420px){
+    .header{ padding-left:12px; padding-right:12px; }
+    .brand{ gap:4px; }
+    .header-corner-btn{ padding:6px 10px; font-size:11px; gap:3px; }
+    .title{ font-size:21px; letter-spacing:.2px; }
+    .brand-icon{ width:32px; height:32px; }
+    .brand-icon svg{ width:17px; height:17px; }
+    .brand-center{ gap:7px; }
   }
   .search-box{
     max-width:520px;
@@ -850,16 +867,18 @@
 <body>
 
   <div class="header">
-    <button type="button" id="langToggleBtn" class="header-corner-btn" aria-label="Switch language">AR</button>
-    <button type="button" id="refreshBtn" class="header-corner-btn" aria-label="Refresh">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 11A8 8 0 1 0 18.5 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 5V11H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span id="refreshBtnLabel">REFRESH</span>
-    </button>
     <div class="brand">
-      <div class="brand-icon">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="#fff" stroke-width="2"/><path d="M19 19L15 15" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      <button type="button" id="langToggleBtn" class="header-corner-btn" aria-label="Switch language">AR</button>
+      <div class="brand-center">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="#fff" stroke-width="2"/><path d="M19 19L15 15" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <h1 class="title">JIG SEARCH</h1>
       </div>
-      <h1 class="title">JIG SEARCH</h1>
+      <button type="button" id="refreshBtn" class="header-corner-btn" aria-label="Refresh">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 11A8 8 0 1 0 18.5 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 5V11H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span id="refreshBtnLabel">REFRESH</span>
+      </button>
     </div>
     <div class="search-box">
       <div class="search-input-wrap">
