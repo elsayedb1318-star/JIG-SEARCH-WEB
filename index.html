@@ -1163,6 +1163,33 @@
     if(activeHomeTab === 'recent') renderRecentTab();
   }
 
+  // بتفتح ملف مباشرة (من غير معاينة) - مستخدمة من نتيجة البحث وكمان من
+  // اقتراحات البحث. el اختياري (بيتحط عليه class "is-opening" وقت الفتح)
+  async function openFileDirect(f, el){
+    if(openingFileIds.has(f.id)) return; // منع الفتح المزدوج لو دوس مرتين بسرعة
+    openingFileIds.add(f.id);
+    if(el) el.classList.add('is-opening');
+    const urls = getFileUrls(f);
+    try{
+      const result = await resolveFileOpen(f);
+      if(result === 'gone'){
+        await handleFileGone(f);
+      } else {
+        recordFileOpen(f);
+        if(result !== 'opened'){
+          if(f.type === 'pdf'){
+            window.open(urls.view, '_blank', 'noopener');
+          } else {
+            window.open(urls.download, '_blank', 'noopener');
+          }
+        }
+      }
+    }finally{
+      openingFileIds.delete(f.id);
+      if(el) el.classList.remove('is-opening');
+    }
+  }
+
   function isFavorite(id){ return !!loadJSON(FAV_KEY, {})[id]; }
   function toggleFavorite(f){
     const favs = loadJSON(FAV_KEY, {});
@@ -1960,30 +1987,7 @@
     a.href = getFileUrls(f).view;
     a.addEventListener('click', async (e) => {
       e.preventDefault();
-      if(openingFileIds.has(f.id)) return; // منع الفتح المزدوج لو دوس مرتين بسرعة
-      openingFileIds.add(f.id);
-      a.classList.add('is-opening');
-      // بنحاول نفتح الملف مباشرة (من غير الدخول على صفحة Google Drive) عن
-      // طريق الـ Worker - ولو فشل لأي سبب، نرجع للطريقة الاحتياطية القديمة
-      const urls = getFileUrls(f);
-      try{
-        const result = await resolveFileOpen(f);
-        if(result === 'gone'){
-          await handleFileGone(f);
-        } else {
-          recordFileOpen(f);
-          if(result !== 'opened'){
-            if(f.type === 'pdf'){
-              window.open(urls.view, '_blank', 'noopener');
-            } else {
-              window.open(urls.download, '_blank', 'noopener');
-            }
-          }
-        }
-      }finally{
-        openingFileIds.delete(f.id);
-        a.classList.remove('is-opening');
-      }
+      await openFileDirect(f, a);
     });
 
     // بنبني العناصر بـ createElement/textContent مش innerHTML، عشان لو اسم
@@ -2557,7 +2561,7 @@
       const name = f.name || '';
       if(name.toLowerCase().includes(query) && !seen.has(name)){
         seen.add(name);
-        matches.push(name);
+        matches.push(f);
       }
     }
     if(!matches.length){
@@ -2566,16 +2570,16 @@
       return;
     }
     searchSuggestions.innerHTML = '';
-    matches.forEach(name => {
+    matches.forEach(f => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'search-suggestion-item';
-      btn.textContent = name;
-      btn.addEventListener('click', () => {
-        qInput.value = name;
+      btn.textContent = f.name || '';
+      btn.addEventListener('click', async () => {
+        qInput.value = f.name || '';
         qClear.style.display = 'flex';
         searchSuggestions.style.display = 'none';
-        runSearch();
+        await openFileDirect(f, btn);
       });
       searchSuggestions.appendChild(btn);
     });
