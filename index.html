@@ -8,9 +8,6 @@
 <meta name="theme-color" content="#1a56db">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
   // بنطبّق الوضع الليلي بدري قبل ما الصفحة تترسم عشان مايحصلش وميض (flash) بلون غلط
   try{
@@ -57,7 +54,7 @@
   html,body{ overflow-x:hidden; max-width:100%; }
   body{
     margin:0;
-    font-family:'Inter', 'Segoe UI', Tahoma, Arial, sans-serif;
+    font-family:system-ui, -apple-system, 'Segoe UI', Tahoma, Arial, sans-serif;
     background:var(--bg);
     color:var(--text);
     min-height:100vh;
@@ -162,9 +159,14 @@
     width:18px;
     height:18px;
     color:var(--muted);
-    pointer-events:none;
     display:flex;
+    z-index:26;
+    cursor:pointer;
+    border:none;
+    background:none;
+    padding:0;
   }
+  .search-input-icon:hover{ color:var(--blue); }
   input#q{
     width:100%;
     padding:16px 42px 16px 44px;
@@ -883,9 +885,9 @@
     </div>
     <div class="search-box">
       <div class="search-input-wrap">
-        <span class="search-input-icon">
+        <button type="button" id="qSearchIcon" class="search-input-icon" aria-label="Search">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </span>
+        </button>
         <input type="text" id="q" placeholder="Type your search term" />
         <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
         <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
@@ -1018,7 +1020,7 @@
   const PROXY_URL = "https://jigsearch.elsayedb1318.workers.dev/";
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
-  const CACHE_KEY = 'jigsearch_index_v7'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
+  const CACHE_KEY = 'jigsearch_index_v8'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
 
   const qInput = document.getElementById('q');
   const qClear = document.getElementById('qClear');
@@ -1028,6 +1030,7 @@
   const selectionSearchGo = document.getElementById('selectionSearchGo');
   const selectionSearchClose = document.getElementById('selectionSearchClose');
   const searchBtn = document.getElementById('searchBtn');
+  const qSearchIcon = document.getElementById('qSearchIcon');
   const statusEl = document.getElementById('statusText');
   const spinnerEl = document.getElementById('spinner');
   const resultsEl = document.getElementById('results');
@@ -1085,6 +1088,7 @@
     en: {
       searchPlaceholder: 'Type your search term',
       clearSearchAria: 'Clear search',
+      searchIconAria: 'Search',
       searchBtn: '🔍 Search',
       poweredBy: 'Prepared by Elsayed adel',
       filterLabel: '📁 Filter:',
@@ -1167,6 +1171,7 @@
     ar: {
       searchPlaceholder: 'اكتب كلمة البحث',
       clearSearchAria: 'مسح البحث',
+      searchIconAria: 'بحث',
       searchBtn: '🔍 بحث',
       poweredBy: 'إعداد: السيد عادل',
       filterLabel: '📁 فلترة:',
@@ -1288,6 +1293,7 @@
 
     qInput.placeholder = t('searchPlaceholder');
     qClear.setAttribute('aria-label', t('clearSearchAria'));
+    qSearchIcon.setAttribute('aria-label', t('searchIconAria'));
     searchBtn.textContent = t('searchBtn');
     const poweredEl = document.querySelector('.powered');
     if(poweredEl) poweredEl.textContent = t('poweredBy');
@@ -1872,6 +1878,19 @@
     });
   }
 
+  // تجهيز بيانات البحث مرة واحدة بدل إعادة normalize/tokenize لكل ملف في كل بحث.
+  function prepareSearchIndex(files){
+    if(!Array.isArray(files)) return files || [];
+    for(const f of files){
+      if(!f || !f.name) continue;
+      const lower = f.name.toLowerCase();
+      f._lowerName = lower;
+      f._normName = normalizeArabic(lower);
+      f._tokens = f._normName.split(/[^a-z0-9\u0600-\u06ff]+/i).filter(Boolean);
+    }
+    return files;
+  }
+
   async function loadCachedIndex(){
     try{
       let parsed = await idbGet(CACHE_KEY);
@@ -1883,12 +1902,14 @@
       if(!parsed) return null;
       if(parsed.rootId !== ROOT_FOLDER_ID) return null;
       if(!parsed.folderIds || !parsed.files) return null;
+      prepareSearchIndex(parsed.files);
       return parsed;
     }catch(e){ return null; }
   }
 
   async function saveCachedIndex(folderIds, files, topFolders){
-    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), folderIds, files, topFolders: topFolders || [] };
+    prepareSearchIndex(files);
+    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), version: 8, folderIds, files, topFolders: topFolders || [] };
     const savedToIDB = await idbSet(CACHE_KEY, payload);
     if(!savedToIDB){
       // fallback لو IndexedDB فشل أو مش متاح
@@ -1945,7 +1966,7 @@
       const cached = await loadCachedIndex();
       if(cached){
         allFolderIds = cached.folderIds;
-        indexedFiles = cached.files;
+        indexedFiles = prepareSearchIndex(cached.files);
         allTopFolders = cached.topFolders || [];
         renderFolderFilterOptions();
         const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('unknownDate');
@@ -1967,7 +1988,7 @@
         setStatusKey('indexingProgress', { folders: folderCount, files: fileCount, level: level });
       });
       allFolderIds = result.folderIds;
-      indexedFiles = result.files;
+      indexedFiles = prepareSearchIndex(result.files);
       allTopFolders = result.topFolders;
       renderFolderFilterOptions();
       await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders);
@@ -2203,9 +2224,9 @@
 
   // مطابقة substring حقيقية على كل الصيغ المكافئة للكلمة (نفسها + مرادفاتها
   // عربي/إنجليزي)، بتغطي أرقام الطلبات وأغلب الحالات من غير بحث ضبابي
-  function matchesAllWords(fileName, wordFormsList){
-    const nameLower = fileName.toLowerCase();
-    const nameNorm = normalizeArabic(nameLower);
+  function matchesAllWords(fileOrName, wordFormsList){
+    const nameLower = typeof fileOrName === 'string' ? fileOrName.toLowerCase() : (fileOrName._lowerName || fileOrName.name.toLowerCase());
+    const nameNorm = typeof fileOrName === 'string' ? normalizeArabic(nameLower) : (fileOrName._normName || normalizeArabic(nameLower));
     return wordFormsList.every(forms => forms.some(f => nameLower.includes(f) || nameNorm.includes(f)));
   }
 
@@ -2215,14 +2236,14 @@
   }
   // بيتحقق إن نص البحث (أو كل كلمة فيه) اتطابق مع "كلمة منفصلة" كاملة في
   // اسم الملف (مش مجرد جزء من كلمة أطول، زي 02P15GD3L)
-  function matchesAsSeparateWords(fileName, wordFormsList){
-    const tokens = tokenize(fileName);
+  function matchesAsSeparateWords(fileOrName, wordFormsList){
+    const tokens = typeof fileOrName === 'string' ? tokenize(fileOrName) : (fileOrName._tokens || tokenize(fileOrName.name));
     return wordFormsList.every(forms => forms.some(f => tokens.includes(f)));
   }
   // بيدي درجة أولوية ثانوية (تُستخدم بعد ترتيب الكلمات المنفصلة) حسب قرب
   // اسم الملف من نص البحث ككل: تطابق كامل، بداية الاسم، احتواء العبارة
-  function relevanceScore(fileName, termNorm){
-    const nameNorm = normalizeArabic(fileName.toLowerCase());
+  function relevanceScore(fileOrName, termNorm){
+    const nameNorm = typeof fileOrName === 'string' ? normalizeArabic(fileOrName.toLowerCase()) : (fileOrName._normName || normalizeArabic(fileOrName.name.toLowerCase()));
     if(!termNorm) return 3;
     if(nameNorm === termNorm) return 0;
     if(nameNorm.startsWith(termNorm)) return 1;
@@ -2507,7 +2528,7 @@
     const words = splitSearchWords(term);
     lastSearchWordForms = words;
     const matched = indexedFiles.filter(f =>
-      matchesAllWords(f.name, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
+      matchesAllWords(f, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
     );
     const sortedMatched = sortByRelevance(matched, term, words);
 
@@ -2930,6 +2951,10 @@
   }
 
   searchBtn.addEventListener('click', runSearch);
+  qSearchIcon.addEventListener('click', () => {
+    searchSuggestions.style.display = 'none';
+    runSearch();
+  });
   qInput.addEventListener('keydown', (e) => {
     if(e.key === 'Enter') runSearch();
     if(e.key === 'Escape') searchSuggestions.style.display = 'none';
