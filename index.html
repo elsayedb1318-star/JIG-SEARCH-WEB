@@ -2055,7 +2055,7 @@
   // بيرجع HTML الأيقونة المناسبة للملف: أيقونة الفولدر المخصصة لو موجودة، وإلا أيقونة نوع الملف العامة
   function fileIconHtml(f){
     const url = folderIconUrl(f);
-    if(url) return `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+    if(url) return `<img src="${url}" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
     return FILE_ICON_SVG;
   }
   function fileTypeLabel(f){
@@ -2255,18 +2255,21 @@
   // حسب الأقرب (تطابق كامل > بداية الاسم > احتواء > الأقرب في الطول)
   function sortByRelevance(files, term, wordFormsList){
     const termNorm = normalizeArabic(term.toLowerCase().trim());
-    return files.slice().sort((a, b) => {
-      const wa = matchesAsSeparateWords(a.name, wordFormsList) ? 0 : 1;
-      const wb = matchesAsSeparateWords(b.name, wordFormsList) ? 0 : 1;
-      if(wa !== wb) return wa - wb;
-      const sa = relevanceScore(a.name, termNorm);
-      const sb = relevanceScore(b.name, termNorm);
-      if(sa !== sb) return sa - sb;
-      const diffA = Math.abs(a.name.length - termNorm.length);
-      const diffB = Math.abs(b.name.length - termNorm.length);
-      if(diffA !== diffB) return diffA - diffB;
-      return a.name.localeCompare(b.name, 'ar');
-    });
+    // بنحسب كل قيم الترتيب لكل ملف مرة واحدة بس (مش جوه الـ comparator نفسه)
+    // عشان مانكررش الحساب لنفس الملف كذا مرة أثناء الـ sort
+    const decorated = files.map(f => ({
+      f,
+      w: matchesAsSeparateWords(f.name, wordFormsList) ? 0 : 1,
+      s: relevanceScore(f.name, termNorm),
+      diff: Math.abs(f.name.length - termNorm.length)
+    }));
+    decorated.sort((a, b) =>
+      (a.w - b.w) ||
+      (a.s - b.s) ||
+      (a.diff - b.diff) ||
+      a.f.name.localeCompare(b.f.name, 'ar')
+    );
+    return decorated.map(d => d.f);
   }
 
   let currentFiles = [];
@@ -2960,10 +2963,16 @@
     if(e.key === 'Escape') searchSuggestions.style.display = 'none';
   });
   // البحث بيتم بس لما تدوس زرار "بحث" أو Enter - مفيش بحث تلقائي أثناء الكتابة
+  // اقتراحات البحث بس بتتأخر شوية (debounce) عشان الكتابة السريعة على الموبايل
+  // ماتشغلش الفلترة كذا مرة فاضية على كل حرف
+  let suggestionsDebounceTimer = null;
   qInput.addEventListener('input', () => {
     qClear.style.display = qInput.value ? 'flex' : 'none';
-    updateSearchSuggestions();
+    clearTimeout(suggestionsDebounceTimer);
+    suggestionsDebounceTimer = setTimeout(updateSearchSuggestions, 120);
     if(qInput.value.trim() === ""){
+      searchSuggestions.style.display = 'none';
+      searchSuggestions.innerHTML = '';
       resultsEl.innerHTML = "";
       currentFiles = [];
       renderedCount = 0;

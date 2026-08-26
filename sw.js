@@ -3,7 +3,7 @@
 // حتى من غير إنترنت. البحث نفسه بيتم محليًا على الفهرس المخزن في
 // IndexedDB جوه المتصفح، فمش محتاج إنترنت أصلاً بعد أول فهرسة.
 
-const CACHE_NAME = 'jigsearch-cache-v3';
+const CACHE_NAME = 'jigsearch-cache-v4';
 const APP_SHELL = [
   './',
   './index.html',
@@ -44,33 +44,35 @@ self.addEventListener('fetch', (event) => {
   // الكاش بيتستخدم بس كخطة بديلة لو مفيش نت خالص (أوفلاين)
   if(url.origin === self.location.origin){
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if(res && res.ok){
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-          }
-          return res;
-        })
-        .catch(() => caches.match(req))
+      caches.match(req).then((cached) => {
+        const fetchPromise = fetch(req)
+          .then((res) => {
+            if(res && res.ok){
+              const clone = res.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+            }
+            return res;
+          })
+          .catch(() => cached);
+        return cached || fetchPromise;
+      })
     );
     return;
   }
 
-  // مكتبات CDN الخارجية (jsQR/ZXing/Tesseract) - network-first مع تخزين
-  // عشان تشتغل أوفلاين بعد أول استخدام. طلبات Google Drive API (بيانات
-  // بتتغيّر) بتتسيب من غير تخزين عشان النتايج تفضل محدّثة قد ما يكون فيه نت
+  // مكتبات CDN الخارجية (jsQR/ZXing/Tesseract) - cache-first لأنها منسوخة
+  // بإصدار ثابت في الكود (مش هتتغير)، فبتفتح فورًا من الكاش من غير ما تستنى
+  // النت، وبتتحدّث في الخلفية لو نسخة الكاش مش موجودة أو قديمة. طلبات Google
+  // Drive API (بيانات بتتغيّر) بتتسيب من غير تخزين عشان النتايج تفضل محدّثة
   if(url.hostname === 'cdn.jsdelivr.net'){
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if(res && res.ok){
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-          }
-          return res;
-        })
-        .catch(() => caches.match(req))
+      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+        if(res && res.ok){
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+        }
+        return res;
+      }))
     );
   }
 });
