@@ -3,7 +3,7 @@
 // حتى من غير إنترنت. البحث نفسه بيتم محليًا على الفهرس المخزن في
 // IndexedDB جوه المتصفح، فمش محتاج إنترنت أصلاً بعد أول فهرسة.
 
-const CACHE_NAME = 'jigsearch-cache-v4';
+const CACHE_NAME = 'jigsearch-cache-v5';
 const APP_SHELL = [
   './',
   './index.html',
@@ -39,9 +39,8 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
 
-  // نفس أصل التطبيق (index.html وملفاته) - network-first: النسخة الجديدة
-  // دايمًا هي اللي بتتعرض لو فيه نت، والكاش بيتحدث في نفس اللحظة.
-  // الكاش بيتستخدم بس كخطة بديلة لو مفيش نت خالص (أوفلاين)
+  // نفس أصل التطبيق (index.html وملفاته) - cache-first: بتفتح فورًا من
+  // الكاش من غير ما تستنى النت، وبتتحدث في الخلفية لو فيه نسخة أحدث
   if(url.origin === self.location.origin){
     event.respondWith(
       caches.match(req).then((cached) => {
@@ -53,7 +52,17 @@ self.addEventListener('fetch', (event) => {
             }
             return res;
           })
-          .catch(() => cached);
+          .catch(async () => {
+            // لو الطلب فشل تمامًا (لا كاش ولا نت) وده طلب فتح صفحة (navigate)
+            // - زي لما اختصار قديم على الشاشة الرئيسية يفتح مسار غريب أو
+            // ملغي - نرجّعله الصفحة الرئيسية المخزنة بدل ما يوري شاشة خطأ
+            if(cached) return cached;
+            if(req.mode === 'navigate'){
+              const fallback = await caches.match('./index.html') || await caches.match('./');
+              if(fallback) return fallback;
+            }
+            return Response.error();
+          });
         return cached || fetchPromise;
       })
     );
