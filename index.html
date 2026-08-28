@@ -1102,7 +1102,7 @@
       tabFavorites: '⭐ Favorites',
       darkMode: '🌙 Dark Mode',
       lightMode: '☀️ Light Mode',
-      newFilesBanner: '🆕 New files found — tap to update the index',
+      newFilesBanner: '🆕 Index updated automatically with new files',
       loadMore: 'Load More',
       loadMoreCount: 'Load More ({n} left)',
       scanModalTitle: '📷 Scan Barcode / QR',
@@ -1134,7 +1134,7 @@
       unknownDate: 'Unknown',
       lastIndexUpdate: 'Last index update: {date}.',
       indexPreparing: 'Automatically preparing the index of folders and files... (this happens once and is saved)',
-      indexingProgress: 'Indexing... {folders} folders and {files} PDF/Office/image files so far (level {level})',
+      indexingProgress: 'Indexing... {folders} folders and {files} PDF/Office/image files found so far',
       indexedDone: 'Indexed {folders} folders and {files} PDF/Office/image files{note}. Type your search term.',
       skipNotePermission: '{n} due to permissions',
       skipNoteNetwork: '{n} due to network issues',
@@ -1185,7 +1185,7 @@
       tabFavorites: '⭐ المفضلة',
       darkMode: '🌙 الوضع الليلي',
       lightMode: '☀️ الوضع النهاري',
-      newFilesBanner: '🆕 تم العثور على ملفات جديدة — اضغط لتحديث الفهرس',
+      newFilesBanner: '🆕 تم تحديث الفهرس تلقائيًا بملفات جديدة',
       loadMore: 'تحميل المزيد',
       loadMoreCount: 'تحميل المزيد (متبقي {n})',
       scanModalTitle: '📷 مسح باركود / QR',
@@ -1217,7 +1217,7 @@
       unknownDate: 'غير معروف',
       lastIndexUpdate: 'آخر تحديث للفهرس: {date}.',
       indexPreparing: 'جارِ تجهيز فهرس الفولدرات والملفات تلقائيًا... (يحدث هذا مرة واحدة ويُحفظ)',
-      indexingProgress: 'جارِ الفهرسة... {folders} فولدر و{files} ملف PDF/أوفيس/صورة حتى الآن (المستوى {level})',
+      indexingProgress: 'جارِ الفهرسة... {folders} فولدر و{files} ملف PDF/أوفيس/صورة حتى الآن',
       indexedDone: 'تم فهرسة {folders} فولدر و{files} ملف PDF/أوفيس/صورة{note}. اكتب كلمة البحث.',
       skipNotePermission: '{n} بسبب الصلاحيات',
       skipNoteNetwork: '{n} بسبب مشاكل الشبكة',
@@ -1595,6 +1595,7 @@
   let allFolderIds = null;   // كل الفولدرات (شامل الرئيسي) بعد الفهرسة
   let indexedFiles = null;   // كل ملفات الـ PDF (id + name) اللي اتفهرست جوه كل الفولدرات
   let allTopFolders = null;  // الفولدرات المباشرة جوه الروت بس (id + name) - المتاحة للفلترة
+  let folderTopMap = {};     // folderId -> topFolderId، مستخدمة في مزامنة الملفات الجديدة (delta sync)
   let activeFolderFilter = null; // ID فولدر مباشر جوه الروت لو المستخدم فلتر النتايج بيه، أو null لكل الفولدرات
   let displayedCount = 0;
   let searchToken = 0; // بيتزود كل بحث جديد عشان نلغي نتيجة بحث قديم اتأخر
@@ -1777,14 +1778,17 @@
     }
   }
 
-  // بيشغّل fn على كل عناصر items بالتوازي بس بحد أقصى limit في نفس الوقت
-  async function mapWithConcurrency(items, limit, fn){
+  // بيشغّل fn على كل عناصر items بالتوازي بس بحد أقصى limit في نفس الوقت.
+  // onItemDone (اختياري) بينادَى فورًا بعد كل عنصر يخلص، عشان نقدر نحدّث
+  // شريط التقدم أول بأول بدل ما نستنى المستوى كله يخلص
+  async function mapWithConcurrency(items, limit, fn, onItemDone){
     const results = new Array(items.length);
     let i = 0;
     async function worker(){
       while(i < items.length){
         const idx = i++;
         results[idx] = await fn(items[idx]);
+        if(onItemDone) onItemDone(results[idx], items[idx]);
       }
     }
     const workers = [];
@@ -1809,27 +1813,40 @@
     const rootResult = await fetchFolderChildrenRaw(rootId);
     const topFolders = rootResult.subfolders.map(sf => ({ id: sf.id, name: sf.name }));
     const folderIds = [rootId, ...rootResult.subfolders.map(sf => sf.id)];
+    // خريطة folderId -> topFolderId، بتتبني أثناء الفهرسة الكاملة وبتتخزن مع
+    // الفهرس، عشان أي فهرسة "دلتا" لاحقة (ملفات جديدة) تعرف كل ملف جديد
+    // تابع لأنهي فولدر رئيسي من غير ما تحتاج تعيد بناء الشجرة كلها
+    const folderTopMap = {};
+    rootResult.subfolders.forEach(sf => { folderTopMap[sf.id] = sf.id; });
     const files = rootResult.pdfs.map(f => ({ ...f, folder: null }));
     let queue = rootResult.subfolders.map(sf => ({ id: sf.id, topFolderId: sf.id }));
     let level = 1;
     if(onProgress) onProgress(folderIds.length, files.length, level);
     while(queue.length){
       const nextQueue = [];
-      const results = await mapWithConcurrency(queue, CRAWL_CONCURRENCY, item => fetchFolderChildren(item.id));
+      // onItemDone بينادى بعد كل فولدر لوحده - عشان شريط التقدم يتحرك أول
+      // بأول أثناء المستوى نفسه، مش بس لما المستوى كله يخلص (مهم للمستويات
+      // اللي فيها فولدرات كتير وبتاخد وقت طويل تخلص)
+      const results = await mapWithConcurrency(queue, CRAWL_CONCURRENCY, item => fetchFolderChildren(item.id), (res, item) => {
+        if(res){
+          folderIds.push(...res.subfolders.map(sf => sf.id));
+          files.push(...res.pdfs.map(f => ({ ...f, folder: item.topFolderId })));
+        }
+        if(onProgress) onProgress(folderIds.length, files.length, level);
+      });
       results.forEach((res, idx) => {
         const topFolderId = queue[idx].topFolderId;
         res.subfolders.forEach(sf => {
-          folderIds.push(sf.id);
+          folderTopMap[sf.id] = topFolderId;
           nextQueue.push({ id: sf.id, topFolderId });
         });
-        res.pdfs.forEach(f => files.push({ ...f, folder: topFolderId }));
       });
       queue = nextQueue;
       level++;
       if(onProgress) onProgress(folderIds.length, files.length, level);
       if(level > 15) break; // حماية من حلقات لا نهائية
     }
-    return { folderIds, files, topFolders };
+    return { folderIds, files, topFolders, folderTopMap };
   }
 
   // ===== تخزين الفهرس: IndexedDB (سعة أكبر وأثبت من localStorage)
@@ -1907,9 +1924,9 @@
     }catch(e){ return null; }
   }
 
-  async function saveCachedIndex(folderIds, files, topFolders){
+  async function saveCachedIndex(folderIds, files, topFolders, folderTopMap){
     prepareSearchIndex(files);
-    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), version: 8, folderIds, files, topFolders: topFolders || [] };
+    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), version: 9, folderIds, files, topFolders: topFolders || [], folderTopMap: folderTopMap || {} };
     const savedToIDB = await idbSet(CACHE_KEY, payload);
     if(!savedToIDB){
       // fallback لو IndexedDB فشل أو مش متاح
@@ -1968,6 +1985,7 @@
         allFolderIds = cached.folderIds;
         indexedFiles = prepareSearchIndex(cached.files);
         allTopFolders = cached.topFolders || [];
+        folderTopMap = cached.folderTopMap || {};
         renderFolderFilterOptions();
         const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('unknownDate');
         setStatusKey('lastIndexUpdate', { date: lastIndexDate });
@@ -1976,6 +1994,12 @@
       // مفيش فهرس محفوظ - نعمل فهرسة تلقائية أول مرة من غير أي تدخل من المستخدم
     }
 
+    // بنحتفظ بنسخة من الفهرس الشغال حاليًا (لو موجود) عشان لو الفهرسة الجديدة
+    // فشلت في النص، نرجّع الفهرس القديم بدل ما نسيب البحث معطّل لحد ما المستخدم
+    // يعمل reload للصفحة
+    const prevFolderIds = allFolderIds;
+    const prevIndexedFiles = indexedFiles;
+    const prevStatusKey = lastStatusKey, prevStatusParams = lastStatusParams, prevStatusIsError = lastStatusIsError;
     setStatusKey('indexPreparing');
     setLoading(true);
     skeletonLoader.style.display = 'flex';
@@ -1990,8 +2014,9 @@
       allFolderIds = result.folderIds;
       indexedFiles = prepareSearchIndex(result.files);
       allTopFolders = result.topFolders;
+      folderTopMap = result.folderTopMap || {};
       renderFolderFilterOptions();
-      await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders);
+      await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders, folderTopMap);
       let note = '';
       if(skippedFolderCount){
         const parts = [];
@@ -2003,9 +2028,22 @@
       }
       setStatusKey('indexedDone', { folders: allFolderIds.length, files: indexedFiles.length, note: note });
     }catch(err){
-      setStatusKey(errorStatusKey(err), errorStatusParams(err), true);
-      allFolderIds = null;
-      indexedFiles = null;
+      // لو كان عندنا فهرس شغال (قديم) قبل المحاولة دي، نسيبه شغال زي ما هو
+      // بدل ما نمسحه - المستخدم يقدر يفضل يدوّر حتى لو تحديث الفهرس فشل.
+      // نمسح الفهرس بس لو دي أول محاولة فهرسة على الإطلاق (مفيش فهرس قديم أصلًا)
+      const hadWorkingIndex = !!(prevFolderIds && prevIndexedFiles);
+      if(hadWorkingIndex){
+        // نسيب الفهرس القديم شغال من غير ما نوري أي رسالة خطأ - البحث لسه
+        // شغال عادي زي ما هو، فبنرجّع نفس رسالة الحالة اللي كانت ظاهرة قبل
+        // المحاولة دي (تاريخ آخر فهرسة) بدل ما تفضل عالقة على "جارِ الفهرسة"
+        allFolderIds = prevFolderIds;
+        indexedFiles = prevIndexedFiles;
+        if(prevStatusKey) setStatusKey(prevStatusKey, prevStatusParams, prevStatusIsError);
+      }else{
+        allFolderIds = null;
+        indexedFiles = null;
+        setStatusKey(errorStatusKey(err), errorStatusParams(err), true);
+      }
     }finally{
       setLoading(false);
       skeletonLoader.style.display = 'none';
@@ -3018,44 +3056,102 @@
   statusContainer.addEventListener('click', runManualReindex);
   newFilesBanner.addEventListener('click', runManualReindex);
 
-  // ===== فحص خفيف بعد ما الصفحة تخلص تحميل بالكامل: هل فيه ملفات اتضافت/اتعدلت
-  // بعد آخر فهرسة؟ لو لقى حاجة، بيظهر بانر بدل ما المستخدم يستنى الـ 5 أيام =====
-  const NEW_FILES_CHECK_KEY = 'jigsearch_last_newfiles_check';
-  const NEW_FILES_CHECK_COOLDOWN_MS = 24 * 60 * 60 * 1000; // مرة كل يوم كحد أقصى
-  async function checkForNewFiles(){
+  // ===== مزامنة تلقائية صامتة (فهرسة تفاضلية): كل ما تُعمل عملية بحث (بحد
+  // أقصى مرة كل NEW_FILES_SYNC_COOLDOWN_MS)، بنسأل Drive عن أي ملفات
+  // جديدة/معدّلة في أي فولدر معروف بالفعل (حتى الفرعي العميق) بعد آخر
+  // مزامنة، ونضيفها مباشرة لفهرس البحث المحلي وللكاش - من غير ما تدوس أي
+  // زرار ومن غير ما نعيد فهرسة كل حاجة من الأول. لو الملف الجديد كان بيدور
+  // عليه بحث شغال حاليًا، النتايج بتتحدث تلقائيًا كمان.
+  // نفس الاستعلام بيرجّع كمان أي فولدر جديد اتعمل بعد آخر مزامنة (modifiedTime
+  // بتتحسب من وقت الإنشاء)، فبنكتشف الفولدرات الجديدة ونعمل لها فهرسة كاملة
+  // لمحتواها بس (مش لكل الدرايف) ونضيفها لنفس فهرس البحث.
+  const NEW_FILES_SYNC_COOLDOWN_MS = 45 * 1000;
+  let lastSyncTs = 0;
+  let isSyncingNewFiles = false;
+  async function syncNewFiles(){
+    if(isSyncingNewFiles) return false;
+    if(!allFolderIds || !indexedFiles) return false;
+    if(Date.now() - lastSyncTs < NEW_FILES_SYNC_COOLDOWN_MS) return false;
+    const cached = await loadCachedIndex();
+    if(!cached || !cached.ts) return false;
+    isSyncingNewFiles = true;
+    const syncStartedAt = Date.now();
     try{
-      const lastCheck = parseInt(localStorage.getItem(NEW_FILES_CHECK_KEY) || '0', 10);
-      if(Date.now() - lastCheck < NEW_FILES_CHECK_COOLDOWN_MS) return;
-      localStorage.setItem(NEW_FILES_CHECK_KEY, String(Date.now()));
-
-      const cached = await loadCachedIndex();
-      if(!cached || !cached.folderIds || !cached.folderIds.length || !cached.ts) return;
-      // نفس صيغة استعلام "فولدر واحد في parents" اللي الفهرسة العادية بتستخدمها
-      // وبتشتغل مضمون - بنضيف بس شرط modifiedTime. بنشيل الميلي ثانية من
-      // التاريخ (Google Drive query parser بيرفض أحيانًا التنسيق اللي فيه .000Z)
       const isoTs = new Date(cached.ts).toISOString().replace(/\.\d{3}Z$/, 'Z');
-      const ids = cached.folderIds;
-      let found = false;
+      const ids = allFolderIds;
+      const knownIds = new Set(indexedFiles.map(f => f.id));
+      const knownFolderIds = new Set(allFolderIds);
+      const newFiles = [];
+      const newFolders = []; // { id, topFolderId } - فولدرات جديدة تمامًا لسه محتاجة فهرسة لمحتواها
       let i = 0;
       const CONCURRENCY = 6;
       async function worker(){
-        while(i < ids.length && !found){
-          const id = ids[i++];
-          const q = `'${id}' in parents and modifiedTime > '${isoTs}' and trashed = false`;
+        while(i < ids.length){
+          const folderId = ids[i++];
+          const q = `'${folderId}' in parents and modifiedTime > '${isoTs}' and trashed = false`;
           try{
-            const data = await driveList(q, null, 1); // retry واحدة بس - ده فحص خفيف مش حرج
-            if(data && data.files && data.files.length) found = true;
+            let pageToken = null;
+            do{
+              const data = await driveList(q, pageToken, 1); // retry واحدة بس - فحص خفيف مش حرج
+              (data.files || []).forEach(f => {
+                if(f.mimeType === 'application/vnd.google-apps.folder'){
+                  if(!knownFolderIds.has(f.id)){
+                    const topFolderId = folderTopMap[folderId] !== undefined ? folderTopMap[folderId] : folderId;
+                    newFolders.push({ id: f.id, topFolderId });
+                    knownFolderIds.add(f.id);
+                  }
+                }else if(SUPPORTED_MIME_TYPES[f.mimeType] && !knownIds.has(f.id)){
+                  newFiles.push({
+                    id: f.id, name: f.name, type: SUPPORTED_MIME_TYPES[f.mimeType],
+                    folder: folderTopMap[folderId] !== undefined ? folderTopMap[folderId] : null
+                  });
+                  knownIds.add(f.id);
+                }
+              });
+              pageToken = data.nextPageToken || null;
+            }while(pageToken);
           }catch(e){
-            // فولدر واحد فشل (صلاحيات مثلاً) - نتخطاه ونكمل الباقي
+            // فولدر واحد فشل (صلاحيات/شبكة) - نتخطاه ونكمل الباقي، ده فحص خفيف مش فهرسة كاملة
           }
         }
       }
       const workers = [];
       for(let k = 0; k < Math.min(CONCURRENCY, ids.length); k++) workers.push(worker());
       await Promise.all(workers);
-      if(found) newFilesBanner.style.display = 'block';
+
+      // فهرسة محتوى أي فولدر جديد اتكتشف - فهرسة كاملة لشجرته هو بس، مش لكل
+      // الدرايف من الأول، فده لسه فهرسة تفاضلية أسرع بكتير من REFRESH كامل
+      const newFolderIds = [];
+      for(const nf of newFolders){
+        try{
+          // بنستخدم nf.id كـ "روت" لفهرسة فرعية لشجرته هو بس، لكن كل ملف/فولدر
+          // جواه لازم ينسب لنفس الفولدر الرئيسي (nf.topFolderId) اللي المستخدم
+          // بيفلتر بيه في الواجهة - مش لـ nf.id نفسه
+          const sub = await crawlAllFoldersAndFiles(nf.id);
+          newFolderIds.push(nf.id, ...sub.folderIds.filter(id => id !== nf.id));
+          folderTopMap[nf.id] = nf.topFolderId;
+          sub.folderIds.filter(id => id !== nf.id).forEach(id => { folderTopMap[id] = nf.topFolderId; });
+          newFiles.push(...sub.files.map(f => ({ ...f, folder: nf.topFolderId })));
+        }catch(e){
+          // فولدر جديد فشلت فهرسته - هنحاول تاني في المزامنة الجاية أو مع REFRESH يدوي
+        }
+      }
+      if(newFolderIds.length){
+        allFolderIds = allFolderIds.concat(newFolderIds);
+      }
+
+      lastSyncTs = syncStartedAt;
+      if(newFiles.length){
+        prepareSearchIndex(newFiles);
+        indexedFiles = indexedFiles.concat(newFiles);
+        await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders, folderTopMap);
+        return true;
+      }
+      return false;
     }catch(e){
-      // فشل الفحص كله (مفيش نت مثلاً) - نتجاهله بصمت، الفهرسة كل 5 أيام هي الشبكة الأساسية
+      return false;
+    }finally{
+      isSyncingNewFiles = false;
     }
   }
 
@@ -3090,14 +3186,33 @@
     window.getSelection().removeAllRanges();
   });
 
+  // فحص خفيف (مزامنة تفاضلية) لملفات/فولدرات جديدة، وتحديث النتايج المعروضة
+  // حاليًا لو كان فيه بحث شغال، من غير ما يوقف المستخدم أو يحتاج يدوس زرار
+  const NEW_FILES_CHECK_INTERVAL_MS = 60 * 60 * 1000; // كل ساعة طول ما الصفحة مفتوحة
+  let newFilesBannerTimer = null;
+  async function checkForNewFiles(){
+    const found = await syncNewFiles();
+    if(found){
+      if(qInput.value.trim()) runSearch();
+      // بانر بسيط بيظهر ويختفي لوحده - مجرد تأكيد إن الفهرس اتحدث تلقائيًا،
+      // مش محتاج المستخدم يدوس عليه (المزامنة أصلًا حصلت من غير أي تدخل منه)
+      newFilesBanner.style.display = 'flex';
+      clearTimeout(newFilesBannerTimer);
+      newFilesBannerTimer = setTimeout(() => { newFilesBanner.style.display = 'none'; }, 6000);
+    }
+    return found;
+  }
+
   applyLanguage(currentLang);
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، ولو مفيش يعمل فهرسة
-  // تلقائية أول مرة بس (مفيش تحديث تلقائي دوري للفهرس القديم بعد كده)
+  // تلقائية أول مرة بس (مفيش تحديث تلقائي دوري كامل للفهرس القديم بعد كده -
+  // بس فيه مزامنة تفاضلية دورية خفيفة تحت)
   ensureIndex(false);
 
   window.addEventListener('load', () => {
     // بنستنى شوية عشان الفحص ده ميأثرش خالص على سرعة أول ظهور للصفحة
     setTimeout(checkForNewFiles, 2000);
+    setInterval(checkForNewFiles, NEW_FILES_CHECK_INTERVAL_MS);
   });
 
   if('serviceWorker' in navigator){
