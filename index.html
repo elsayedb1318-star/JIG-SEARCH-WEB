@@ -1426,26 +1426,42 @@
       return false;
     }
   }
-  // بيسحب محتوى الملف من الـ Worker ويفتحه مباشرة (من غير الدخول على صفحة
-  // Drive) حتى أول مرة، وبيخزنه كمان للمرة الجاية. بيرجع 'opened' لو نجح،
-  // 'gone' لو الملف اتحذف/اتنقل من Drive (404)، أو 'failed' لأي سبب تاني
-  async function tryOpenDirect(url, f){
-    if(!url) return 'failed';
-    try{
-      const res = await fetch(url);
-      if(res.status === 404) return 'gone';
-      if(!res.ok) return 'failed';
-      const clone = res.clone();
-      if('caches' in window){
-        caches.open(FILES_CACHE_NAME).then(cache => cache.put(url, clone)).catch(() => {});
-      }
-      const blob = await res.blob();
-      if(!blob || !blob.size) return 'failed';
-      openBlob(blob, f);
-      return 'opened';
-    }catch(e){
-      return 'failed';
+  // بيسحب محتوى الملف من الـ Worker ويخزنه في الكاش للاستخدام الأوفلاين -
+  // بيشتغل في الخلفية من غير ما يعطّل فتح الملف نفسه. لو الملف مش موجود
+  // (404) بيشيله من الفهرس المحلي عشان مايفضلش يظهر في بحث جاي
+  function cacheFileInBackground(url, f){
+    if(!url || !('caches' in window)) return;
+    fetch(url).then(async (res) => {
+      if(res.status === 404){ await handleFileGone(f); return; }
+      if(!res.ok) return;
+      const cache = await caches.open(FILES_CACHE_NAME);
+      await cache.put(url, res);
+    }).catch(() => { /* فشل التخزين للأوفلاين - مش مشكلة، هيحاول تاني المرة الجاية */ });
+  }
+  // بيفتح الملف مباشرة من رابط الـ Worker (المتصفح بيعرضه/ينزّله وهو لسه
+  // بيوصل، من غير ما نستنى التنزيل يخلص بالكامل زي كان قبل كده - ده اللي
+  // كان بيسبب تأخير واضح خصوصًا في الملفات الكبيرة)
+  function openDirect(url, f){
+    if(f.type === 'pdf' || f.type === 'image'){
+      window.open(url, '_blank', 'noopener');
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = f.name || 'file';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
+  }
+  // بيحاول يفتح الملف من الكاش (أوفلاين) فورًا لو موجود، ولو مش موجود
+  // بيفتحه على طول من رابط الـ Worker (سريع، من غير انتظار) وفي نفس الوقت
+  // بيبدأ تخزينه في الخلفية للمرة الجاية
+  async function resolveFileOpen(f){
+    const contentUrl = getFileContentUrl(f.id);
+    if(await tryOpenFromCache(contentUrl, f)) return 'opened';
+    openDirect(contentUrl, f);
+    cacheFileInBackground(contentUrl, f);
+    return 'opened';
   }
   function deleteCachedFile(id){
     if(!('caches' in window)) return;
@@ -1456,14 +1472,6 @@
   // بيمنع فتح نفس الملف أكتر من مرة في نفس اللحظة (لو المستخدم دوس مرتين
   // بسرعة وهو مستني)
   const openingFileIds = new Set();
-  // بيحاول يفتح الملف من الكاش، ولو مش موجود بيحاول يجيبه مباشرة من الـ
-  // Worker. بيرجع 'opened'، 'gone' (الملف اتحذف/اتنقل)، أو 'failed'
-  // (محتاج المتصفح يرجع للطريقة الاحتياطية - فتح صفحة Drive)
-  async function resolveFileOpen(f){
-    const contentUrl = getFileContentUrl(f.id);
-    if(await tryOpenFromCache(contentUrl, f)) return 'opened';
-    return await tryOpenDirect(contentUrl, f);
-  }
   // بيتنفذ لو اتأكدنا إن الملف اتحذف أو اتنقل من Google Drive (404) -
   // بيشيله من الفهرس المحلي (عشان مايفضلش يظهر في نتائج البحث الجاية)
   // ومن آخر الملفات/المفضلة، وبيشيله من الشاشة على طول من غير ما ننتظر
@@ -1518,21 +1526,9 @@
     if(openingFileIds.has(f.id)) return; // منع الفتح المزدوج لو دوس مرتين بسرعة
     openingFileIds.add(f.id);
     if(el) el.classList.add('is-opening');
-    const urls = getFileUrls(f);
     try{
-      const result = await resolveFileOpen(f);
-      if(result === 'gone'){
-        await handleFileGone(f);
-      } else {
-        recordFileOpen(f);
-        if(result !== 'opened'){
-          if(f.type === 'pdf'){
-            window.open(urls.view, '_blank', 'noopener');
-          } else {
-            window.open(urls.download, '_blank', 'noopener');
-          }
-        }
-      }
+      await resolveFileOpen(f);
+      recordFileOpen(f);
     }finally{
       openingFileIds.delete(f.id);
       if(el) el.classList.remove('is-opening');
@@ -2153,13 +2149,8 @@
       previewDownloadBtn.disabled = true;
       previewOpenBtn.textContent = t('previewOpening');
       try{
-        const result = await resolveFileOpen(f);
-        if(result === 'gone'){
-          await handleFileGone(f);
-        } else {
-          recordFileOpen(f);
-          if(result !== 'opened') window.open(urls.view, '_blank', 'noopener');
-        }
+        await resolveFileOpen(f);
+        recordFileOpen(f);
       }finally{
         previewOpenBtn.disabled = false;
         previewDownloadBtn.disabled = false;
@@ -2174,13 +2165,8 @@
       previewDownloadBtn.disabled = true;
       previewDownloadBtn.textContent = t('previewDownloading');
       try{
-        const result = await resolveFileOpen(f);
-        if(result === 'gone'){
-          await handleFileGone(f);
-        } else {
-          recordFileOpen(f);
-          if(result !== 'opened') window.open(urls.download, '_blank', 'noopener');
-        }
+        await resolveFileOpen(f);
+        recordFileOpen(f);
       }finally{
         previewOpenBtn.disabled = false;
         previewDownloadBtn.disabled = false;
