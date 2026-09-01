@@ -434,6 +434,29 @@
   }
   .new-files-banner:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(22,163,74,.38); }
   @keyframes banner-in{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:translateY(0); } }
+  #appUpdateBanner{ background:linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); box-shadow:0 6px 16px rgba(37,99,235,.3); }
+  #appUpdateBanner:hover{ box-shadow:0 8px 20px rgba(37,99,235,.38); }
+  .sort-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    max-width:520px;
+    margin:10px auto 0;
+    padding:0 4px;
+    font-size:13px;
+    color:var(--muted, #6b7280);
+  }
+  .sort-bar select{
+    flex:1;
+    max-width:180px;
+    padding:6px 8px;
+    border-radius:8px;
+    border:1px solid var(--border, #d1d5db);
+    background:var(--card-bg, #fff);
+    color:inherit;
+    font-size:13px;
+    font-family:inherit;
+  }
   .selection-search-bar{
     position:fixed;
     left:12px;
@@ -920,9 +943,11 @@
     <div id="homeTabs" class="home-tabs">
       <button type="button" class="home-tab" data-tab="recent">🕘 Recent Files</button>
       <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
+      <button id="cleanupBtn" class="home-tab help-btn">🧹 Clean Up</button>
       <button id="themeToggleBtn" class="home-tab help-btn">🌙 Dark Mode</button>
     </div>
     <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
+    <button type="button" id="appUpdateBanner" class="new-files-banner" style="display:none;">🔄 A new version of the app is available — tap to update</button>
     <div id="status" class="status" role="status" aria-live="polite" title="Tap to re-index">
       <span id="spinner" class="spinner" aria-hidden="true"></span>
       <span id="statusText"></span>
@@ -932,6 +957,15 @@
       <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
       <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
       <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
+    </div>
+    <div id="sortBar" class="sort-bar" style="display:none;">
+      <label id="sortBarLabel" for="sortSelect">Sort by:</label>
+      <select id="sortSelect">
+        <option value="relevance">Relevance</option>
+        <option value="name">Name (A-Z)</option>
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
     </div>
     <div id="results" class="results"></div>
     <button id="loadMoreBtn" class="load-more" style="display:none;">Load More</button>
@@ -1017,7 +1051,11 @@
 
 <script>
   // إعدادات لازم تتظبط قبل ما الصفحة تشتغل:
-  const PROXY_URL = "https://jigsearch.elsayedb1318.workers.dev/";
+  const PROXY_URL = "https://jig-search-web.elsayedb1318.workers.dev/";
+  // لازم يتطابق حرفيًا مع APP_TOKEN في worker.js - مش سر حقيقي (ظاهر في
+  // كود الموقع)، الهدف بس تصفية أي سكريبت عشوائي بيحاول يضرب endpoint
+  // البحث من غير ما يفتح الموقع نفسه أصلًا
+  const APP_TOKEN = "jigsearch-2f8a7c1e";
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
   const CACHE_KEY = 'jigsearch_index_v8'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
@@ -1039,6 +1077,8 @@
   const setupWarning = document.getElementById('setupWarning');
   const statusContainer = document.getElementById('status');
   const newFilesBanner = document.getElementById('newFilesBanner');
+  const appUpdateBanner = document.getElementById('appUpdateBanner');
+  const cleanupBtn = document.getElementById('cleanupBtn');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   const recentSearchesEl = document.getElementById('recentSearches');
   const folderFilterWrap = document.getElementById('folderFilterWrap');
@@ -1058,6 +1098,8 @@
   const previewDownloadBtn = document.getElementById('previewDownloadBtn');
   const previewShareBtn = document.getElementById('previewShareBtn');
   const homeTabsEl = document.getElementById('homeTabs');
+  const sortBar = document.getElementById('sortBar');
+  const sortSelect = document.getElementById('sortSelect');
   const advancedSearchBtn = document.getElementById('advancedSearchBtn');
   const advancedSearchMenu = document.getElementById('advancedSearchMenu');
   const scanBtn = document.getElementById('scanBtn');
@@ -1100,6 +1142,16 @@
       importantLinksBtn: '🔗 Important Links',
       tabRecent: '🕘 Recent Files',
       tabFavorites: '⭐ Favorites',
+      cleanupBtnLabel: '🧹 Clean Up',
+      cleanupRunning: 'Checking for deleted files...',
+      cleanupDoneNone: 'Clean up done — nothing to remove.',
+      cleanupDoneSome: 'Clean up done — removed {count} file(s) that no longer exist.',
+      appUpdateBanner: '🔄 A new version of the app is available — tap to update',
+      sortBarLabel: 'Sort by:',
+      sortRelevance: 'Relevance',
+      sortName: 'Name (A-Z)',
+      sortNewest: 'Newest first',
+      sortOldest: 'Oldest first',
       darkMode: '🌙 Dark Mode',
       lightMode: '☀️ Light Mode',
       newFilesBanner: '🆕 Index updated automatically with new files',
@@ -1183,6 +1235,16 @@
       importantLinksBtn: '🔗 روابط هامة',
       tabRecent: '🕘 آخر الملفات',
       tabFavorites: '⭐ المفضلة',
+      cleanupBtnLabel: '🧹 تنظيف',
+      cleanupRunning: 'جارِ البحث عن ملفات محذوفة...',
+      cleanupDoneNone: 'تم التنظيف — مفيش حاجة نشيلها.',
+      cleanupDoneSome: 'تم التنظيف — اتشال {count} ملف مش موجود.',
+      appUpdateBanner: '🔄 فيه نسخة جديدة من التطبيق — اضغط للتحديث',
+      sortBarLabel: 'ترتيب حسب:',
+      sortRelevance: 'الأقرب للبحث',
+      sortName: 'الاسم (أ-ي)',
+      sortNewest: 'الأحدث أولًا',
+      sortOldest: 'الأقدم أولًا',
       darkMode: '🌙 الوضع الليلي',
       lightMode: '☀️ الوضع النهاري',
       newFilesBanner: '🆕 تم تحديث الفهرس تلقائيًا بملفات جديدة',
@@ -1308,6 +1370,14 @@
     if(recentTabBtn) recentTabBtn.textContent = t('tabRecent');
     const favTabBtn = homeTabsEl.querySelector('[data-tab="favorites"]');
     if(favTabBtn) favTabBtn.textContent = t('tabFavorites');
+    cleanupBtn.textContent = t('cleanupBtnLabel');
+    appUpdateBanner.textContent = t('appUpdateBanner');
+    document.getElementById('sortBarLabel').textContent = t('sortBarLabel');
+    const sortOptEls = sortSelect.querySelectorAll('option');
+    sortOptEls[0].textContent = t('sortRelevance');
+    sortOptEls[1].textContent = t('sortName');
+    sortOptEls[2].textContent = t('sortNewest');
+    sortOptEls[3].textContent = t('sortOldest');
     applyThemeButtonLabel();
     newFilesBanner.textContent = t('newFilesBanner');
     if(loadMoreBtn.style.display !== 'none') updateLoadMoreLabel();
@@ -1395,6 +1465,24 @@
     const url = new URL(PROXY_URL);
     url.searchParams.set('fileId', id);
     return url.toString();
+  }
+  // فحص خفيف لوجود ملف من غير تحميل محتواه - بيرجع 'exists', 'gone'
+  // (اتحذف أو اتنقل للسلة)، أو 'unknown' (فشل الفحص نفسه - شبكة/سيرفر، مش
+  // معناها إن الملف مش موجود)
+  async function checkFileExists(id){
+    try{
+      const url = new URL(PROXY_URL);
+      url.searchParams.set('fileId', id);
+      url.searchParams.set('meta', '1');
+      const res = await fetch(url.toString(), { headers: { 'X-App-Token': APP_TOKEN } });
+      if(res.status === 404) return 'gone';
+      if(!res.ok) return 'unknown';
+      const data = await res.json();
+      if(data && data.trashed) return 'gone';
+      return 'exists';
+    }catch(e){
+      return 'unknown';
+    }
   }
   function openBlob(blob, f){
     const blobUrl = URL.createObjectURL(blob);
@@ -1519,6 +1607,50 @@
     saveJSON(RECENT_FILES_KEY, []);
     if(activeHomeTab === 'recent') renderRecentTab();
   }
+
+  // زرار "تنظيف": بيفحص بس الملفات المفضلة + آخر الملفات (مش الفهرس كامل -
+  // ده أسرع بكتير من REFRESH كامل) للتأكد إنها لسه موجودة على Drive،
+  // ويشيل أي ملف اتحذف أو اتنقل للسلة من المفضلة/آخر الملفات وفهرس البحث
+  let isCleaningUp = false;
+  async function runCleanup(){
+    if(isCleaningUp) return;
+    isCleaningUp = true;
+    cleanupBtn.disabled = true;
+    const prevStatusKey = lastStatusKey, prevStatusParams = lastStatusParams, prevStatusIsError = lastStatusIsError;
+    setStatusKey('cleanupRunning');
+    try{
+      const combined = [...getFavoriteFiles(), ...getRecentFiles()];
+      const seen = new Set();
+      const toCheck = combined.filter(f => { if(seen.has(f.id)) return false; seen.add(f.id); return true; });
+      let removed = 0;
+      const CONCURRENCY = 4;
+      let i = 0;
+      async function worker(){
+        while(i < toCheck.length){
+          const f = toCheck[i++];
+          const status = await checkFileExists(f.id);
+          if(status === 'gone'){
+            await handleFileGone(f);
+            removed++;
+          }
+        }
+      }
+      const workers = [];
+      for(let k = 0; k < Math.min(CONCURRENCY, toCheck.length); k++) workers.push(worker());
+      await Promise.all(workers);
+      if(activeHomeTab === 'recent') renderRecentTab();
+      else if(activeHomeTab === 'favorites') renderFavoritesTab();
+      if(removed > 0) setStatusKey('cleanupDoneSome', { count: removed });
+      else setStatusKey('cleanupDoneNone');
+    }finally{
+      isCleaningUp = false;
+      cleanupBtn.disabled = false;
+      setTimeout(() => {
+        if(prevStatusKey) setStatusKey(prevStatusKey, prevStatusParams, prevStatusIsError);
+      }, 4000);
+    }
+  }
+  cleanupBtn.addEventListener('click', runCleanup);
 
   // بتفتح ملف مباشرة (من غير معاينة) - مستخدمة من نتيجة البحث وكمان من
   // اقتراحات البحث. el اختياري (بيتحط عليه class "is-opening" وقت الفتح)
@@ -1645,8 +1777,8 @@
   //    بنقلل الـ concurrency تلقائيًا لحد ما الطلبات تستقر.
   const MIN_REQUEST_GAP_MS = 90; // أقصى حد تقريبي ~11 طلب/ثانية على مستوى التطبيق كله
   let requestChain = Promise.resolve();
-  function throttledFetch(url){
-    const run = requestChain.then(() => fetch(url));
+  function throttledFetch(url, options){
+    const run = requestChain.then(() => fetch(url, options));
     requestChain = requestChain.then(
       () => new Promise(r => setTimeout(r, MIN_REQUEST_GAP_MS)),
       () => new Promise(r => setTimeout(r, MIN_REQUEST_GAP_MS)) // ماتوقفش السلسلة حتى لو طلب فشل
@@ -1663,7 +1795,7 @@
     if(pageToken) url.searchParams.set('pageToken', pageToken);
     let res, data;
     try{
-      res = await throttledFetch(url.toString());
+      res = await throttledFetch(url.toString(), { headers: { 'X-App-Token': APP_TOKEN } });
     }catch(networkErr){
       // فشل الـ fetch نفسه (مفيش نت، أو DNS، أو الموقع اتقفل فجأة)
       if(retries > 0){
@@ -1752,7 +1884,7 @@
         if(f.mimeType === 'application/vnd.google-apps.folder'){
           subfolders.push({ id: f.id, name: f.name });
         } else if(SUPPORTED_MIME_TYPES[f.mimeType]){
-          matches.push({ id: f.id, name: f.name, type: SUPPORTED_MIME_TYPES[f.mimeType] });
+          matches.push({ id: f.id, name: f.name, type: SUPPORTED_MIME_TYPES[f.mimeType], mt: f.modifiedTime || null });
         }
       });
       pageToken = data.nextPageToken || null;
@@ -3065,33 +3197,52 @@
     try{
       const isoTs = new Date(cached.ts).toISOString().replace(/\.\d{3}Z$/, 'Z');
       const ids = allFolderIds;
-      const knownIds = new Set(indexedFiles.map(f => f.id));
+      const knownFilesById = new Map(indexedFiles.map(f => [f.id, f]));
       const knownFolderIds = new Set(allFolderIds);
       const newFiles = [];
       const newFolders = []; // { id, topFolderId } - فولدرات جديدة تمامًا لسه محتاجة فهرسة لمحتواها
+      const removedFileIds = new Set(); // ملفات اتحذفت/اتنقلت للسلة
+      const removedFolderIds = new Set(); // فولدرات اتحذفت/اتنقلت للسلة
+      let renamedCount = 0;
       let i = 0;
       const CONCURRENCY = 6;
       async function worker(){
         while(i < ids.length){
           const folderId = ids[i++];
-          const q = `'${folderId}' in parents and modifiedTime > '${isoTs}' and trashed = false`;
+          // من غير "trashed = false" هنا عمدًا - محتاجين نشوف العناصر اللي
+          // اتنقلت للسلة كمان (trashed:true) عشان نشيلها من الفهرس المحلي
+          const q = `'${folderId}' in parents and modifiedTime > '${isoTs}'`;
           try{
             let pageToken = null;
             do{
               const data = await driveList(q, pageToken, 1); // retry واحدة بس - فحص خفيف مش حرج
               (data.files || []).forEach(f => {
                 if(f.mimeType === 'application/vnd.google-apps.folder'){
-                  if(!knownFolderIds.has(f.id)){
+                  if(f.trashed){
+                    if(knownFolderIds.has(f.id)) removedFolderIds.add(f.id);
+                  }else if(!knownFolderIds.has(f.id)){
                     const topFolderId = folderTopMap[folderId] !== undefined ? folderTopMap[folderId] : folderId;
                     newFolders.push({ id: f.id, topFolderId });
                     knownFolderIds.add(f.id);
                   }
-                }else if(SUPPORTED_MIME_TYPES[f.mimeType] && !knownIds.has(f.id)){
-                  newFiles.push({
-                    id: f.id, name: f.name, type: SUPPORTED_MIME_TYPES[f.mimeType],
-                    folder: folderTopMap[folderId] !== undefined ? folderTopMap[folderId] : null
-                  });
-                  knownIds.add(f.id);
+                }else if(SUPPORTED_MIME_TYPES[f.mimeType]){
+                  const existing = knownFilesById.get(f.id);
+                  if(f.trashed){
+                    if(existing) removedFileIds.add(f.id);
+                  }else if(existing){
+                    // نفس الملف معروف بالفعل - نتأكد لو اسمه اتغيّر (rename)
+                    if(existing.name !== f.name){
+                      existing.name = f.name;
+                      prepareSearchIndex([existing]);
+                      renamedCount++;
+                    }
+                  }else{
+                    newFiles.push({
+                      id: f.id, name: f.name, type: SUPPORTED_MIME_TYPES[f.mimeType], mt: f.modifiedTime || null,
+                      folder: folderTopMap[folderId] !== undefined ? folderTopMap[folderId] : null
+                    });
+                    knownFilesById.set(f.id, newFiles[newFiles.length - 1]);
+                  }
                 }
               });
               pageToken = data.nextPageToken || null;
@@ -3126,8 +3277,23 @@
         allFolderIds = allFolderIds.concat(newFolderIds);
       }
 
+      // فولدر اتحذف: بنشيله هو وأي ملف كان متبع ليه (folder=topFolderId) -
+      // ملحوظة: فولدرات فرعية جوه الفولدر المحذوف مش بتتحدث حالتها هي نفسها
+      // (Drive مابيحدّثش modifiedTime بتاعها لما الأب يتحذف)، فهتفضل شايلة
+      // مكان في allFolderIds لحد أول REFRESH كامل - ده تحديد بسيط ومش خطير
+      // (هيرجع فحص فاضي بس مش هيبوّظ حاجة)
+      if(removedFolderIds.size){
+        allFolderIds = allFolderIds.filter(id => !removedFolderIds.has(id));
+        indexedFiles = indexedFiles.filter(f => !removedFolderIds.has(f.folder));
+      }
+      if(removedFileIds.size){
+        indexedFiles = indexedFiles.filter(f => !removedFileIds.has(f.id));
+        removedFileIds.forEach(id => deleteCachedFile(id));
+      }
+
       lastSyncTs = syncStartedAt;
-      if(newFiles.length){
+      const changed = newFiles.length || removedFileIds.size || removedFolderIds.size || renamedCount;
+      if(changed){
         prepareSearchIndex(newFiles);
         indexedFiles = indexedFiles.concat(newFiles);
         await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders, folderTopMap);
@@ -3203,6 +3369,24 @@
 
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(()=>{});
+    // بيفضل نفس الصفحة شغالة بكود JS قديم في الذاكرة حتى بعد ما نسخة جديدة
+    // من sw.js تتفعّل (لأنها بتاخد الحكم فورًا - skipWaiting/clients.claim -
+    // من غير ما تستنى الصفحة تتقفل)، فلازم نظهر بانر يطلب من المستخدم يعمل
+    // تحديث (reload) عشان الكود الشغال دلوقتي يتغيّر فعليًا للنسخة الجديدة.
+    // hadController=false في أول تحميل عادي (تسجيل SW لأول مرة) - مش نعتبرها
+    // "تحديث"، بنستنى أول controllerchange بعد كده بس
+    let hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if(hadController && !reloading){
+        appUpdateBanner.style.display = 'flex';
+      }
+      hadController = true;
+    });
+    appUpdateBanner.addEventListener('click', () => {
+      reloading = true;
+      window.location.reload();
+    });
   }
 </script>
 </body>
