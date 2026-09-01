@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JIG SEARCH</title>
+<!-- اتصال مبكر بدومين الـ Worker وCDN مكتبات OCR/QR - بيوفر جزء من الوقت
+     (DNS + TLS handshake) قبل أول طلب فعلي ليهم -->
+<link rel="preconnect" href="https://jig-search-web.elsayedb1318.workers.dev">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1a56db">
 <link rel="icon" href="icon-192.png">
@@ -433,6 +437,11 @@
     transition:transform .12s ease, box-shadow .12s ease;
   }
   .new-files-banner:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(22,163,74,.38); }
+  .crash-banner{
+    background:linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    box-shadow:0 6px 16px rgba(220,38,38,.3);
+  }
+  .crash-banner:hover{ box-shadow:0 8px 20px rgba(220,38,38,.38); }
   @keyframes banner-in{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:translateY(0); } }
   #appUpdateBanner{ background:linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); box-shadow:0 6px 16px rgba(37,99,235,.3); }
   #appUpdateBanner:hover{ box-shadow:0 8px 20px rgba(37,99,235,.38); }
@@ -947,6 +956,7 @@
     </div>
     <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
     <button type="button" id="appUpdateBanner" class="new-files-banner" style="display:none;">🔄 A new version of the app is available — tap to update</button>
+    <button type="button" id="crashBanner" class="new-files-banner crash-banner" style="display:none;">⚠️ Something went wrong — tap to reload</button>
     <div id="status" class="status" role="status" aria-live="polite" title="Tap to re-index">
       <span id="spinner" class="spinner" aria-hidden="true"></span>
       <span id="statusText"></span>
@@ -1077,6 +1087,7 @@
   const statusContainer = document.getElementById('status');
   const newFilesBanner = document.getElementById('newFilesBanner');
   const appUpdateBanner = document.getElementById('appUpdateBanner');
+  const crashBanner = document.getElementById('crashBanner');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   const recentSearchesEl = document.getElementById('recentSearches');
   const folderFilterWrap = document.getElementById('folderFilterWrap');
@@ -1141,6 +1152,8 @@
       tabRecent: '🕘 Recent Files',
       tabFavorites: '⭐ Favorites',
       appUpdateBanner: '🔄 A new version of the app is available — tap to update',
+      crashBanner: '⚠️ Something went wrong — tap to reload',
+      fileOpenFailed: '⚠️ Could not open the file right now — please try again.',
       sortBarLabel: 'Sort by:',
       sortRelevance: 'Relevance',
       sortName: 'Name (A-Z)',
@@ -1230,6 +1243,8 @@
       tabRecent: '🕘 آخر الملفات',
       tabFavorites: '⭐ المفضلة',
       appUpdateBanner: '🔄 فيه نسخة جديدة من التطبيق — اضغط للتحديث',
+      crashBanner: '⚠️ حصلت مشكلة غير متوقعة — اضغط لإعادة التحميل',
+      fileOpenFailed: '⚠️ الملف مش متاح دلوقتي، جرب تاني بعد لحظة.',
       sortBarLabel: 'ترتيب حسب:',
       sortRelevance: 'الأقرب للبحث',
       sortName: 'الاسم (أ-ي)',
@@ -1361,6 +1376,7 @@
     const favTabBtn = homeTabsEl.querySelector('[data-tab="favorites"]');
     if(favTabBtn) favTabBtn.textContent = t('tabFavorites');
     appUpdateBanner.textContent = t('appUpdateBanner');
+    crashBanner.textContent = t('crashBanner');
     document.getElementById('sortBarLabel').textContent = t('sortBarLabel');
     const sortOptEls = sortSelect.querySelectorAll('option');
     sortOptEls[0].textContent = t('sortRelevance');
@@ -1530,12 +1546,23 @@
       a.remove();
     }
   }
-  // بيحاول يفتح الملف من الكاش (أوفلاين) فورًا لو موجود، ولو مش موجود
-  // بيفتحه على طول من رابط الـ Worker (سريع، من غير انتظار) وفي نفس الوقت
-  // بيبدأ تخزينه في الخلفية للمرة الجاية
+  // بيحاول يفتح الملف من الكاش (أوفلاين) فورًا لو موجود، ولو مش موجود بيعمل
+  // فحص خفيف جدًا الأول (meta بس، مش الملف كامل - سريع زي طلب بحث عادي) عشان
+  // يتأكد الرابط شغال قبل ما يفتحه، بدل ما يوري المتصفح صفحة JSON خام لو فيه
+  // مشكلة (مفتاح معطل، مشكلة في الـ Worker...). الفحص ده مش بيبطئ الفتح
+  // (بيانات قليلة جدًا) عكس التحميل الكامل اللي كنا بنستنى بلاش قبل كده
   async function resolveFileOpen(f){
     const contentUrl = getFileContentUrl(f.id);
     if(await tryOpenFromCache(contentUrl, f)) return 'opened';
+    const status = await checkFileExists(f.id);
+    if(status === 'gone'){
+      await handleFileGone(f);
+      return 'gone';
+    }
+    if(status === 'unknown'){
+      setStatusKey('fileOpenFailed', null, true);
+      return 'failed';
+    }
     openDirect(contentUrl, f);
     cacheFileInBackground(contentUrl, f);
     return 'opened';
@@ -1640,8 +1667,8 @@
     openingFileIds.add(f.id);
     if(el) el.classList.add('is-opening');
     try{
-      await resolveFileOpen(f);
-      recordFileOpen(f);
+      const result = await resolveFileOpen(f);
+      if(result === 'opened') recordFileOpen(f);
     }finally{
       openingFileIds.delete(f.id);
       if(el) el.classList.remove('is-opening');
@@ -2262,8 +2289,8 @@
       previewDownloadBtn.disabled = true;
       previewOpenBtn.textContent = t('previewOpening');
       try{
-        await resolveFileOpen(f);
-        recordFileOpen(f);
+        const result = await resolveFileOpen(f);
+        if(result === 'opened') recordFileOpen(f);
       }finally{
         previewOpenBtn.disabled = false;
         previewDownloadBtn.disabled = false;
@@ -2278,8 +2305,8 @@
       previewDownloadBtn.disabled = true;
       previewDownloadBtn.textContent = t('previewDownloading');
       try{
-        await resolveFileOpen(f);
-        recordFileOpen(f);
+        const result = await resolveFileOpen(f);
+        if(result === 'opened') recordFileOpen(f);
       }finally{
         previewOpenBtn.disabled = false;
         previewDownloadBtn.disabled = false;
@@ -3370,6 +3397,18 @@
       window.location.reload();
     });
   }
+
+  // ===== شبكة أمان لأي خطأ غير متوقع (bug ما اتوقعناهوش) - بدل ما التطبيق
+  // "يتجمد" بصمت (زرار فاضل معطل، سبينر فاضل شغال) من غير ما المستخدم يعرف
+  // حصل إيه أو يقدر يتصرف، بنوريه بانر بسيط يقترح إعادة تحميل الصفحة. ده
+  // مجرد شبكة أمان - النادر جدًا حدوثه أصلًا لو باقي الكود سليم =====
+  function showCrashBanner(){
+    if(crashBanner.style.display === 'flex') return; // متعرضش أكتر من مرة
+    crashBanner.style.display = 'flex';
+  }
+  window.addEventListener('error', showCrashBanner);
+  window.addEventListener('unhandledrejection', showCrashBanner);
+  crashBanner.addEventListener('click', () => window.location.reload());
 </script>
 </body>
 </html>
