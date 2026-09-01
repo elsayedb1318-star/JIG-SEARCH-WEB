@@ -943,7 +943,6 @@
     <div id="homeTabs" class="home-tabs">
       <button type="button" class="home-tab" data-tab="recent">🕘 Recent Files</button>
       <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
-      <button id="cleanupBtn" class="home-tab help-btn">🧹 Clean Up</button>
       <button id="themeToggleBtn" class="home-tab help-btn">🌙 Dark Mode</button>
     </div>
     <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
@@ -1078,7 +1077,6 @@
   const statusContainer = document.getElementById('status');
   const newFilesBanner = document.getElementById('newFilesBanner');
   const appUpdateBanner = document.getElementById('appUpdateBanner');
-  const cleanupBtn = document.getElementById('cleanupBtn');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   const recentSearchesEl = document.getElementById('recentSearches');
   const folderFilterWrap = document.getElementById('folderFilterWrap');
@@ -1142,10 +1140,6 @@
       importantLinksBtn: '🔗 Important Links',
       tabRecent: '🕘 Recent Files',
       tabFavorites: '⭐ Favorites',
-      cleanupBtnLabel: '🧹 Clean Up',
-      cleanupRunning: 'Checking for deleted files...',
-      cleanupDoneNone: 'Clean up done — nothing to remove.',
-      cleanupDoneSome: 'Clean up done — removed {count} file(s) that no longer exist.',
       appUpdateBanner: '🔄 A new version of the app is available — tap to update',
       sortBarLabel: 'Sort by:',
       sortRelevance: 'Relevance',
@@ -1235,10 +1229,6 @@
       importantLinksBtn: '🔗 روابط هامة',
       tabRecent: '🕘 آخر الملفات',
       tabFavorites: '⭐ المفضلة',
-      cleanupBtnLabel: '🧹 تنظيف',
-      cleanupRunning: 'جارِ البحث عن ملفات محذوفة...',
-      cleanupDoneNone: 'تم التنظيف — مفيش حاجة نشيلها.',
-      cleanupDoneSome: 'تم التنظيف — اتشال {count} ملف مش موجود.',
       appUpdateBanner: '🔄 فيه نسخة جديدة من التطبيق — اضغط للتحديث',
       sortBarLabel: 'ترتيب حسب:',
       sortRelevance: 'الأقرب للبحث',
@@ -1370,7 +1360,6 @@
     if(recentTabBtn) recentTabBtn.textContent = t('tabRecent');
     const favTabBtn = homeTabsEl.querySelector('[data-tab="favorites"]');
     if(favTabBtn) favTabBtn.textContent = t('tabFavorites');
-    cleanupBtn.textContent = t('cleanupBtnLabel');
     appUpdateBanner.textContent = t('appUpdateBanner');
     document.getElementById('sortBarLabel').textContent = t('sortBarLabel');
     const sortOptEls = sortSelect.querySelectorAll('option');
@@ -1608,16 +1597,12 @@
     if(activeHomeTab === 'recent') renderRecentTab();
   }
 
-  // زرار "تنظيف": بيفحص بس الملفات المفضلة + آخر الملفات (مش الفهرس كامل -
-  // ده أسرع بكتير من REFRESH كامل) للتأكد إنها لسه موجودة على Drive،
-  // ويشيل أي ملف اتحذف أو اتنقل للسلة من المفضلة/آخر الملفات وفهرس البحث
+  // نفس فحص "التنظيف" (المفضلة + آخر الملفات) بس بصمت تام - من غير زرار
+  // ومن غير رسايل حالة، بيتنفذ تلقائيًا مع كل مزامنة دورية (كل ساعة)
   let isCleaningUp = false;
-  async function runCleanup(){
-    if(isCleaningUp) return;
+  async function runCleanupSilently(){
+    if(isCleaningUp) return 0;
     isCleaningUp = true;
-    cleanupBtn.disabled = true;
-    const prevStatusKey = lastStatusKey, prevStatusParams = lastStatusParams, prevStatusIsError = lastStatusIsError;
-    setStatusKey('cleanupRunning');
     try{
       const combined = [...getFavoriteFiles(), ...getRecentFiles()];
       const seen = new Set();
@@ -1638,19 +1623,15 @@
       const workers = [];
       for(let k = 0; k < Math.min(CONCURRENCY, toCheck.length); k++) workers.push(worker());
       await Promise.all(workers);
-      if(activeHomeTab === 'recent') renderRecentTab();
-      else if(activeHomeTab === 'favorites') renderFavoritesTab();
-      if(removed > 0) setStatusKey('cleanupDoneSome', { count: removed });
-      else setStatusKey('cleanupDoneNone');
+      if(removed > 0){
+        if(activeHomeTab === 'recent') renderRecentTab();
+        else if(activeHomeTab === 'favorites') renderFavoritesTab();
+      }
+      return removed;
     }finally{
       isCleaningUp = false;
-      cleanupBtn.disabled = false;
-      setTimeout(() => {
-        if(prevStatusKey) setStatusKey(prevStatusKey, prevStatusParams, prevStatusIsError);
-      }, 4000);
     }
   }
-  cleanupBtn.addEventListener('click', runCleanup);
 
   // بتفتح ملف مباشرة (من غير معاينة) - مستخدمة من نتيجة البحث وكمان من
   // اقتراحات البحث. el اختياري (بيتحط عليه class "is-opening" وقت الفتح)
@@ -3344,6 +3325,7 @@
   let newFilesBannerTimer = null;
   async function checkForNewFiles(){
     const found = await syncNewFiles();
+    await runCleanupSilently(); // فحص صامت للمفضلة/آخر الملفات مع كل مزامنة دورية
     if(found){
       if(qInput.value.trim()) runSearch();
       // بانر بسيط بيظهر ويختفي لوحده - مجرد تأكيد إن الفهرس اتحدث تلقائيًا،
