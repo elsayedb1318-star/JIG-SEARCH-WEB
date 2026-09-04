@@ -948,6 +948,7 @@
     </div>
     <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
     <button type="button" id="appUpdateBanner" class="new-files-banner" style="display:none;">🔄 A new version of the app is available — tap to update</button>
+    <div id="offlineIndicator" class="offline-indicator" style="display:none;" role="status" aria-live="polite"></div>
     <div id="status" class="status" role="status" aria-live="polite" title="Tap to re-index">
       <span id="spinner" class="spinner" aria-hidden="true"></span>
       <span id="statusText"></span>
@@ -1124,6 +1125,7 @@
   const cameraSearchBtn = document.getElementById('cameraSearchBtn');
   const refreshBtn = document.getElementById('refreshBtn');
   const langToggleBtn = document.getElementById('langToggleBtn');
+  const offlineIndicator = document.getElementById('offlineIndicator');
 
   // ===== نظام اللغتين (عربي/إنجليزي) - كل نصوص الواجهة متجمعة هنا =====
   const I18N = {
@@ -1424,31 +1426,39 @@
     navigator.storage.persist().catch(() => {});
   }
 
-  // ===== زرار REFRESH: بيعمل تحديث فوري للفهرس (زي إعادة الفهرسة اليدوية)
-  // وبعدين ريفريش عميق - بيمسح كاش الصفحة (مش كاش الملفات) وبيلغي تسجيل
-  // الـ Service Worker عشان يضمن إن آخر نسخة من التطبيق هي اللي بتتحمّل =====
-  async function deepRefresh(){
+  // ===== زرار REFRESH: مزامنة ذكية بدل إعادة بناء الفهرس أو مسح الكاش =====
+  async function smartRefresh(){
     if(refreshBtn.classList.contains('is-refreshing')) return;
     refreshBtn.classList.add('is-refreshing');
     refreshBtn.disabled = true;
+    const hadIndex = !!(allFolderIds && indexedFiles);
     try{
-      await runManualReindex();
-    }catch(e){ /* تجاهل */ }
-    try{
-      if('caches' in window){
-        const keys = await caches.keys();
-        await Promise.all(keys.filter(k => k !== FILES_CACHE_NAME).map(k => caches.delete(k)));
+      setStatusKey('smartRefreshRunning');
+      if(!hadIndex){
+        await ensureIndex(false);
       }
-      if('serviceWorker' in navigator){
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r => r.unregister()));
+      let changed = false;
+      if(allFolderIds && indexedFiles && navigator.onLine !== false){
+        // المزامنة التفاضلية تفحص فقط ما تغيّر منذ آخر مزامنة.
+        lastSyncTs = 0;
+        changed = await syncNewFiles();
       }
-    }catch(e){ /* تجاهل */ }
-    const url = new URL(window.location.href);
-    url.searchParams.set('_r', Date.now());
-    window.location.replace(url.toString());
+      if(changed){
+        const parts = getLastSyncStats();
+        setStatusKey('smartRefreshDone', parts);
+        if(qInput.value.trim()) runSearch();
+      }else if(allFolderIds && indexedFiles){
+        setStatusKey('smartRefreshNoChanges');
+      }
+    }catch(e){
+      if(navigator.onLine === false && indexedFiles) updateOfflineIndicator();
+      else if(!indexedFiles) setStatusKey(errorStatusKey(e), errorStatusParams(e), true);
+    }finally{
+      refreshBtn.classList.remove('is-refreshing');
+      refreshBtn.disabled = false;
+    }
   }
-  refreshBtn.addEventListener('click', deepRefresh);
+  refreshBtn.addEventListener('click', smartRefresh);
 
   function loadJSON(key, fallback){
     try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -1457,6 +1467,16 @@
   function saveJSON(key, val){
     try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* تجاهل لو التخزين ممتلئ */ }
   }
+
+  function updateOfflineIndicator(){
+    if(!offlineIndicator) return;
+    const offline = navigator.onLine === false;
+    offlineIndicator.style.display = 'inline-flex';
+    offlineIndicator.classList.toggle('online', !offline);
+    offlineIndicator.textContent = t(offline ? 'offlineMode' : 'onlineMode');
+  }
+  window.addEventListener('online', updateOfflineIndicator);
+  window.addEventListener('offline', updateOfflineIndicator);
 
   // رابط محتوى الملف نفسه (بايتات الملف) عن طريق الـ Worker - بيرجع CORS
   // صح، فمقدر أقرأ محتواه فعليًا كـ blob وأفتحه مباشرة من غير ما أعدي على
@@ -3186,6 +3206,8 @@
   const NEW_FILES_SYNC_COOLDOWN_MS = 45 * 1000;
   let lastSyncTs = 0;
   let isSyncingNewFiles = false;
+  let lastSyncStats = { added: 0, updated: 0, removed: 0 };
+  function getLastSyncStats(){ return { ...lastSyncStats }; }
   async function syncNewFiles(){
     if(isSyncingNewFiles) return false;
     if(!allFolderIds || !indexedFiles) return false;
@@ -3204,6 +3226,7 @@
       const removedFileIds = new Set(); // ملفات اتحذفت/اتنقلت للسلة
       const removedFolderIds = new Set(); // فولدرات اتحذفت/اتنقلت للسلة
       let renamedCount = 0;
+      let updatedCount = 0;
       let i = 0;
       const CONCURRENCY = 6;
       async function worker(){
@@ -3307,6 +3330,40 @@
     }
   }
 
+  // ===== تنظيف تلقائي خفيف: مرة كل 24 ساعة، ويختبر فقط Recent/Favorites =====
+  const AUTO_CLEANUP_KEY = 'jigsearch_auto_cleanup_ts_v1';
+  const AUTO_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+  let autoCleanupRunning = false;
+  async function runAutomaticCleanup(){
+    if(autoCleanupRunning || navigator.onLine === false) return;
+    let last = 0;
+    try{ last = Number(localStorage.getItem(AUTO_CLEANUP_KEY) || 0); }catch(e){}
+    if(Date.now() - last < AUTO_CLEANUP_INTERVAL_MS) return;
+    autoCleanupRunning = true;
+    try{
+      const combined = [...getFavoriteFiles(), ...getRecentFiles()];
+      const seen = new Set();
+      const toCheck = combined.filter(f => { if(seen.has(f.id)) return false; seen.add(f.id); return true; });
+      let removed = 0, i = 0;
+      const CONCURRENCY = 3;
+      async function worker(){
+        while(i < toCheck.length){
+          const f = toCheck[i++];
+          const status = await checkFileExists(f.id);
+          if(status === 'gone'){ await handleFileGone(f); removed++; }
+        }
+      }
+      await Promise.all(Array.from({length: Math.min(CONCURRENCY, toCheck.length)}, worker));
+      try{ localStorage.setItem(AUTO_CLEANUP_KEY, String(Date.now())); }catch(e){}
+      if(removed){
+        setStatusKey('autoCleanupDone', {count: removed});
+        if(activeHomeTab === 'recent') renderRecentTab();
+        else if(activeHomeTab === 'favorites') renderFavoritesTab();
+      }
+    }catch(e){ /* التنظيف التلقائي لا يعطّل التطبيق */ }
+    finally{ autoCleanupRunning = false; }
+  }
+
   // ===== لو المستخدم حدد/نسخ أي كلمة في أي مكان في الصفحة، بيظهرله شريط
   // صغير يسأله "هل تريد البحث؟" مع إمكانية تعديل النص قبل البحث =====
   let selectionCheckTimer = null;
@@ -3360,11 +3417,14 @@
   // تلقائية أول مرة بس (مفيش تحديث تلقائي دوري كامل للفهرس القديم بعد كده -
   // بس فيه مزامنة تفاضلية دورية خفيفة تحت)
   ensureIndex(false);
+  updateOfflineIndicator();
+  setTimeout(runAutomaticCleanup, 5000);
 
   window.addEventListener('load', () => {
     // بنستنى شوية عشان الفحص ده ميأثرش خالص على سرعة أول ظهور للصفحة
     setTimeout(checkForNewFiles, 2000);
     setInterval(checkForNewFiles, NEW_FILES_CHECK_INTERVAL_MS);
+    setInterval(runAutomaticCleanup, 30 * 60 * 1000);
   });
 
   if('serviceWorker' in navigator){
