@@ -943,7 +943,6 @@
     <div id="homeTabs" class="home-tabs">
       <button type="button" class="home-tab" data-tab="recent">🕘 Recent Files</button>
       <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
-      <button id="cleanupBtn" class="home-tab help-btn">🧹 Clean Up</button>
       <button id="themeToggleBtn" class="home-tab help-btn">🌙 Dark Mode</button>
     </div>
     <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
@@ -1079,7 +1078,6 @@
   const statusContainer = document.getElementById('status');
   const newFilesBanner = document.getElementById('newFilesBanner');
   const appUpdateBanner = document.getElementById('appUpdateBanner');
-  const cleanupBtn = document.getElementById('cleanupBtn');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   const recentSearchesEl = document.getElementById('recentSearches');
   const folderFilterWrap = document.getElementById('folderFilterWrap');
@@ -1372,7 +1370,6 @@
     if(recentTabBtn) recentTabBtn.textContent = t('tabRecent');
     const favTabBtn = homeTabsEl.querySelector('[data-tab="favorites"]');
     if(favTabBtn) favTabBtn.textContent = t('tabFavorites');
-    cleanupBtn.textContent = t('cleanupBtnLabel');
     appUpdateBanner.textContent = t('appUpdateBanner');
     document.getElementById('sortBarLabel').textContent = t('sortBarLabel');
     const sortOptEls = sortSelect.querySelectorAll('option');
@@ -1628,49 +1625,49 @@
     if(activeHomeTab === 'recent') renderRecentTab();
   }
 
-  // زرار "تنظيف": بيفحص بس الملفات المفضلة + آخر الملفات (مش الفهرس كامل -
-  // ده أسرع بكتير من REFRESH كامل) للتأكد إنها لسه موجودة على Drive،
-  // ويشيل أي ملف اتحذف أو اتنقل للسلة من المفضلة/آخر الملفات وفهرس البحث
+  // تنظيف تلقائي صامت: يفحص Recent + Favorites دوريًا ويحذف الروابط لملفات لم تعد موجودة
   let isCleaningUp = false;
+  const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+  const CLEANUP_LAST_RUN_KEY = 'jigsearch_cleanup_last_run';
   async function runCleanup(){
-    if(isCleaningUp) return;
+    if(isCleaningUp || !navigator.onLine) return;
     isCleaningUp = true;
-    cleanupBtn.disabled = true;
-    const prevStatusKey = lastStatusKey, prevStatusParams = lastStatusParams, prevStatusIsError = lastStatusIsError;
-    setStatusKey('cleanupRunning');
     try{
       const combined = [...getFavoriteFiles(), ...getRecentFiles()];
       const seen = new Set();
       const toCheck = combined.filter(f => { if(seen.has(f.id)) return false; seen.add(f.id); return true; });
-      let removed = 0;
-      const CONCURRENCY = 4;
       let i = 0;
+      const CONCURRENCY = 4;
       async function worker(){
         while(i < toCheck.length){
           const f = toCheck[i++];
-          const status = await checkFileExists(f.id);
-          if(status === 'gone'){
-            await handleFileGone(f);
-            removed++;
-          }
+          try{
+            const status = await checkFileExists(f.id);
+            if(status === 'gone') await handleFileGone(f);
+          }catch(e){}
         }
       }
       const workers = [];
       for(let k = 0; k < Math.min(CONCURRENCY, toCheck.length); k++) workers.push(worker());
       await Promise.all(workers);
-      if(activeHomeTab === 'recent') renderRecentTab();
-      else if(activeHomeTab === 'favorites') renderFavoritesTab();
-      if(removed > 0) setStatusKey('cleanupDoneSome', { count: removed });
-      else setStatusKey('cleanupDoneNone');
+      localStorage.setItem(CLEANUP_LAST_RUN_KEY, String(Date.now()));
+    }catch(e){
+      // تنظيف صامت: أي مشكلة شبكة/صلاحيات لا تظهر للمستخدم ولا تعطل التطبيق
     }finally{
       isCleaningUp = false;
-      cleanupBtn.disabled = false;
-      setTimeout(() => {
-        if(prevStatusKey) setStatusKey(prevStatusKey, prevStatusParams, prevStatusIsError);
-      }, 4000);
     }
   }
-  cleanupBtn.addEventListener('click', runCleanup);
+  function scheduleSilentCleanup(){
+    const last = Number(localStorage.getItem(CLEANUP_LAST_RUN_KEY) || 0);
+    if(Date.now() - last >= CLEANUP_INTERVAL_MS){
+      setTimeout(runCleanup, 8000);
+    }
+    setInterval(() => {
+      if(Date.now() - Number(localStorage.getItem(CLEANUP_LAST_RUN_KEY) || 0) >= CLEANUP_INTERVAL_MS){
+        runCleanup();
+      }
+    }, 60 * 60 * 1000);
+  }
 
   // بتفتح ملف مباشرة (من غير معاينة) - مستخدمة من نتيجة البحث وكمان من
   // اقتراحات البحث. el اختياري (بيتحط عليه class "is-opening" وقت الفتح)
@@ -3417,6 +3414,7 @@
   // تلقائية أول مرة بس (مفيش تحديث تلقائي دوري كامل للفهرس القديم بعد كده -
   // بس فيه مزامنة تفاضلية دورية خفيفة تحت)
   ensureIndex(false);
+  scheduleSilentCleanup();
   updateOfflineIndicator();
   setTimeout(runAutomaticCleanup, 5000);
 
