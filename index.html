@@ -852,6 +852,12 @@
     color:var(--muted);
   }
   .preview-actions{ flex-wrap:wrap; }
+  .pdf-viewer-modal{width:min(1100px,100%);height:min(92vh,900px);max-width:none;display:flex;flex-direction:column;}
+  .pdf-viewer-frame-wrap{flex:1;min-height:0;background:#2b2f36;position:relative;}
+  .pdf-viewer-frame{width:100%;height:100%;border:0;display:block;background:#fff;}
+  .pdf-viewer-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;background:#2b2f36;pointer-events:none;}
+  .pdf-viewer-actions{padding:10px 14px 12px;}
+  .pdf-viewer-actions .tool-btn{flex:1;min-width:120px;}
   .modal-link-list{
     display:flex;
     flex-direction:column;
@@ -1028,6 +1034,14 @@
     </div>
   </div>
 
+  <div id="pdfViewerModalOverlay" class="camera-modal-overlay" style="display:none;">
+    <div class="camera-modal pdf-viewer-modal" role="dialog" aria-modal="true" aria-labelledby="pdfViewerTitle">
+      <div class="help-modal-header"><h2 id="pdfViewerTitle">PDF Viewer</h2><button id="pdfViewerClose" class="help-modal-close" aria-label="Close">✕</button></div>
+      <div class="pdf-viewer-frame-wrap"><div id="pdfViewerLoading" class="pdf-viewer-loading">Loading PDF…</div><iframe id="pdfViewerFrame" class="pdf-viewer-frame" title="PDF Viewer" allow="fullscreen"></iframe></div>
+      <div class="camera-actions pdf-viewer-actions"><button type="button" id="pdfViewerExternalBtn" class="tool-btn">↗️ Open externally</button><button type="button" id="pdfViewerDownloadBtn" class="tool-btn">⬇️ Download</button></div>
+    </div>
+  </div>
+
   <div id="linksModalOverlay" class="camera-modal-overlay" style="display:none;">
     <div class="camera-modal" role="dialog" aria-modal="true" aria-labelledby="linksModalTitle">
       <div class="help-modal-header">
@@ -1095,6 +1109,13 @@
   const previewMeta = document.getElementById('previewMeta');
   const previewOpenBtn = document.getElementById('previewOpenBtn');
   const previewDownloadBtn = document.getElementById('previewDownloadBtn');
+  const pdfViewerModalOverlay = document.getElementById('pdfViewerModalOverlay');
+  const pdfViewerTitle = document.getElementById('pdfViewerTitle');
+  const pdfViewerClose = document.getElementById('pdfViewerClose');
+  const pdfViewerFrame = document.getElementById('pdfViewerFrame');
+  const pdfViewerLoading = document.getElementById('pdfViewerLoading');
+  const pdfViewerExternalBtn = document.getElementById('pdfViewerExternalBtn');
+  const pdfViewerDownloadBtn = document.getElementById('pdfViewerDownloadBtn');
   const previewShareBtn = document.getElementById('previewShareBtn');
   const homeTabsEl = document.getElementById('homeTabs');
   const sortBar = document.getElementById('sortBar');
@@ -1169,6 +1190,9 @@
       previewOpenBtn: '📂 Open',
       previewOpening: '⏳ Opening...',
       previewDownloadBtn: '⬇️ Download',
+      pdfViewerTitle: 'PDF Viewer',
+      pdfViewerLoading: 'Loading PDF…',
+      pdfViewerExternalBtn: '↗️ Open externally',
       previewDownloading: '⏳ Downloading...',
       previewShareBtn: '📤 Share',
       linkCopied: '✅ Link copied',
@@ -1262,6 +1286,9 @@
       previewOpenBtn: '📂 فتح',
       previewOpening: '⏳ جارِ الفتح...',
       previewDownloadBtn: '⬇️ تحميل',
+      pdfViewerTitle: 'عارض PDF',
+      pdfViewerLoading: 'جاري تحميل الملف…',
+      pdfViewerExternalBtn: '↗️ فتح خارجي',
       previewDownloading: '⏳ جارِ التحميل...',
       previewShareBtn: '📤 مشاركة',
       linkCopied: '✅ تم نسخ الرابط',
@@ -1391,6 +1418,9 @@
     previewModalClose.setAttribute('aria-label', t('closeAria'));
     previewOpenBtn.textContent = t('previewOpenBtn');
     previewDownloadBtn.textContent = t('previewDownloadBtn');
+    pdfViewerTitle.textContent = t('pdfViewerTitle');
+    pdfViewerLoading.textContent = t('pdfViewerLoading');
+    pdfViewerExternalBtn.textContent = t('pdfViewerExternalBtn');
     previewShareBtn.textContent = t('previewShareBtn');
     linksModalTitle.textContent = t('linksModalTitle');
     linksModalClose.setAttribute('aria-label', t('closeAria'));
@@ -1676,8 +1706,8 @@
     openingFileIds.add(f.id);
     if(el) el.classList.add('is-opening');
     try{
-      await resolveFileOpen(f);
-      recordFileOpen(f);
+      if(f.type === 'pdf') openPdfViewer(f);
+      else { await resolveFileOpen(f); recordFileOpen(f); }
     }finally{
       openingFileIds.delete(f.id);
       if(el) el.classList.remove('is-opening');
@@ -2281,6 +2311,25 @@
       share: `https://drive.google.com/file/d/${f.id}/view`
     };
   }
+
+  // ===== عارض PDF داخلي =====
+  function openPdfViewer(f){
+    if(!f || f.type !== 'pdf') return false;
+    const url = getFileContentUrl(f.id);
+    pdfViewerTitle.textContent = f.name || t('pdfViewerTitle');
+    pdfViewerLoading.textContent = t('pdfViewerLoading');
+    pdfViewerLoading.style.display = 'flex';
+    pdfViewerFrame.src = url;
+    pdfViewerExternalBtn.onclick = () => window.open(url, '_blank', 'noopener');
+    pdfViewerDownloadBtn.onclick = () => { const a=document.createElement('a'); a.href=url; a.download=f.name||'file.pdf'; document.body.appendChild(a); a.click(); a.remove(); };
+    pdfViewerModalOverlay.style.display='flex';
+    recordFileOpen(f);
+    return true;
+  }
+  pdfViewerFrame.addEventListener('load', () => { pdfViewerLoading.style.display='none'; });
+  function closePdfViewer(){ pdfViewerModalOverlay.style.display='none'; pdfViewerFrame.src='about:blank'; }
+  pdfViewerClose.addEventListener('click', closePdfViewer);
+  pdfViewerModalOverlay.addEventListener('click', e => { if(e.target===pdfViewerModalOverlay) closePdfViewer(); });
 
   // ===== نافذة معاينة الملف: معلومات + أزرار فتح/تحميل/مشاركة =====
   function openPreviewModal(f){
