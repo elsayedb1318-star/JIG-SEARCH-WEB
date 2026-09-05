@@ -299,6 +299,7 @@
     max-width:640px;
     padding:26px 16px 60px;
   }
+  #offlineIndicator{display:none !important;}
   .offline-indicator{
     display:inline-flex;
     align-items:center;
@@ -2132,7 +2133,9 @@
     let best = null;
     for(const gram of grams){
       const bucket = searchIndexByGram.get(gram);
-      if(!bucket) return [];
+      // لو الـ inverted index قديم/ناقص، ما نفشلش البحث كله؛
+      // نرجع للفهرس الكامل ونسيب المطابقة الحقيقية تحدد النتائج.
+      if(!bucket) return indexedFiles;
       if(!best || bucket.length < best.length) best = bucket;
     }
     return best.map(i => indexedFiles[i]).filter(Boolean);
@@ -2811,10 +2814,20 @@
 
     const words = splitSearchWords(term);
     lastSearchWordForms = words;
-    const candidates = getSearchCandidates(term);
-    const matched = candidates.filter(f =>
+    let candidates = getSearchCandidates(term);
+    let matched = candidates.filter(f =>
       matchesAllWords(f, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
     );
+
+    // Safety fallback: لو الـ trigram index فيه مشكلة/بيانات قديمة،
+    // نعمل بحث كامل مرة واحدة بدل ما نعرض "مفيش نتائج" رغم وجود الملف.
+    if(!matched.length && candidates.length < indexedFiles.length){
+      candidates = indexedFiles;
+      matched = candidates.filter(f =>
+        matchesAllWords(f, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
+      );
+    }
+
     const sortedMatched = sortByRelevance(matched, term, words);
 
     showResultsPage(sortedMatched, false);
