@@ -299,40 +299,6 @@
     max-width:640px;
     padding:26px 16px 60px;
   }
-  #offlineIndicator{display:none !important;}
-  .offline-indicator{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:7px;
-    width:fit-content;
-    max-width:100%;
-    margin:10px auto 0;
-    padding:6px 11px;
-    border-radius:999px;
-    border:1px solid #f1c40f;
-    background:#fff8db;
-    color:#7a5b00;
-    font-size:12.5px;
-    font-weight:700;
-    text-align:center;
-  }
-  .offline-indicator::before{ content:'●'; font-size:10px; }
-  .offline-indicator.online{
-    border-color:#b7e4c7;
-    background:#effaf2;
-    color:#176b36;
-  }
-  html.dark .offline-indicator{
-    border-color:#6b5b16;
-    background:#29240d;
-    color:#f6d86b;
-  }
-  html.dark .offline-indicator.online{
-    border-color:#245c39;
-    background:#10271a;
-    color:#8ee0aa;
-  }
   .status{
     text-align:center;
     color:var(--muted);
@@ -1252,11 +1218,7 @@
       camAnalyzeFail: '❌ Failed to analyze the image. Check your internet connection and try again.',
       refreshBtnLabel: 'REFRESH',
       langToggleAria: 'Switch language',
-      tapToReindex: 'Tap to re-index',
-      offlineMode: '🔵 Offline — searching the saved local index',
-      offlineNoIndex: '⚠️ Offline — no local index is available yet',
-      onlineMode: '🟢 Online — local index ready',
-      instantSearchHint: 'Results update as you type'
+      tapToReindex: 'Tap to re-index'
     },
     ar: {
       searchPlaceholder: 'اكتب كلمة البحث',
@@ -1349,11 +1311,7 @@
       camAnalyzeFail: '❌ فشل تحليل الصورة. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
       refreshBtnLabel: 'تحديث',
       langToggleAria: 'تغيير اللغة',
-      tapToReindex: 'اضغط لإعادة الفهرسة',
-      offlineMode: '🔵 أوفلاين — البحث من الفهرس المحفوظ على الجهاز',
-      offlineNoIndex: '⚠️ أوفلاين — مفيش فهرس محلي جاهز لسه',
-      onlineMode: '🟢 أونلاين — الفهرس المحلي جاهز',
-      instantSearchHint: 'النتائج بتتحدث أثناء الكتابة'
+      tapToReindex: 'اضغط لإعادة الفهرسة'
     }
   };
   let currentLang = 'en';
@@ -1368,8 +1326,6 @@
   }
 
   let lastStatusKey = null, lastStatusParams = null, lastStatusIsError = false;
-  let searchIndexByGram = new Map();
-  let searchIndexBuiltFor = null;
   function setStatusKey(key, params, isError){
     lastStatusKey = key; lastStatusParams = params || null; lastStatusIsError = !!isError;
     setStatus(t(key, params), isError);
@@ -1512,11 +1468,9 @@
   function updateOfflineIndicator(){
     if(!offlineIndicator) return;
     const offline = navigator.onLine === false;
-    const hasLocalIndex = !!(indexedFiles && indexedFiles.length);
     offlineIndicator.style.display = 'inline-flex';
     offlineIndicator.classList.toggle('online', !offline);
-    offlineIndicator.textContent = offline ? t(hasLocalIndex ? 'offlineMode' : 'offlineNoIndex') : t('onlineMode');
-    offlineIndicator.title = offline ? (hasLocalIndex ? t('offlineMode') : t('offlineNoIndex')) : t('onlineMode');
+    offlineIndicator.textContent = t(offline ? 'offlineMode' : 'onlineMode');
   }
   window.addEventListener('online', updateOfflineIndicator);
   window.addEventListener('offline', updateOfflineIndicator);
@@ -1629,6 +1583,7 @@
   // Re-index يدوي
   async function handleFileGone(f){
     if(indexedFiles){
+      removeFileFromSearchIndex(f.id);
       indexedFiles = indexedFiles.filter(x => x.id !== f.id);
       try{
         const cached = await loadCachedIndex();
@@ -2086,59 +2041,87 @@
     });
   }
 
-  // تجهيز بيانات البحث مرة واحدة: تطبيع + tokens + inverted trigram index.
-  // ده بيخلّي البحث في الفهارس الكبيرة يختبر مرشحين أقل بدل المرور على كل الملفات.
+  // ===== فهرس بحث معكوس (Inverted Index) =====
+  // بدل ما كل عملية بحث تلف على كل الملفات، بنخزن لكل token قائمة الملفات
+  // اللي تحتويه. ده يقلل تكلفة البحث جدًا مع الفهارس الكبيرة، مع الاحتفاظ
+  // بالـ fallback القديم للبحث الجزئي داخل الكلمات/الأسماء.
+  let searchTokenIndex = new Map();       // token -> Set(fileId)
+  let searchFileById = new Map();         // fileId -> file object
+  let searchFileTokens = new Map();       // fileId -> Set(tokens)
+
+  function removeFileFromSearchIndex(fileId){
+    if(!fileId) return;
+    const oldTokens = searchFileTokens.get(fileId);
+    if(oldTokens){
+      oldTokens.forEach(token => {
+        const ids = searchTokenIndex.get(token);
+        if(!ids) return;
+        ids.delete(fileId);
+        if(!ids.size) searchTokenIndex.delete(token);
+      });
+    }
+    searchFileTokens.delete(fileId);
+    searchFileById.delete(fileId);
+  }
+
+  function indexFileForSearch(f){
+    if(!f || !f.id || !f.name) return;
+    removeFileFromSearchIndex(f.id);
+    const lower = f.name.toLowerCase();
+    f._lowerName = lower;
+    f._normName = normalizeArabic(lower);
+    f._tokens = f._normName.split(/[^a-z0-9\u0600-\u06ff]+/i).filter(Boolean);
+    const tokens = new Set(f._tokens);
+    searchFileById.set(f.id, f);
+    searchFileTokens.set(f.id, tokens);
+    tokens.forEach(token => {
+      let ids = searchTokenIndex.get(token);
+      if(!ids){ ids = new Set(); searchTokenIndex.set(token, ids); }
+      ids.add(f.id);
+    });
+  }
+
   function prepareSearchIndex(files){
     if(!Array.isArray(files)) return files || [];
-    if(searchIndexBuiltFor === files && searchIndexByGram.size) return files;
-    searchIndexByGram = new Map();
-    for(let idx = 0; idx < files.length; idx++){
-      const f = files[idx];
-      if(!f || !f.name) continue;
-      const lower = f.name.toLowerCase();
-      const norm = normalizeArabic(lower);
-      f._lowerName = lower;
-      f._normName = norm;
-      f._tokens = norm.split(/[^a-z0-9\u0600-\u06ff]+/i).filter(Boolean);
-      f._tokenSet = new Set(f._tokens);
-      const compact = norm.replace(/\s+/g, '');
-      const grams = new Set();
-      if(compact.length >= 3){
-        for(let i=0;i<=compact.length-3;i++) grams.add(compact.slice(i,i+3));
-      }
-      for(const gram of grams){
-        let bucket = searchIndexByGram.get(gram);
-        if(!bucket){ bucket=[]; searchIndexByGram.set(gram,bucket); }
-        bucket.push(idx);
-      }
-    }
-    searchIndexBuiltFor = files;
+    for(const f of files) indexFileForSearch(f);
     return files;
   }
 
-  function rebuildSearchIndex(){
-    searchIndexBuiltFor = null;
-    searchIndexByGram = new Map();
-    if(Array.isArray(indexedFiles)) prepareSearchIndex(indexedFiles);
+  function rebuildSearchIndex(files){
+    searchTokenIndex = new Map();
+    searchFileById = new Map();
+    searchFileTokens = new Map();
+    return prepareSearchIndex(files);
   }
 
-  function getSearchCandidates(term){
-    if(!Array.isArray(indexedFiles) || !indexedFiles.length) return [];
-    const norm = normalizeArabic(term.toLowerCase().trim()).replace(/\s+/g, '');
-    if(norm.length < 3 || !searchIndexByGram.size) return indexedFiles;
-    const grams = [];
-    for(let i=0;i<=norm.length-3;i++) grams.push(norm.slice(i,i+3));
-    if(!grams.length) return indexedFiles;
-    // نستخدم أصغر bucket أولًا ثم نتحقق من المطابقة الحقيقية لاحقًا.
-    let best = null;
-    for(const gram of grams){
-      const bucket = searchIndexByGram.get(gram);
-      // لو الـ inverted index قديم/ناقص، ما نفشلش البحث كله؛
-      // نرجع للفهرس الكامل ونسيب المطابقة الحقيقية تحدد النتائج.
-      if(!bucket) return indexedFiles;
-      if(!best || bucket.length < best.length) best = bucket;
+  // بيجيب مرشحين من الـ inverted index. بنسمح بتطابق token كامل أو جزئي
+  // داخل token، عشان نحافظ على سلوك البحث الحالي، ونرجع null لو الاستعلام
+  // قصير جدًا/غير مناسب للفهرسة.
+  function getIndexedCandidates(wordFormsList){
+    if(!wordFormsList || !wordFormsList.length || !searchTokenIndex.size) return null;
+    let result = null;
+    for(const forms of wordFormsList){
+      const idsForWord = new Set();
+      for(const formRaw of forms){
+        const form = normalizeArabic(String(formRaw || '').toLowerCase());
+        if(form.length < 2) continue;
+        for(const [token, ids] of searchTokenIndex){
+          if(token === form || token.includes(form)){
+            ids.forEach(id => idsForWord.add(id));
+          }
+        }
+      }
+      // لو كلمة معينة مفيش لها أي مرشح من الـ index، يبقى مفيش نتيجة ممكنة
+      // من البحث المعكوس؛ نرجع Set فاضية بدل scan كامل.
+      if(!idsForWord.size) return new Set();
+      if(result === null){
+        result = idsForWord;
+      }else{
+        result = new Set([...result].filter(id => idsForWord.has(id)));
+        if(!result.size) return result;
+      }
     }
-    return best.map(i => indexedFiles[i]).filter(Boolean);
+    return result;
   }
 
   async function loadCachedIndex(){
@@ -2152,14 +2135,14 @@
       if(!parsed) return null;
       if(parsed.rootId !== ROOT_FOLDER_ID) return null;
       if(!parsed.folderIds || !parsed.files) return null;
-      prepareSearchIndex(parsed.files);
+      rebuildSearchIndex(parsed.files);
       return parsed;
     }catch(e){ return null; }
   }
 
   async function saveCachedIndex(folderIds, files, topFolders, folderTopMap){
     prepareSearchIndex(files);
-    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), version: 10, folderIds, files, topFolders: topFolders || [], folderTopMap: folderTopMap || {} };
+    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), version: 9, folderIds, files, topFolders: topFolders || [], folderTopMap: folderTopMap || {} };
     const savedToIDB = await idbSet(CACHE_KEY, payload);
     if(!savedToIDB){
       // fallback لو IndexedDB فشل أو مش متاح
@@ -2216,11 +2199,10 @@
       const cached = await loadCachedIndex();
       if(cached){
         allFolderIds = cached.folderIds;
-        indexedFiles = prepareSearchIndex(cached.files);
+        indexedFiles = rebuildSearchIndex(cached.files);
         allTopFolders = cached.topFolders || [];
         folderTopMap = cached.folderTopMap || {};
         renderFolderFilterOptions();
-        updateOfflineIndicator();
         const lastIndexDate = cached.ts ? new Date(cached.ts).toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : t('unknownDate');
         setStatusKey('lastIndexUpdate', { date: lastIndexDate });
         return true;
@@ -2246,12 +2228,11 @@
         setStatusKey('indexingProgress', { folders: folderCount, files: fileCount, level: level });
       });
       allFolderIds = result.folderIds;
-      indexedFiles = prepareSearchIndex(result.files);
+      indexedFiles = rebuildSearchIndex(result.files);
       allTopFolders = result.topFolders;
       folderTopMap = result.folderTopMap || {};
       renderFolderFilterOptions();
       await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders, folderTopMap);
-      updateOfflineIndicator();
       let note = '';
       if(skippedFolderCount){
         const parts = [];
@@ -2485,75 +2466,54 @@
     return term.split(/\s+/).filter(Boolean).map(expandWordForms);
   }
 
-  // Levenshtein خفيف لتصحيح أخطاء الكتابة القصيرة في أرقام/أسماء الملفات.
-  function editDistance(a,b){
-    if(a===b) return 0;
-    if(!a) return b.length;
-    if(!b) return a.length;
-    if(Math.abs(a.length-b.length)>2) return 3;
-    let prev = Array.from({length:b.length+1}, (_,i)=>i);
-    for(let i=1;i<=a.length;i++){
-      const cur=[i];
-      for(let j=1;j<=b.length;j++) cur[j]=Math.min(cur[j-1]+1, prev[j]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
-      prev=cur;
-    }
-    return prev[b.length];
-  }
-
-  function wordMatchesFile(f, forms){
-    const nameLower = f._lowerName || f.name.toLowerCase();
-    const nameNorm = f._normName || normalizeArabic(nameLower);
-    if(forms.some(x => nameLower.includes(x) || nameNorm.includes(x))) return true;
-    // fuzzy فقط للكلمات الأطول من 3 حروف، وبحد أقصى خطأين.
-    if(forms.some(x => x.length >= 4 && (f._tokens || tokenize(f.name)).some(tok => editDistance(tok,x) <= (x.length >= 7 ? 2 : 1)))) return true;
-    return false;
-  }
-
+  // مطابقة substring حقيقية على كل الصيغ المكافئة للكلمة (نفسها + مرادفاتها
+  // عربي/إنجليزي)، بتغطي أرقام الطلبات وأغلب الحالات من غير بحث ضبابي
   function matchesAllWords(fileOrName, wordFormsList){
-    const f = typeof fileOrName === 'string' ? {name:fileOrName,_lowerName:fileOrName.toLowerCase(),_normName:normalizeArabic(fileOrName.toLowerCase()),_tokens:tokenize(fileOrName)} : fileOrName;
-    return wordFormsList.every(forms => wordMatchesFile(f, forms));
+    const nameLower = typeof fileOrName === 'string' ? fileOrName.toLowerCase() : (fileOrName._lowerName || fileOrName.name.toLowerCase());
+    const nameNorm = typeof fileOrName === 'string' ? normalizeArabic(nameLower) : (fileOrName._normName || normalizeArabic(nameLower));
+    return wordFormsList.every(forms => forms.some(f => nameLower.includes(f) || nameNorm.includes(f)));
   }
 
+  // بيقسّم اسم الملف لكلمات/رموز منفصلة (على أي فاصل زي _ - مسافة نقطة)
+  function tokenize(fileName){
+    return normalizeArabic(fileName.toLowerCase()).split(/[^a-z0-9\u0600-\u06ff]+/i).filter(Boolean);
+  }
+  // بيتحقق إن نص البحث (أو كل كلمة فيه) اتطابق مع "كلمة منفصلة" كاملة في
+  // اسم الملف (مش مجرد جزء من كلمة أطول، زي 02P15GD3L)
   function matchesAsSeparateWords(fileOrName, wordFormsList){
     const tokens = typeof fileOrName === 'string' ? tokenize(fileOrName) : (fileOrName._tokens || tokenize(fileOrName.name));
-    return wordFormsList.every(forms => forms.some(f => tokens.includes(f)) || forms.some(f => f.length >= 4 && tokens.some(tok => editDistance(tok,f) <= (f.length >= 7 ? 2 : 1))));
+    return wordFormsList.every(forms => forms.some(f => tokens.includes(f)));
   }
-
-  function relevanceScore(fileOrName, termNorm, wordFormsList){
+  // بيدي درجة أولوية ثانوية (تُستخدم بعد ترتيب الكلمات المنفصلة) حسب قرب
+  // اسم الملف من نص البحث ككل: تطابق كامل، بداية الاسم، احتواء العبارة
+  function relevanceScore(fileOrName, termNorm){
     const nameNorm = typeof fileOrName === 'string' ? normalizeArabic(fileOrName.toLowerCase()) : (fileOrName._normName || normalizeArabic(fileOrName.name.toLowerCase()));
-    const tokens = typeof fileOrName === 'string' ? tokenize(fileOrName) : (fileOrName._tokens || tokenize(fileOrName.name));
-    if(!termNorm) return 100;
+    if(!termNorm) return 3;
     if(nameNorm === termNorm) return 0;
-    if(tokens.some(t => t === termNorm)) return 5;
-    if(nameNorm.startsWith(termNorm)) return 10;
-    if(nameNorm.includes(termNorm)) return 20;
-    const fuzzy = (wordFormsList || []).some(forms => forms.some(x => x.length >= 4 && tokens.some(tok => editDistance(tok,x) <= (x.length >= 7 ? 2 : 1))));
-    if(fuzzy) return 30;
-    return 40;
+    if(nameNorm.startsWith(termNorm)) return 1;
+    if(nameNorm.includes(termNorm)) return 2;
+    return 3;
   }
-
+  // الترتيب المطلوب: النتايج اللي اتطابقت بكلمة منفصلة كاملة (زي 02P15GD3)
+  // تيجي الأول، وبعدها الباقي (تطابق جزئي جوه كلمة أطول زي 02P15GD3L) مرتب
+  // حسب الأقرب (تطابق كامل > بداية الاسم > احتواء > الأقرب في الطول)
   function sortByRelevance(files, term, wordFormsList){
     const termNorm = normalizeArabic(term.toLowerCase().trim());
-    const decorated = files.map(f => {
-      const nameNorm = f._normName || normalizeArabic(f.name.toLowerCase());
-      const tokens = f._tokens || tokenize(f.name);
-      let tokenHits = 0;
-      for(const forms of wordFormsList){
-        if(forms.some(x => tokens.includes(x))) tokenHits++;
-      }
-      const allTokens = wordFormsList.length && tokenHits === wordFormsList.length;
-      const prefix = nameNorm.startsWith(termNorm);
-      const exactPhrase = nameNorm === termNorm;
-      return {
-        f,
-        // الأرقام/الأسماء المطابقة ككلمات منفصلة تتقدم، ثم تطابق الاسم نفسه، ثم prefix/substring، ثم fuzzy.
-        tier: allTokens ? 0 : (exactPhrase ? 1 : (prefix ? 2 : relevanceScore(f.name, termNorm, wordFormsList))),
-        tokenHits,
-        diff: Math.abs(nameNorm.length - termNorm.length)
-      };
-    });
-    decorated.sort((a,b) => (a.tier-b.tier) || (b.tokenHits-a.tokenHits) || (a.diff-b.diff) || a.f.name.localeCompare(b.f.name,'ar'));
-    return decorated.map(d=>d.f);
+    // بنحسب كل قيم الترتيب لكل ملف مرة واحدة بس (مش جوه الـ comparator نفسه)
+    // عشان مانكررش الحساب لنفس الملف كذا مرة أثناء الـ sort
+    const decorated = files.map(f => ({
+      f,
+      w: matchesAsSeparateWords(f.name, wordFormsList) ? 0 : 1,
+      s: relevanceScore(f.name, termNorm),
+      diff: Math.abs(f.name.length - termNorm.length)
+    }));
+    decorated.sort((a, b) =>
+      (a.w - b.w) ||
+      (a.s - b.s) ||
+      (a.diff - b.diff) ||
+      a.f.name.localeCompare(b.f.name, 'ar')
+    );
+    return decorated.map(d => d.f);
   }
 
   let currentFiles = [];
@@ -2790,7 +2750,7 @@
 
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
   // من غير أي طلبات جديدة لـ Google Drive - أسرع بكتير ومش بيستهلك quota الـ API
-  async function runSearch(saveHistory = true){
+  async function runSearch(){
     searchSuggestions.style.display = 'none';
     const term = qInput.value.trim();
     setActiveHomeTab(null);
@@ -2814,27 +2774,23 @@
 
     const words = splitSearchWords(term);
     lastSearchWordForms = words;
-    let candidates = getSearchCandidates(term);
-    let matched = candidates.filter(f =>
+
+    // ابدأ بالـ inverted index لتقليل عدد الملفات اللي لازم نفحصها فعليًا.
+    // ولو لم توجد نتائج من الفهرس، نستخدم scan كامل كـ safety fallback فقط
+    // للحفاظ على أي حالات بحث غير متوقعة.
+    const candidateIds = getIndexedCandidates(words);
+    const candidateFiles = candidateIds === null
+      ? indexedFiles
+      : Array.from(candidateIds, id => searchFileById.get(id)).filter(Boolean);
+    const matched = candidateFiles.filter(f =>
       matchesAllWords(f, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
     );
-
-    // Safety fallback: لو الـ trigram index فيه مشكلة/بيانات قديمة،
-    // نعمل بحث كامل مرة واحدة بدل ما نعرض "مفيش نتائج" رغم وجود الملف.
-    if(!matched.length && candidates.length < indexedFiles.length){
-      candidates = indexedFiles;
-      matched = candidates.filter(f =>
-        matchesAllWords(f, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
-      );
-    }
-
     const sortedMatched = sortByRelevance(matched, term, words);
 
     showResultsPage(sortedMatched, false);
     if(matched.length) setStatusKey('foundResults', { n: matched.length });
     else setStatusKey('noResults');
-    if(saveHistory) saveRecentSearch(term);
-    updateOfflineIndicator();
+    saveRecentSearch(term);
   }
 
   // ===== قايمة "بحث متقدم" المنسدلة =====
@@ -3258,13 +3214,13 @@
     if(e.key === 'Enter') runSearch();
     if(e.key === 'Escape') searchSuggestions.style.display = 'none';
   });
-  // بحث لحظي: النتائج تتحدث أثناء الكتابة مع debounce قصير مناسب للموبايل.
+  // البحث بيتم بس لما تدوس زرار "بحث" أو Enter - مفيش بحث تلقائي أثناء الكتابة
+  // اقتراحات البحث بس بتتأخر شوية (debounce) عشان الكتابة السريعة على الموبايل
+  // ماتشغلش الفلترة كذا مرة فاضية على كل حرف
   let suggestionsDebounceTimer = null;
-  let instantSearchTimer = null;
   qInput.addEventListener('input', () => {
     qClear.style.display = qInput.value ? 'flex' : 'none';
     clearTimeout(suggestionsDebounceTimer);
-    clearTimeout(instantSearchTimer);
     suggestionsDebounceTimer = setTimeout(updateSearchSuggestions, 120);
     if(qInput.value.trim() === ""){
       searchSuggestions.style.display = 'none';
@@ -3274,9 +3230,7 @@
       renderedCount = 0;
       loadMoreBtn.style.display = "none";
       setStatus("");
-      return;
     }
-    instantSearchTimer = setTimeout(() => runSearch(false), 180);
   });
   qInput.addEventListener('focus', updateSearchSuggestions);
   document.addEventListener('click', (e) => {
@@ -3378,7 +3332,7 @@
                     // نفس الملف معروف بالفعل - نتأكد لو اسمه اتغيّر (rename)
                     if(existing.name !== f.name){
                       existing.name = f.name;
-                      prepareSearchIndex([existing]);
+                      indexFileForSearch(existing);
                       renamedCount++;
                     }
                   }else{
@@ -3441,7 +3395,6 @@
       if(changed){
         prepareSearchIndex(newFiles);
         indexedFiles = indexedFiles.concat(newFiles);
-        rebuildSearchIndex();
         await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders, folderTopMap);
         return true;
       }
