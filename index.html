@@ -2319,10 +2319,13 @@
     pdfViewerTitle.textContent = f.name || t('pdfViewerTitle');
     pdfViewerLoading.textContent = t('pdfViewerLoading');
     pdfViewerLoading.style.display = 'flex';
-    pdfViewerFrame.src = url;
+    // افتح الملف تلقائيًا على أول صفحة داخل العارض، بدون انتظار أي زر إضافي.
+    // الـfragment يتم تجاهله من السيرفر ويُستخدم بواسطة عارض PDF في المتصفح.
+    const viewerUrl = url + (url.includes('#') ? '&' : '#') + 'page=1&zoom=page-width';
+    pdfViewerModalOverlay.style.display='flex';
+    pdfViewerFrame.src = viewerUrl;
     pdfViewerExternalBtn.onclick = () => window.open(url, '_blank', 'noopener');
     pdfViewerDownloadBtn.onclick = () => { const a=document.createElement('a'); a.href=url; a.download=f.name||'file.pdf'; document.body.appendChild(a); a.click(); a.remove(); };
-    pdfViewerModalOverlay.style.display='flex';
     recordFileOpen(f);
     return true;
   }
