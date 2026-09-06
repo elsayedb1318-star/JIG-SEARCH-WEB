@@ -94,8 +94,6 @@
   }
   .header-corner-btn:hover{ transform:translateY(-1px); box-shadow:var(--shadow-md); border-color:var(--blue); }
   .header-corner-btn:active{ transform:translateY(0); }
-  #refreshBtn.is-refreshing svg{ animation:refresh-spin .8s linear infinite; }
-  @keyframes refresh-spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
   .brand{
     display:flex;
     align-items:center;
@@ -901,10 +899,7 @@
         </div>
         <h1 class="title">JIG SEARCH</h1>
       </div>
-      <button type="button" id="refreshBtn" class="header-corner-btn" aria-label="Refresh">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 11A8 8 0 1 0 18.5 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 5V11H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span id="refreshBtnLabel">REFRESH</span>
-      </button>
+      <button type="button" id="themeToggleBtn" class="header-corner-btn" aria-label="Dark Mode">🌙 <span id="themeToggleBtnLabel">Dark Mode</span></button>
     </div>
     <div class="search-box">
       <div class="search-input-wrap">
@@ -932,7 +927,6 @@
           <button type="button" id="scanBtn" class="advanced-menu-item">📷 Scan Barcode/QR</button>
           <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 Scan Number (OCR)</button>
           <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 Test Documents</button>
-          <button type="button" id="importantLinksBtn" class="advanced-menu-item">🔗 Important Links</button>
         </div>
       </div>
     </div>
@@ -943,7 +937,7 @@
     <div id="homeTabs" class="home-tabs">
       <button type="button" class="home-tab" data-tab="recent">🕘 Recent Files</button>
       <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
-      <button id="themeToggleBtn" class="home-tab help-btn">🌙 Dark Mode</button>
+      <button id="importantLinksBtn" class="home-tab help-btn">🔗 Important Links</button>
     </div>
     <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
     <button type="button" id="appUpdateBanner" class="new-files-banner" style="display:none;">🔄 A new version of the app is available — tap to update</button>
@@ -1121,7 +1115,6 @@
   const cameraResultTextEl = document.getElementById('cameraResultText');
   const cameraOpenLinkBtn = document.getElementById('cameraOpenLinkBtn');
   const cameraSearchBtn = document.getElementById('cameraSearchBtn');
-  const refreshBtn = document.getElementById('refreshBtn');
   const langToggleBtn = document.getElementById('langToggleBtn');
   const offlineIndicator = document.getElementById('offlineIndicator');
 
@@ -1216,7 +1209,6 @@
       camNoText: "Couldn't find clear text, try again with better lighting.",
       camCorrectText: "Correct or delete any part you don't need, then tap search:",
       camAnalyzeFail: '❌ Failed to analyze the image. Check your internet connection and try again.',
-      refreshBtnLabel: 'REFRESH',
       langToggleAria: 'Switch language',
       tapToReindex: 'Tap to re-index'
     },
@@ -1309,7 +1301,6 @@
       camNoText: 'لم يتم العثور على نص واضح، حاول مرة أخرى بإضاءة أفضل.',
       camCorrectText: 'صحّح أو احذف أي جزء لا تحتاجه، ثم اضغط بحث:',
       camAnalyzeFail: '❌ فشل تحليل الصورة. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
-      refreshBtnLabel: 'تحديث',
       langToggleAria: 'تغيير اللغة',
       tapToReindex: 'اضغط لإعادة الفهرسة'
     }
@@ -1350,8 +1341,7 @@
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     langToggleBtn.textContent = lang === 'ar' ? 'EN' : 'AR';
     langToggleBtn.setAttribute('aria-label', t('langToggleAria'));
-    refreshBtn.setAttribute('aria-label', t('refreshBtnLabel'));
-    document.getElementById('refreshBtnLabel').textContent = t('refreshBtnLabel');
+    themeToggleBtn.setAttribute('aria-label', t(document.documentElement.classList.contains('dark') ? 'lightMode' : 'darkMode'));
 
     qInput.placeholder = t('searchPlaceholder');
     qClear.setAttribute('aria-label', t('clearSearchAria'));
@@ -1423,39 +1413,56 @@
     navigator.storage.persist().catch(() => {});
   }
 
-  // ===== زرار REFRESH: مزامنة ذكية بدل إعادة بناء الفهرس أو مسح الكاش =====
-  async function smartRefresh(){
-    if(refreshBtn.classList.contains('is-refreshing')) return;
-    refreshBtn.classList.add('is-refreshing');
-    refreshBtn.disabled = true;
-    const hadIndex = !!(allFolderIds && indexedFiles);
+  // ===== التحديث اليدوي: تحديث الفهرس مرة واحدة ثم 3 مرات Deep Refresh للصفحة =====
+  const DEEP_REFRESH_KEY = 'jigsearch_deep_refresh_count';
+  const DEEP_REFRESH_TOTAL = 3;
+  let isRefreshing = false;
+
+  async function refreshIndexOnceAndDeepReload(){
+    if(isRefreshing) return;
+    isRefreshing = true;
     try{
+      // الفهرس يتحدث مرة واحدة فقط قبل أول Reload.
       setStatusKey('smartRefreshRunning');
-      if(!hadIndex){
-        await ensureIndex(false);
-      }
-      let changed = false;
+      if(!allFolderIds || !indexedFiles) await ensureIndex(false);
       if(allFolderIds && indexedFiles && navigator.onLine !== false){
-        // المزامنة التفاضلية تفحص فقط ما تغيّر منذ آخر مزامنة.
         lastSyncTs = 0;
-        changed = await syncNewFiles();
-      }
-      if(changed){
-        const parts = getLastSyncStats();
-        setStatusKey('smartRefreshDone', parts);
-        if(qInput.value.trim()) runSearch();
-      }else if(allFolderIds && indexedFiles){
-        setStatusKey('smartRefreshNoChanges');
+        await syncNewFiles();
       }
     }catch(e){
       if(navigator.onLine === false && indexedFiles) updateOfflineIndicator();
-      else if(!indexedFiles) setStatusKey(errorStatusKey(e), errorStatusParams(e), true);
-    }finally{
-      refreshBtn.classList.remove('is-refreshing');
-      refreshBtn.disabled = false;
+    }
+    try{ sessionStorage.setItem(DEEP_REFRESH_KEY, '1'); }catch(e){}
+    deepReloadPage();
+  }
+
+  async function deepReloadPage(){
+    try{
+      if('caches' in window){
+        const keys = await caches.keys();
+        await Promise.all(keys.filter(k => k !== FILES_CACHE_NAME).map(k => caches.delete(k)));
+      }
+      if('serviceWorker' in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+    }catch(e){}
+    const url = new URL(window.location.href);
+    url.searchParams.set('_r', Date.now());
+    window.location.replace(url.toString());
+  }
+
+  // يكمل الـ Deep Refresh تلقائيًا بعد كل Reload حتى يصل إلى 3 مرات.
+  function continueDeepRefresh(){
+    let count = 0;
+    try{ count = Number(sessionStorage.getItem(DEEP_REFRESH_KEY) || 0); }catch(e){}
+    if(count >= 1 && count < DEEP_REFRESH_TOTAL){
+      try{ sessionStorage.setItem(DEEP_REFRESH_KEY, String(count + 1)); }catch(e){}
+      setTimeout(() => { deepReloadPage().catch(()=>{}); }, 250);
+    }else if(count >= DEEP_REFRESH_TOTAL){
+      try{ sessionStorage.removeItem(DEEP_REFRESH_KEY); }catch(e){}
     }
   }
-  refreshBtn.addEventListener('click', smartRefresh);
 
   function loadJSON(key, fallback){
     try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -1729,7 +1736,8 @@
   // ===== الوضع الليلي =====
   function applyThemeButtonLabel(){
     const isDark = document.documentElement.classList.contains('dark');
-    themeToggleBtn.textContent = isDark ? t('lightMode') : t('darkMode');
+    themeToggleBtn.innerHTML = (isDark ? '☀️ ' : '🌙 ') + '<span id="themeToggleBtnLabel">' + t(isDark ? 'lightMode' : 'darkMode') + '</span>';
+    themeToggleBtn.setAttribute('aria-label', t(isDark ? 'lightMode' : 'darkMode'));
   }
   applyThemeButtonLabel();
   themeToggleBtn.addEventListener('click', () => {
@@ -3263,12 +3271,13 @@
     currentFiles = [];
     renderedCount = 0;
     loadMoreBtn.style.display = "none";
-    await ensureIndex(true); // forceRefresh = true
-    isReindexing = false;
-    statusContainer.style.cursor = 'pointer';
+    await refreshIndexOnceAndDeepReload();
   }
   statusContainer.addEventListener('click', runManualReindex);
-  newFilesBanner.addEventListener('click', runManualReindex);
+  newFilesBanner.addEventListener('click', async () => {
+    newFilesBanner.style.display = 'none';
+    await runManualReindex();
+  });
 
   // ===== مزامنة تلقائية صامتة (فهرسة تفاضلية): كل ما تُعمل عملية بحث (بحد
   // أقصى مرة كل NEW_FILES_SYNC_COOLDOWN_MS)، بنسأل Drive عن أي ملفات
@@ -3474,16 +3483,12 @@
   // فحص خفيف (مزامنة تفاضلية) لملفات/فولدرات جديدة، وتحديث النتايج المعروضة
   // حاليًا لو كان فيه بحث شغال، من غير ما يوقف المستخدم أو يحتاج يدوس زرار
   const NEW_FILES_CHECK_INTERVAL_MS = 60 * 60 * 1000; // كل ساعة طول ما الصفحة مفتوحة
-  let newFilesBannerTimer = null;
   async function checkForNewFiles(){
     const found = await syncNewFiles();
     if(found){
       if(qInput.value.trim()) runSearch();
-      // بانر بسيط بيظهر ويختفي لوحده - مجرد تأكيد إن الفهرس اتحدث تلقائيًا،
-      // مش محتاج المستخدم يدوس عليه (المزامنة أصلًا حصلت من غير أي تدخل منه)
+      // يفضل ظاهرًا حتى يغلق المستخدم الصفحة أو يضغط عليه لتحديث الفهرس.
       newFilesBanner.style.display = 'flex';
-      clearTimeout(newFilesBannerTimer);
-      newFilesBannerTimer = setTimeout(() => { newFilesBanner.style.display = 'none'; }, 6000);
     }
     return found;
   }
@@ -3498,6 +3503,8 @@
   setTimeout(runAutomaticCleanup, 5000);
 
   window.addEventListener('load', () => {
+    // لو التحديث العميق بدأ قبل Reload، نكمل باقي مرات الـ Deep Refresh.
+    continueDeepRefresh();
     // بنستنى شوية عشان الفحص ده ميأثرش خالص على سرعة أول ظهور للصفحة
     setTimeout(checkForNewFiles, 2000);
     setInterval(checkForNewFiles, NEW_FILES_CHECK_INTERVAL_MS);
