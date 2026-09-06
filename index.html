@@ -3203,8 +3203,7 @@
       btn.className = 'search-suggestion-item';
       btn.textContent = f.name || '';
       btn.addEventListener('click', async () => {
-        qInput.value = f.name || '';
-        qClear.style.display = 'flex';
+        // افتح الملف بدون تغيير نص البحث الذي كتبه المستخدم
         searchSuggestions.style.display = 'none';
         await openFileDirect(f, btn);
       });
