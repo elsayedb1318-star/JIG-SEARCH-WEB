@@ -899,7 +899,7 @@
         </div>
         <h1 class="title">JIG SEARCH</h1>
       </div>
-      <button type="button" id="themeToggleBtn" class="header-corner-btn" aria-label="Dark Mode">🌙 <span id="themeToggleBtnLabel">Dark Mode</span></button>
+      <button type="button" id="themeToggleBtn" class="header-corner-btn" aria-label="Dark Mode">🌙</button>
     </div>
     <div class="search-box">
       <div class="search-input-wrap">
@@ -1736,7 +1736,7 @@
   // ===== الوضع الليلي =====
   function applyThemeButtonLabel(){
     const isDark = document.documentElement.classList.contains('dark');
-    themeToggleBtn.innerHTML = (isDark ? '☀️ ' : '🌙 ') + '<span id="themeToggleBtnLabel">' + t(isDark ? 'lightMode' : 'darkMode') + '</span>';
+    themeToggleBtn.textContent = isDark ? '☀️' : '🌙';
     themeToggleBtn.setAttribute('aria-label', t(isDark ? 'lightMode' : 'darkMode'));
   }
   applyThemeButtonLabel();
