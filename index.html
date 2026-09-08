@@ -198,7 +198,7 @@
     display:block;
     width:100%;
     box-sizing:border-box;
-    padding:13px 16px;
+    padding:11px 16px;
     border:none;
     background:var(--card);
     color:var(--text);
@@ -211,6 +211,22 @@
     white-space:nowrap;
   }
   .search-suggestion-item:hover{ background:rgba(26,86,219,.08); }
+  .search-suggestion-name{
+    display:block;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-weight:600;
+  }
+  .search-suggestion-folder{
+    display:block;
+    margin-top:3px;
+    color:var(--muted);
+    font-size:.82rem;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
   .search-suggestion-item + .search-suggestion-item{ border-top:1px solid var(--border); }
   .q-clear-btn{
     position:absolute;
@@ -3201,7 +3217,24 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'search-suggestion-item';
-      btn.textContent = f.name || '';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'search-suggestion-name';
+      nameSpan.textContent = f.name || '';
+      btn.appendChild(nameSpan);
+
+      // اعرض اسم الفولدر الرئيسي الذي يتبعه الملف، وهو نفس الفولدر
+      // المستخدم في فلترة النتائج. ملفات الروت تظهر بدون سطر فولدر.
+      const folder = f.folder && Array.isArray(allTopFolders)
+        ? allTopFolders.find(x => x.id === f.folder)
+        : null;
+      if(folder && folder.name){
+        const folderSpan = document.createElement('span');
+        folderSpan.className = 'search-suggestion-folder';
+        folderSpan.textContent = '📁 ' + folder.name;
+        btn.appendChild(folderSpan);
+      }
+
       btn.addEventListener('click', async () => {
         // افتح الملف بدون تغيير نص البحث الذي كتبه المستخدم
         searchSuggestions.style.display = 'none';
