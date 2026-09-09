@@ -1068,7 +1068,7 @@
   const APP_TOKEN = "jigsearch-2f8a7c1e";
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
-  const CACHE_KEY = 'jigsearch_index_v8'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
+  const CACHE_KEY = 'jigsearch_index_v9'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
 
   const qInput = document.getElementById('q');
   const qClear = document.getElementById('qClear');
@@ -1438,12 +1438,14 @@
     if(isRefreshing) return;
     isRefreshing = true;
     try{
-      // الفهرس يتحدث مرة واحدة فقط قبل أول Reload.
+      // عند الضغط على "تحديث الفهرس" نعيد بناء الفهرس بالكامل مرة واحدة
+      // ونمسح النسخة القديمة من التخزين، لضمان اختفاء الملفات المحذوفة
+      // أو المنقولة خارج المجلدات المفهرسة.
       setStatusKey('smartRefreshRunning');
-      if(!allFolderIds || !indexedFiles) await ensureIndex(false);
-      if(allFolderIds && indexedFiles && navigator.onLine !== false){
-        lastSyncTs = 0;
-        await syncNewFiles();
+      if(navigator.onLine !== false){
+        await rebuildIndexWeekly(true);
+      }else if(!allFolderIds || !indexedFiles){
+        await ensureIndex(false);
       }
     }catch(e){
       if(navigator.onLine === false && indexedFiles) updateOfflineIndicator();
@@ -2148,6 +2150,79 @@
     return result;
   }
 
+  // ===== إعادة بناء الفهرس الكامل تلقائيًا مرة كل أسبوع =====
+  // الفهرس القديم يفضل شغال أثناء إعادة البناء، وبعد نجاح البناء فقط
+  // يتم استبدال التخزين المحلي بالفهرس الجديد. ده يضمن إن الملفات التي
+  // اتحذفت أو اتنقلت خارج الشجرة القديمة تختفي من البحث بعد إعادة البناء.
+  const INDEX_REBUILD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+  const INDEX_REBUILD_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+  let weeklyIndexRebuildRunning = false;
+
+  async function clearStoredIndex(){
+    try{
+      const db = await openIDB();
+      if(db){
+        await new Promise(resolve => {
+          try{
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).delete(CACHE_KEY);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+          }catch(e){ resolve(); }
+        });
+      }
+    }catch(e){}
+    try{ localStorage.removeItem(CACHE_KEY); }catch(e){}
+  }
+
+  async function rebuildIndexWeekly(forceNow){
+    if(weeklyIndexRebuildRunning) return false;
+    if(!forceNow){
+      let cached = null;
+      try{ cached = await idbGet(CACHE_KEY); }catch(e){}
+      if(!cached){
+        try{
+          const raw = localStorage.getItem(CACHE_KEY);
+          cached = raw ? JSON.parse(raw) : null;
+        }catch(e){}
+      }
+      if(cached && cached.rootId === ROOT_FOLDER_ID && cached.ts && Date.now() - cached.ts < INDEX_REBUILD_INTERVAL_MS){
+        return false;
+      }
+    }
+
+    weeklyIndexRebuildRunning = true;
+    try{
+      // بنعمل Crawl كامل جديد. الفهرس القديم يفضل متاحًا أثناء العملية.
+      const prevFolderIds = allFolderIds;
+      const prevIndexedFiles = indexedFiles;
+      const prevTopFolders = allTopFolders;
+      const prevFolderTopMap = folderTopMap;
+      await ensureIndex(true);
+
+      // لو ensureIndex فشل ورجع الفهرس القديم، ماتمسحش التخزين.
+      const rebuilt = allFolderIds && indexedFiles && (
+        !prevFolderIds || !prevIndexedFiles ||
+        indexedFiles !== prevIndexedFiles ||
+        allFolderIds !== prevFolderIds
+      );
+      if(!rebuilt){
+        allTopFolders = prevTopFolders;
+        folderTopMap = prevFolderTopMap;
+        return false;
+      }
+
+      // بعد نجاح البناء، امسح النسخة القديمة من المتصفح ثم احفظ النسخة الجديدة.
+      await clearStoredIndex();
+      await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders, folderTopMap);
+      return true;
+    }catch(e){
+      return false;
+    }finally{
+      weeklyIndexRebuildRunning = false;
+    }
+  }
+
   async function loadCachedIndex(){
     try{
       let parsed = await idbGet(CACHE_KEY);
@@ -2166,7 +2241,7 @@
 
   async function saveCachedIndex(folderIds, files, topFolders, folderTopMap){
     prepareSearchIndex(files);
-    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), version: 9, folderIds, files, topFolders: topFolders || [], folderTopMap: folderTopMap || {} };
+    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), version: 10, folderIds, files, topFolders: topFolders || [], folderTopMap: folderTopMap || {} };
     const savedToIDB = await idbSet(CACHE_KEY, payload);
     if(!savedToIDB){
       // fallback لو IndexedDB فشل أو مش متاح
@@ -3529,7 +3604,11 @@
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، ولو مفيش يعمل فهرسة
   // تلقائية أول مرة بس (مفيش تحديث تلقائي دوري كامل للفهرس القديم بعد كده -
   // بس فيه مزامنة تفاضلية دورية خفيفة تحت)
-  ensureIndex(false);
+  ensureIndex(false).then(async () => {
+    // لو الفهرس المحفوظ أقدم من أسبوع، نعيد بناءه بالكامل مرة واحدة.
+    // إعادة البناء الأسبوعية هي الضمان النهائي ضد الملفات المحذوفة أو المنقولة خارج المجلدات المفهرسة.
+    await rebuildIndexWeekly(false);
+  });
   scheduleSilentCleanup();
   updateOfflineIndicator();
   setTimeout(runAutomaticCleanup, 5000);
@@ -3541,6 +3620,8 @@
     setTimeout(checkForNewFiles, 2000);
     setInterval(checkForNewFiles, NEW_FILES_CHECK_INTERVAL_MS);
     setInterval(runAutomaticCleanup, 30 * 60 * 1000);
+    // فحص دوري خفيف: لو عدّى أسبوع على آخر فهرسة كاملة، نعيد بناء الفهرس تلقائيًا.
+    setInterval(() => { rebuildIndexWeekly(false); }, INDEX_REBUILD_CHECK_INTERVAL_MS);
   });
 
   if('serviceWorker' in navigator){
