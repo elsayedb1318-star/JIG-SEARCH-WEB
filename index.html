@@ -2560,9 +2560,14 @@
     return Array.from(forms).filter(Boolean);
   }
 
-  // بيقسّم كلمة البحث لكذا كلمة (على المسافات)، وكل كلمة بترجع كل صيغها المكافئة
+  // بيقسّم كلمة البحث لنفس أجزاء اسم الملف (مسافات / _ / - / نقطة وغيرها)،
+  // عشان البحث في الـ inverted index يقدر يطابق أسماء مثل Tsk_250564 بشكل صحيح.
+  // كل جزء يظل مطلوبًا في النتيجة، وبالتالي Tsk_250564 = Tsk + 250564.
   function splitSearchWords(term){
-    return term.split(/\s+/).filter(Boolean).map(expandWordForms);
+    return term
+      .split(/[^a-z0-9\u0600-\u06ff]+/i)
+      .filter(Boolean)
+      .map(expandWordForms);
   }
 
   // مطابقة substring حقيقية على كل الصيغ المكافئة للكلمة (نفسها + مرادفاتها
