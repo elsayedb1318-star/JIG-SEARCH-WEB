@@ -142,7 +142,7 @@
     .brand-icon svg{ width:17px; height:17px; }
     .brand-center{ gap:7px; }
     input#q{ padding:14px 38px 14px 34px; font-size:15px; }
-    .folder-filter-select{ min-width:44px; max-width:58px; font-size:10.5px; padding:0 4px 0 6px; }
+    .folder-filter-select{ min-width:44px; max-width:60px; font-size:10.5px; padding:0 18px 0 6px; background-size:10px 10px; }
     .advanced-menu{ min-width:200px; max-width:85vw; }
     .home-tabs{ gap:5px; }
     .home-tab{ padding:7px 10px; font-size:11px; white-space:nowrap; }
@@ -656,15 +656,26 @@
   }
   .folder-filter-select{
     border:none;
-    padding:0 12px 0 8px;
+    outline:none;
+    box-shadow:none;
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    appearance:none;
+    padding:0 20px 0 8px;
     font-size:12.5px;
     font-family:inherit;
-    background:transparent;
+    background:transparent url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") no-repeat right 4px center;
+    background-size:12px 12px;
     color:var(--text);
     min-width:60px;
     max-width:88px;
     text-align:center;
+    text-align-last:center;
     cursor:pointer;
+  }
+  .folder-filter-select::-ms-expand{ display:none; }
+  html.dark .folder-filter-select{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3aec2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
   }
   .list-clear-all-wrap{
     display:flex;
@@ -2294,6 +2305,7 @@
     activeFolderFilter = folderFilterSelect.value || null;
     setActiveHomeTab(null);
     if(qInput.value.trim()) runSearch();
+    updateSearchSuggestions();
   });
 
   // بيرجع true لو الفهرس جاهز في الميموري. الفهرسة بتتم تلقائيًا أول مرة
@@ -3291,6 +3303,7 @@
     const matches = [];
     for(const f of indexedFiles){
       if(matches.length >= 6) break;
+      if(activeFolderFilter !== null && f.folder !== activeFolderFilter) continue;
       const name = f.name || '';
       if(name.toLowerCase().includes(query) && !seen.has(name)){
         seen.add(name);
