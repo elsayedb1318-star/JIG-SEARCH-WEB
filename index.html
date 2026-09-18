@@ -141,13 +141,26 @@
     .brand-icon{ width:32px; height:32px; }
     .brand-icon svg{ width:17px; height:17px; }
     .brand-center{ gap:7px; }
+    input#q{ padding:14px 38px 14px 34px; font-size:15px; }
+    .folder-filter-select{ min-width:46px; max-width:60px; height:48px; font-size:10.5px; padding:0 3px; }
+    .advanced-menu{ min-width:200px; max-width:85vw; }
+    .home-tabs{ gap:5px; }
+    .home-tab{ padding:7px 10px; font-size:11px; white-space:nowrap; }
   }
   .search-box{
     max-width:520px;
     margin:0 auto;
   }
+  .search-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:nowrap;
+  }
   .search-input-wrap{
     position:relative;
+    flex:1 1 auto;
+    min-width:0;
   }
   .search-input-icon{
     position:absolute;
@@ -273,6 +286,14 @@
     color:var(--muted);
     font-size:13px;
     margin-top:18px;
+  }
+  .header-tools-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:12px;
   }
   .help-btn{ color:#3a4152; }
   html.dark .help-btn{ color:var(--text); }
@@ -624,40 +645,26 @@
     padding:6px 4px;
   }
   .recent-clear-all:hover{ color:#c0392b; }
-  .search-tools-row{
-    max-width:520px;
-    margin:16px auto 0;
-    padding:0 4px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:6px;
-    flex-wrap:nowrap;
-  }
   .folder-filter-wrap{
     display:flex;
     align-items:center;
-    gap:5px;
+    gap:3px;
     flex-wrap:nowrap;
-    justify-content:center;
-    min-width:0;
-    flex:1 1 auto;
+    flex:0 0 auto;
   }
-  .folder-filter-label{ font-size:11.5px; color:var(--muted); white-space:nowrap; flex:0 0 auto; }
   .folder-filter-select{
     border:1px solid var(--border);
-    border-radius:999px;
-    padding:7px 8px;
-    font-size:11.5px;
+    border-radius:12px;
+    padding:0 6px;
+    height:52px;
+    font-size:12px;
     font-family:inherit;
     background:var(--card);
     color:var(--text);
-    width:100%;
-    min-width:0;
-    max-width:100px;
+    min-width:60px;
+    max-width:88px;
     text-align:center;
   }
-  .advanced-search{ flex:0 0 auto; }
   .list-clear-all-wrap{
     display:flex;
     justify-content:center;
@@ -711,14 +718,17 @@
   }
   .tool-btn:hover{ border-color:var(--blue); transform:translateY(-1px); }
   .tool-btn:disabled{ opacity:.55; cursor:default; transform:none; }
-  #advancedSearchBtn{ padding:7px 11px; font-size:11.5px; white-space:nowrap; flex:0 0 auto; }
   .home-tabs{
     display:flex;
     justify-content:center;
     gap:8px;
-    flex-wrap:wrap;
+    flex-wrap:nowrap;
     margin-bottom:14px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
   }
+  .home-tabs::-webkit-scrollbar{ display:none; }
   .home-tab{
     background:var(--card);
     border:1px solid var(--border);
@@ -918,25 +928,25 @@
       <button type="button" id="themeToggleBtn" class="header-corner-btn" aria-label="Dark Mode">🌙</button>
     </div>
     <div class="search-box">
-      <div class="search-input-wrap">
-        <button type="button" id="qSearchIcon" class="search-input-icon" aria-label="Search">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
-        <input type="text" id="q" placeholder="Type your search term" />
-        <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
-        <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
+      <div class="search-row">
+        <div class="search-input-wrap">
+          <button type="button" id="qSearchIcon" class="search-input-icon" aria-label="Search">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <input type="text" id="q" placeholder="Type your search term" />
+          <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
+          <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
+        </div>
+        <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
+          <select id="folderFilterSelect" class="folder-filter-select" aria-label="Filter by folder">
+            <option value="">All</option>
+          </select>
+        </div>
       </div>
       <button id="searchBtn">🔍 Search</button>
     </div>
     <div class="powered">Prepared by Elsayed adel</div>
-    <div id="recentSearches" class="recent-searches" style="display:none;"></div>
-    <div id="searchToolsRow" class="search-tools-row">
-      <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
-        <label for="folderFilterSelect" class="folder-filter-label">📁 Filter:</label>
-        <select id="folderFilterSelect" class="folder-filter-select">
-          <option value="">All</option>
-        </select>
-      </div>
+    <div id="headerToolsRow" class="header-tools-row">
       <div class="advanced-search">
         <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ Advanced Search</button>
         <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
@@ -945,7 +955,9 @@
           <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 Test Documents</button>
         </div>
       </div>
+      <button type="button" id="importantLinksBtn" class="tool-btn help-btn">🔗 Important Links</button>
     </div>
+    <div id="recentSearches" class="recent-searches" style="display:none;"></div>
   </div>
 
   <div class="content">
@@ -953,7 +965,6 @@
     <div id="homeTabs" class="home-tabs">
       <button type="button" class="home-tab" data-tab="recent">🕘 Recent Files</button>
       <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
-      <button id="importantLinksBtn" class="home-tab help-btn">🔗 Important Links</button>
     </div>
     <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
     <button type="button" id="appUpdateBanner" class="new-files-banner" style="display:none;">🔄 A new version of the app is available — tap to update</button>
@@ -1142,7 +1153,7 @@
       searchIconAria: 'Search',
       searchBtn: '🔍 Search',
       poweredBy: 'Prepared by Elsayed adel',
-      filterLabel: '📁 Filter:',
+      filterLabel: '📁',
       filterAll: 'All',
       advancedSearchBtn: '⚙️ Advanced Search',
       scanBtn: '📷 Scan Barcode/QR',
@@ -1234,7 +1245,7 @@
       searchIconAria: 'بحث',
       searchBtn: '🔍 بحث',
       poweredBy: 'إعداد: السيد عادل',
-      filterLabel: '📁 فلترة:',
+      filterLabel: '📁',
       filterAll: 'الكل',
       advancedSearchBtn: '⚙️ بحث متقدم',
       scanBtn: '📷 مسح باركود/QR',
@@ -1365,8 +1376,6 @@
     searchBtn.textContent = t('searchBtn');
     const poweredEl = document.querySelector('.powered');
     if(poweredEl) poweredEl.textContent = t('poweredBy');
-    const filterLabelEl = document.querySelector('.folder-filter-label');
-    if(filterLabelEl) filterLabelEl.textContent = t('filterLabel');
     advancedSearchBtn.textContent = t('advancedSearchBtn');
     scanBtn.textContent = t('scanBtn');
     ocrBtn.textContent = t('ocrBtn');
