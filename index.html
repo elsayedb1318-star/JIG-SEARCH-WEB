@@ -142,7 +142,7 @@
     .brand-icon svg{ width:17px; height:17px; }
     .brand-center{ gap:7px; }
     input#q{ padding:14px 38px 14px 34px; font-size:15px; }
-    .folder-filter-select{ min-width:46px; max-width:60px; height:48px; font-size:10.5px; padding:0 3px; }
+    .folder-filter-select{ min-width:44px; max-width:58px; font-size:10.5px; padding:0 4px 0 6px; }
     .advanced-menu{ min-width:200px; max-width:85vw; }
     .home-tabs{ gap:5px; }
     .home-tab{ padding:7px 10px; font-size:11px; white-space:nowrap; }
@@ -151,14 +151,22 @@
     max-width:520px;
     margin:0 auto;
   }
-  .search-row{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    flex-wrap:nowrap;
-  }
   .search-input-wrap{
     position:relative;
+    display:flex;
+    align-items:stretch;
+    border:1px solid var(--border);
+    border-radius:14px;
+    border-color:var(--blue);
+    background:var(--card);
+    box-shadow:0 0 0 3px rgba(26,86,219,.12);
+    transition:box-shadow .15s ease;
+  }
+  .search-input-wrap:focus-within{ box-shadow:0 0 0 4px rgba(26,86,219,.2); }
+  .search-input-inner{
+    position:relative;
+    display:flex;
+    align-items:center;
     flex:1 1 auto;
     min-width:0;
   }
@@ -183,17 +191,12 @@
     padding:16px 42px 16px 44px;
     font-size:16px;
     font-family:inherit;
-    border:1px solid var(--border);
-    border-radius:14px;
+    border:none;
     outline:none;
     text-align:center;
-    border-color:var(--blue);
-    background:var(--card);
+    background:transparent;
     color:var(--text);
-    box-shadow:0 0 0 3px rgba(26,86,219,.12);
-    transition:box-shadow .15s ease;
   }
-  input#q:focus{ box-shadow:0 0 0 4px rgba(26,86,219,.2); }
   .search-suggestions{
     position:absolute;
     left:0;
@@ -647,23 +650,21 @@
   .recent-clear-all:hover{ color:#c0392b; }
   .folder-filter-wrap{
     display:flex;
-    align-items:center;
-    gap:3px;
-    flex-wrap:nowrap;
+    align-items:stretch;
     flex:0 0 auto;
+    border-left:1px solid var(--border);
   }
   .folder-filter-select{
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:0 6px;
-    height:52px;
-    font-size:12px;
+    border:none;
+    padding:0 12px 0 8px;
+    font-size:12.5px;
     font-family:inherit;
-    background:var(--card);
+    background:transparent;
     color:var(--text);
     min-width:60px;
     max-width:88px;
     text-align:center;
+    cursor:pointer;
   }
   .list-clear-all-wrap{
     display:flex;
@@ -928,20 +929,20 @@
       <button type="button" id="themeToggleBtn" class="header-corner-btn" aria-label="Dark Mode">🌙</button>
     </div>
     <div class="search-box">
-      <div class="search-row">
-        <div class="search-input-wrap">
+      <div class="search-input-wrap">
+        <div class="search-input-inner">
           <button type="button" id="qSearchIcon" class="search-input-icon" aria-label="Search">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
           <input type="text" id="q" placeholder="Type your search term" />
           <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
-          <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
         </div>
         <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
           <select id="folderFilterSelect" class="folder-filter-select" aria-label="Filter by folder">
             <option value="">All</option>
           </select>
         </div>
+        <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
       </div>
       <button id="searchBtn">🔍 Search</button>
     </div>
