@@ -2623,6 +2623,16 @@
   // الترتيب المطلوب: النتايج اللي اتطابقت بكلمة منفصلة كاملة (زي 02P15GD3)
   // تيجي الأول، وبعدها الباقي (تطابق جزئي جوه كلمة أطول زي 02P15GD3L) مرتب
   // حسب الأقرب (تطابق كامل > بداية الاسم > احتواء > الأقرب في الطول)
+  // ترتيب أولوية المجموعات المطلوب: PS1 ثم PS2 ثم PS3 ثم PS7 ثم TR،
+  // وبعدهم أي ملفات تانية من غير أي واحدة من دول
+  const PS_GROUP_ORDER = ['PS1_', 'PS2_', 'PS3_', 'PS7_', 'TR_'];
+  function psGroupOrder(name){
+    const upper = (name || '').toUpperCase();
+    for(let i = 0; i < PS_GROUP_ORDER.length; i++){
+      if(upper.includes(PS_GROUP_ORDER[i])) return i;
+    }
+    return PS_GROUP_ORDER.length;
+  }
   function sortByRelevance(files, term, wordFormsList){
     const termNorm = normalizeArabic(term.toLowerCase().trim());
     // بنحسب كل قيم الترتيب لكل ملف مرة واحدة بس (مش جوه الـ comparator نفسه)
@@ -2630,11 +2640,13 @@
     const decorated = files.map(f => ({
       f,
       w: matchesAsSeparateWords(f.name, wordFormsList) ? 0 : 1,
+      g: psGroupOrder(f.name),
       s: relevanceScore(f.name, termNorm),
       diff: Math.abs(f.name.length - termNorm.length)
     }));
     decorated.sort((a, b) =>
       (a.w - b.w) ||
+      (a.g - b.g) ||
       (a.s - b.s) ||
       (a.diff - b.diff) ||
       a.f.name.localeCompare(b.f.name, 'ar')
@@ -2650,7 +2662,7 @@
   // (لو فيه بحث نشط)، من غير innerHTML عشان اسم الملف يفضل آمن من XSS
   function buildHighlightedName(name, wordFormsList){
     const redRanges = [];
-    const psRegex = /(PS1_|PS2_|PS3_|PS7_)([^.]*?)(?=\.pdf$)/ig;
+    const psRegex = /(PS1_|PS2_|PS3_|PS7_|TR_)([^.]*?)(?=\.pdf$)/ig;
     let m;
     while((m = psRegex.exec(name)) !== null){
       redRanges.push([m.index, m.index + m[0].length]);
@@ -3354,7 +3366,12 @@
     runSearch();
   });
   qInput.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter') runSearch();
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      searchSuggestions.style.display = 'none';
+      qInput.blur();
+      runSearch();
+    }
     if(e.key === 'Escape') searchSuggestions.style.display = 'none';
   });
   // البحث بيتم بس لما تدوس زرار "بحث" أو Enter - مفيش بحث تلقائي أثناء الكتابة
