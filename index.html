@@ -939,13 +939,13 @@
       </div>
       <button type="button" id="themeToggleBtn" class="header-corner-btn" aria-label="Dark Mode">🌙</button>
     </div>
-    <div class="search-box">
+    <form id="searchForm" class="search-box" autocomplete="off">
       <div class="search-input-wrap">
         <div class="search-input-inner">
           <button type="button" id="qSearchIcon" class="search-input-icon" aria-label="Search">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="M19 19L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
-          <input type="text" id="q" placeholder="Type your search term" />
+          <input type="text" id="q" placeholder="Type your search term" enterkeyhint="search" />
           <button type="button" id="qClear" class="q-clear-btn" style="display:none;" aria-label="Clear search">✕</button>
         </div>
         <div id="folderFilterWrap" class="folder-filter-wrap" style="display:none;">
@@ -955,8 +955,8 @@
         </div>
         <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
       </div>
-      <button id="searchBtn">🔍 Search</button>
-    </div>
+      <button type="button" id="searchBtn">🔍 Search</button>
+    </form>
     <div class="powered">Prepared by Elsayed adel</div>
     <div id="headerToolsRow" class="header-tools-row">
       <div class="advanced-search">
@@ -1094,6 +1094,7 @@
   const CACHE_KEY = 'jigsearch_index_v9'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
 
   const qInput = document.getElementById('q');
+  const searchForm = document.getElementById('searchForm');
   const qClear = document.getElementById('qClear');
   const searchSuggestions = document.getElementById('searchSuggestions');
   const selectionSearchBar = document.getElementById('selectionSearchBar');
@@ -3312,9 +3313,8 @@
       return;
     }
     const seen = new Set();
-    const matches = [];
+    let matches = [];
     for(const f of indexedFiles){
-      if(matches.length >= 6) break;
       if(activeFolderFilter !== null && f.folder !== activeFolderFilter) continue;
       const name = f.name || '';
       if(name.toLowerCase().includes(query) && !seen.has(name)){
@@ -3327,6 +3327,8 @@
       searchSuggestions.innerHTML = '';
       return;
     }
+    matches.sort((a, b) => psGroupOrder(a.name) - psGroupOrder(b.name) || (a.name || '').localeCompare(b.name || '', 'ar'));
+    matches = matches.slice(0, 6);
     searchSuggestions.innerHTML = '';
     matches.forEach(f => {
       const btn = document.createElement('button');
@@ -3361,6 +3363,12 @@
   }
 
   searchBtn.addEventListener('click', runSearch);
+  searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    searchSuggestions.style.display = 'none';
+    qInput.blur();
+    runSearch();
+  });
   qSearchIcon.addEventListener('click', () => {
     searchSuggestions.style.display = 'none';
     runSearch();
