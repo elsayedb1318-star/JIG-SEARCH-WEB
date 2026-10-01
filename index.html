@@ -1443,6 +1443,7 @@
   const RECENT_FILES_KEY = 'jigsearch_recent_files_v1';
   const FAV_KEY = 'jigsearch_favorites_v1';
   const RECENT_FILES_MAX = 30;
+  const RECENT_FILES_TTL_MS = 3 * 24 * 60 * 60 * 1000; // الملفات في "آخر الملفات" بتتحذف بعد 3 أيام
   const FILES_CACHE_NAME = 'jigsearch-files-v1';
 
   // بنطلب تخزين دائم عشان المتصفح ميمسحش الملفات المحفوظة تلقائيًا لو
@@ -1655,13 +1656,32 @@
   // (وأي نسخة محفوظة منه) لو العدد عدّى الحد الأقصى
   function recordFileOpen(f){
     let recent = loadJSON(RECENT_FILES_KEY, []).filter(x => x.id !== f.id);
-    recent.unshift({ id: f.id, name: f.name, type: f.type });
+    recent.unshift({ id: f.id, name: f.name, type: f.type, openedAt: Date.now() });
     const trimmed = recent.slice(0, RECENT_FILES_MAX);
     const evicted = recent.slice(RECENT_FILES_MAX);
     saveJSON(RECENT_FILES_KEY, trimmed);
     evicted.forEach(ev => deleteCachedFile(ev.id));
   }
-  function getRecentFiles(){ return loadJSON(RECENT_FILES_KEY, []); }
+  // بيمسح أي ملف عدّى عليه أكتر من 3 أيام من آخر مرة اتفتح فيها (وأي نسخة محفوظة منه).
+  // الملفات القديمة اللي مالهاش تاريخ بتاخد تاريخ النهارده وتبدأ عدّاد الـ 3 أيام من دلوقتي.
+  function pruneExpiredRecent(){
+    const list = loadJSON(RECENT_FILES_KEY, []);
+    const now = Date.now();
+    let changed = false;
+    const kept = [];
+    list.forEach(x => {
+      if(!x.openedAt){ x.openedAt = now; changed = true; }
+      if(now - x.openedAt > RECENT_FILES_TTL_MS){
+        changed = true;
+        if(!isFavorite(x.id)) deleteCachedFile(x.id);
+      }else{
+        kept.push(x);
+      }
+    });
+    if(changed) saveJSON(RECENT_FILES_KEY, kept);
+    return kept;
+  }
+  function getRecentFiles(){ return pruneExpiredRecent(); }
   function removeRecentFile(id){
     saveJSON(RECENT_FILES_KEY, getRecentFiles().filter(x => x.id !== id));
     deleteCachedFile(id);
@@ -1706,6 +1726,11 @@
     }
   }
   function scheduleSilentCleanup(){
+    pruneExpiredRecent();
+    setInterval(() => {
+      pruneExpiredRecent();
+      if(activeHomeTab === 'recent') renderRecentTab();
+    }, 60 * 60 * 1000);
     const last = Number(localStorage.getItem(CLEANUP_LAST_RUN_KEY) || 0);
     if(Date.now() - last >= CLEANUP_INTERVAL_MS){
       setTimeout(runCleanup, 8000);
