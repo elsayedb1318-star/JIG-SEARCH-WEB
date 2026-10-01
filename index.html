@@ -1660,7 +1660,7 @@
     const trimmed = recent.slice(0, RECENT_FILES_MAX);
     const evicted = recent.slice(RECENT_FILES_MAX);
     saveJSON(RECENT_FILES_KEY, trimmed);
-    evicted.forEach(ev => deleteCachedFile(ev.id));
+    evicted.forEach(ev => { if(!isFavorite(ev.id)) deleteCachedFile(ev.id); });
   }
   // بيمسح أي ملف عدّى عليه أكتر من 3 أيام من آخر مرة اتفتح فيها (وأي نسخة محفوظة منه).
   // الملفات القديمة اللي مالهاش تاريخ بتاخد تاريخ النهارده وتبدأ عدّاد الـ 3 أيام من دلوقتي.
@@ -1671,9 +1671,9 @@
     const kept = [];
     list.forEach(x => {
       if(!x.openedAt){ x.openedAt = now; changed = true; }
-      if(now - x.openedAt > RECENT_FILES_TTL_MS){
+      if(!isFavorite(x.id) && now - x.openedAt > RECENT_FILES_TTL_MS){
         changed = true;
-        if(!isFavorite(x.id)) deleteCachedFile(x.id);
+        deleteCachedFile(x.id);
       }else{
         kept.push(x);
       }
@@ -1684,11 +1684,11 @@
   function getRecentFiles(){ return pruneExpiredRecent(); }
   function removeRecentFile(id){
     saveJSON(RECENT_FILES_KEY, getRecentFiles().filter(x => x.id !== id));
-    deleteCachedFile(id);
+    if(!isFavorite(id)) deleteCachedFile(id);
     if(activeHomeTab === 'recent') renderRecentTab();
   }
   function clearRecentFiles(){
-    getRecentFiles().forEach(f => deleteCachedFile(f.id));
+    getRecentFiles().forEach(f => { if(!isFavorite(f.id)) deleteCachedFile(f.id); });
     saveJSON(RECENT_FILES_KEY, []);
     if(activeHomeTab === 'recent') renderRecentTab();
   }
