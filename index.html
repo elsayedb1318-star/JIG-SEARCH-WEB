@@ -2175,15 +2175,20 @@
     let result = null;
     for(const forms of wordFormsList){
       const idsForWord = new Set();
+      let usableForms = 0;
       for(const formRaw of forms){
         const form = normalizeArabic(String(formRaw || '').toLowerCase());
         if(form.length < 2) continue;
+        usableForms++;
         for(const [token, ids] of searchTokenIndex){
           if(token === form || token.includes(form)){
             ids.forEach(id => idsForWord.add(id));
           }
         }
       }
+      // كلمة من حرف واحد (زي "S" في S-308-03) مش بتتفهرس؛ نتخطاها هنا
+      // وبنطابقها بعدين بالفلترة النهائية (matchesAllWords) على الملفات المرشحة.
+      if(!usableForms) continue;
       // لو كلمة معينة مفيش لها أي مرشح من الـ index، يبقى مفيش نتيجة ممكنة
       // من البحث المعكوس؛ نرجع Set فاضية بدل scan كامل.
       if(!idsForWord.size) return new Set();
