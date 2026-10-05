@@ -978,7 +978,7 @@
       <button type="button" class="home-tab" data-tab="recent">🕘 Recent Files</button>
       <button type="button" class="home-tab" data-tab="favorites">⭐ Favorites</button>
     </div>
-    <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none;">🆕 New files found — tap to update the index</button>
+    <button type="button" id="newFilesBanner" class="new-files-banner" style="display:none !important;" hidden>🆕 New files found — tap to update the index</button>
     <button type="button" id="appUpdateBanner" class="new-files-banner" style="display:none;">🔄 A new version of the app is available — tap to update</button>
     <div id="offlineIndicator" class="offline-indicator" style="display:none;" role="status" aria-live="polite"></div>
     <div id="status" class="status" role="status" aria-live="polite" title="Tap to re-index">
@@ -2940,6 +2940,8 @@
     const ready = await ensureIndex(false);
     if(!ready) return;
     if(myToken !== searchToken) return; // بحث أحدث بدأ فعلاً
+    // مزامنة صامتة في الخلفية (بدون انتظار) عشان أي ملف جديد/محذوف يظهر في البحث الجاي
+    if(typeof checkForNewFiles === 'function' && navigator.onLine !== false) checkForNewFiles();
 
     const words = splitSearchWords(term);
     lastSearchWordForms = words;
@@ -3672,16 +3674,38 @@
 
   // فحص خفيف (مزامنة تفاضلية) لملفات/فولدرات جديدة، وتحديث النتايج المعروضة
   // حاليًا لو كان فيه بحث شغال، من غير ما يوقف المستخدم أو يحتاج يدوس زرار
-  const NEW_FILES_CHECK_INTERVAL_MS = 60 * 60 * 1000; // كل ساعة طول ما الصفحة مفتوحة
+  const NEW_FILES_CHECK_INTERVAL_MS = 10 * 60 * 1000; // كل 10 دقايق طول ما الصفحة مفتوحة
   async function checkForNewFiles(){
     const found = await syncNewFiles();
     if(found){
-      if(qInput.value.trim()) runSearch();
-      // يفضل ظاهرًا حتى يغلق المستخدم الصفحة أو يضغط عليه لتحديث الفهرس.
-      newFilesBanner.style.display = 'flex';
+      // تحديث صامت: من غير بانر ولا رسالة. لو فيه نتايج معروضة بنحدّثها بس.
+      if(qInput.value.trim() && currentFiles.length) refreshShownResultsSilently();
     }
     return found;
   }
+
+  // بيعيد حساب النتايج المعروضة من الفهرس المحلي من غير ما يغيّر الحالة/الـ recent searches
+  function refreshShownResultsSilently(){
+    try{
+      const term = qInput.value.trim();
+      if(!term || !indexedFiles) return;
+      const words = splitSearchWords(term);
+      const candidateIds = getIndexedCandidates(words);
+      const candidateFiles = candidateIds === null
+        ? indexedFiles
+        : Array.from(candidateIds, id => searchFileById.get(id)).filter(Boolean);
+      const matched = candidateFiles.filter(f =>
+        matchesAllWords(f, words) && (activeFolderFilter === null || f.folder === activeFolderFilter)
+      );
+      showResultsPage(sortByRelevance(matched, term, words), false);
+    }catch(e){ /* صامت */ }
+  }
+
+  // مزامنة صامتة عند رجوع المستخدم للتطبيق أو رجوع النت (مع cooldown جوه syncNewFiles)
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible' && navigator.onLine !== false) checkForNewFiles();
+  });
+  window.addEventListener('online', () => { checkForNewFiles(); });
 
   applyLanguage(currentLang);
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، ولو مفيش يعمل فهرسة
