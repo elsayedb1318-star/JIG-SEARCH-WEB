@@ -1652,6 +1652,41 @@
     setStatusKey('fileGone', null, true);
   }
 
+  // ===== إخفاء الملفات اللي في سلة المحذوفات من نتايج البحث =====
+  // بعد ما النتايج تظهر، بنفحص في الخلفية الملفات المعروضة (بدون أي رسالة)،
+  // وأي ملف اتنقل للسلة أو اتحذف بيتشال من الفهرس المحلي ومن الشاشة فورًا.
+  const VERIFY_OK_TTL_MS = 10 * 60 * 1000;
+  const verifiedOkAt = new Map(); // fileId -> وقت آخر فحص سليم
+  async function purgeGoneFileQuietly(f){
+    removeFileFromSearchIndex(f.id);
+    if(indexedFiles) indexedFiles = indexedFiles.filter(x => x.id !== f.id);
+    currentFiles = currentFiles.filter(x => x.id !== f.id);
+    document.querySelectorAll(`#results [data-file-id="${f.id}"], #searchSuggestions [data-file-id="${f.id}"]`).forEach(el => el.remove());
+    try{
+      const cached = await loadCachedIndex();
+      if(cached){
+        cached.files = (cached.files || []).filter(x => x.id !== f.id);
+        await idbSet(CACHE_KEY, cached); // نفس تاريخ الفهرسة القديم
+      }
+    }catch(e){ /* تجاهل */ }
+  }
+  async function verifyNotTrashed(files){
+    if(navigator.onLine === false || !files || !files.length) return 0;
+    const now = Date.now();
+    const toCheck = files.filter(f => !(verifiedOkAt.get(f.id) > now - VERIFY_OK_TTL_MS));
+    let removed = 0, i = 0;
+    async function worker(){
+      while(i < toCheck.length){
+        const f = toCheck[i++];
+        const st = await checkFileExists(f.id);
+        if(st === 'gone'){ await purgeGoneFileQuietly(f); removed++; }
+        else if(st === 'exists') verifiedOkAt.set(f.id, Date.now());
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(6, toCheck.length) }, worker));
+    return removed;
+  }
+
   // بيتسجل كل ما المستخدم يفتح ملف في "آخر الملفات" - وبيمسح أقدم ملف
   // (وأي نسخة محفوظة منه) لو العدد عدّى الحد الأقصى
   function recordFileOpen(f){
@@ -2962,6 +2997,13 @@
     if(matched.length) setStatusKey('foundResults', { n: matched.length });
     else setStatusKey('noResults');
     saveRecentSearch(term);
+    // فحص صامت لأول صفحة نتايج: أي ملف في السلة بيختفي من القايمة
+    verifyNotTrashed(sortedMatched.slice(0, PAGE_SIZE)).then(removed => {
+      if(removed && myToken === searchToken){
+        if(currentFiles.length) setStatusKey('foundResults', { n: currentFiles.length });
+        else setStatusKey('noResults');
+      }
+    });
   }
 
   // ===== قايمة "بحث متقدم" المنسدلة =====
@@ -3366,6 +3408,7 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'search-suggestion-item';
+      btn.dataset.fileId = f.id;
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'search-suggestion-name';
@@ -3392,6 +3435,9 @@
       searchSuggestions.appendChild(btn);
     });
     searchSuggestions.style.display = 'block';
+    verifyNotTrashed(matches).then(removed => {
+      if(removed && !searchSuggestions.querySelector('.search-suggestion-item')) searchSuggestions.style.display = 'none';
+    });
   }
 
   searchBtn.addEventListener('click', runSearch);
@@ -3450,7 +3496,9 @@
   });
 
   loadMoreBtn.addEventListener('click', () => {
+    const before = renderedCount;
     showResultsPage(currentFiles, true);
+    verifyNotTrashed(currentFiles.slice(before, renderedCount));
   });
 
   let isReindexing = false;
