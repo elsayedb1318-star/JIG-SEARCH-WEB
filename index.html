@@ -2326,9 +2326,9 @@
     }catch(e){ return null; }
   }
 
-  async function saveCachedIndex(folderIds, files, topFolders, folderTopMap){
+  async function saveCachedIndex(folderIds, files, topFolders, folderTopMap, tsOverride){
     prepareSearchIndex(files);
-    const payload = { rootId: ROOT_FOLDER_ID, ts: Date.now(), version: 10, folderIds, files, topFolders: topFolders || [], folderTopMap: folderTopMap || {} };
+    const payload = { rootId: ROOT_FOLDER_ID, ts: tsOverride || Date.now(), version: 10, folderIds, files, topFolders: topFolders || [], folderTopMap: folderTopMap || {} };
     const savedToIDB = await idbSet(CACHE_KEY, payload);
     if(!savedToIDB){
       // fallback لو IndexedDB فشل أو مش متاح
@@ -3644,7 +3644,9 @@
       if(changed){
         prepareSearchIndex(newFiles);
         indexedFiles = indexedFiles.concat(newFiles);
-        await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders, folderTopMap);
+        // بنسجل وقت "بداية" المزامنة (مش وقت انتهائها) عشان أي تغيير حصل
+        // أثناء الفحص يتلقط في المزامنة الجاية
+        await saveCachedIndex(allFolderIds, indexedFiles, allTopFolders, folderTopMap, syncStartedAt);
         return true;
       }
       return false;
@@ -3759,11 +3761,9 @@
   // أول ما الصفحة تفتح: استخدم الفهرس المحفوظ لو موجود، ولو مفيش يعمل فهرسة
   // تلقائية أول مرة بس (مفيش تحديث تلقائي دوري كامل للفهرس القديم بعد كده -
   // بس فيه مزامنة تفاضلية دورية خفيفة تحت)
-  ensureIndex(false).then(async () => {
-    // لو الفهرس المحفوظ أقدم من أسبوع، نعيد بناءه بالكامل مرة واحدة.
-    // إعادة البناء الأسبوعية هي الضمان النهائي ضد الملفات المحذوفة أو المنقولة خارج المجلدات المفهرسة.
-    await rebuildIndexWeekly(false);
-  });
+  // مفيش إعادة بناء كاملة كل 7 أيام: الفهرس بيتحدث بس لما يحصل تغيير فعلي
+  // (إضافة/حذف ملف أو فولدر) عن طريق المزامنة الصامتة (syncNewFiles).
+  ensureIndex(false);
   scheduleSilentCleanup();
   updateOfflineIndicator();
   setTimeout(runAutomaticCleanup, 5000);
@@ -3775,8 +3775,6 @@
     setTimeout(checkForNewFiles, 2000);
     setInterval(checkForNewFiles, NEW_FILES_CHECK_INTERVAL_MS);
     setInterval(runAutomaticCleanup, 30 * 60 * 1000);
-    // فحص دوري خفيف: لو عدّى أسبوع على آخر فهرسة كاملة، نعيد بناء الفهرس تلقائيًا.
-    setInterval(() => { rebuildIndexWeekly(false); }, INDEX_REBUILD_CHECK_INTERVAL_MS);
   });
 
   if('serviceWorker' in navigator){
