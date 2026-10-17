@@ -924,124 +924,7 @@
     resize:vertical;
     margin-bottom:4px;
   }
-.ps-highlight{background:#ffd6d6;color:#d40000;font-weight:700;border-radius:3px;padding:0 2px;}
-  /* JIG SEARCH — refreshed hybrid dashboard design */
-  :root{
-    --blue:#2563eb;--blue-dark:#173ea8;--blue-light:#78a7ff;
-    --bg:#f3f6fc;--card:#ffffff;--border:#e2e8f2;--text:#17233b;--muted:#71809a;
-    --shadow-sm:0 3px 12px rgba(22,45,90,.06);
-    --shadow-md:0 10px 28px rgba(22,45,90,.10);
-    --shadow-lg:0 18px 48px rgba(12,28,65,.18);
-  }
-  html.dark{
-    --blue:#73a6ff;--blue-dark:#4d83ec;--blue-light:#9bc0ff;
-    --bg:#0b1220;--card:#121d30;--border:#26354e;--text:#edf3ff;--muted:#a0b0ca;
-    --shadow-sm:0 3px 12px rgba(0,0,0,.18);--shadow-md:0 10px 28px rgba(0,0,0,.25);--shadow-lg:0 18px 48px rgba(0,0,0,.4);
-  }
-  body{background:var(--bg);background-image:radial-gradient(rgba(37,99,235,.07) .8px,transparent .8px);background-size:18px 18px;}
-  .header{
-    width:100%;padding:18px 18px 24px;border-radius:0 0 30px 30px;
-    color:#fff;background:linear-gradient(135deg,#10234a 0%,#173c83 58%,#2563eb 100%);
-    box-shadow:0 12px 32px rgba(18,48,105,.22);border:0;
-  }
-  html.dark .header{background:linear-gradient(135deg,#101a2d 0%,#142d57 58%,#1b4e9e 100%);}
-  .brand{max-width:720px;margin:0 auto 22px;}
-  .brand-center{justify-content:flex-start;}
-  .brand-icon{width:44px;height:44px;border-radius:15px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);box-shadow:none;backdrop-filter:blur(8px);}
-  .brand-icon svg{width:23px;height:23px;}
-  .title{color:#fff;font-size:25px;letter-spacing:.7px;text-shadow:0 2px 8px rgba(0,0,0,.12);}
-  .header-corner-btn{color:#fff;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);box-shadow:none;backdrop-filter:blur(8px);}
-  .header-corner-btn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.6);}
-  .search-box{max-width:720px;display:flex;gap:9px;align-items:stretch;}
-  .search-input-wrap{flex:1;min-width:0;border:1px solid rgba(255,255,255,.62);border-radius:17px;background:#fff;box-shadow:0 7px 22px rgba(4,19,50,.16);}
-  .search-input-wrap:focus-within{box-shadow:0 0 0 4px rgba(255,255,255,.2),0 7px 22px rgba(4,19,50,.16);}
-  input#q{color:#17233b;text-align:start;padding-top:15px;padding-bottom:15px;}
-  .search-input-icon{color:#526783;}
-  #searchBtn{border:0;border-radius:15px;padding:0 20px;background:#fff;color:#1746a3;font-weight:800;box-shadow:0 7px 18px rgba(4,19,50,.15);transition:transform .15s,background .15s;}
-  #searchBtn:hover{transform:translateY(-1px);background:#edf4ff;}
-  .powered{max-width:720px;margin:12px auto 0;color:rgba(255,255,255,.72);font-size:11px;letter-spacing:.3px;text-align:center;}
-  .header-tools-row{max-width:720px;margin:18px auto 0;gap:10px;}
-  .tool-btn{border-radius:13px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;padding:11px 14px;font-weight:700;box-shadow:none;backdrop-filter:blur(8px);}
-  .tool-btn:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);}
-  .advanced-menu{border-radius:15px;border:1px solid var(--border);box-shadow:var(--shadow-lg);}
-  .content{max-width:760px;padding:22px 16px 90px;}
-  .home-tabs{display:flex;gap:9px;padding:5px;margin:0 0 18px;background:var(--card);border:1px solid var(--border);border-radius:17px;box-shadow:var(--shadow-sm);}
-  .home-tab{flex:1;justify-content:center;border-radius:12px;padding:11px 12px;font-weight:750;transition:background .15s,transform .15s;}
-  .home-tab.active,.home-tab[aria-selected="true"]{background:linear-gradient(135deg,var(--blue),#4e83f2);color:#fff;box-shadow:0 5px 14px rgba(37,99,235,.22);}
-  .status{margin-top:18px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);}
-  .sort-bar{padding:11px 13px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);}
-  .results{gap:12px;margin-top:12px;}
-  .result-item{border-radius:17px;padding:14px 15px;border-color:var(--border);box-shadow:0 4px 14px rgba(22,45,90,.045);}
-  .result-item:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--blue-light);}
-  .file-icon{width:44px;height:44px;border-radius:14px;}
-  .file-name{font-size:14px;font-weight:700;line-height:1.45;}
-  .load-more{border-radius:13px;padding:12px 24px;background:var(--blue);color:#fff;border:0;font-weight:750;box-shadow:0 6px 16px rgba(37,99,235,.2);}
-  .load-more:hover{filter:brightness(1.06);}
-  .new-files-banner,.offline-indicator,.setup-warning{border-radius:14px;}
-  button,select{font-family:inherit;}
-  :focus-visible{outline:3px solid rgba(99,153,255,.75);outline-offset:2px;}
-  @media(max-width:520px){
-    .header{padding:15px 13px 21px;border-radius:0 0 24px 24px;}
-    .brand{margin-bottom:18px;}
-    .brand-center{justify-content:center;gap:8px;}
-    .title{font-size:20px;letter-spacing:.3px;}
-    .brand-icon{width:36px;height:36px;border-radius:12px;}
-    .header-corner-btn{padding:7px 9px;}
-    .search-box{gap:7px;}
-    .search-input-wrap{border-radius:14px;}
-    input#q{font-size:14px;padding:14px 34px 14px 37px;}
-    #searchBtn{font-size:0;width:48px;min-width:48px;padding:0;position:relative;border-radius:14px;}
-    #searchBtn::after{content:'⌕';font-size:27px;font-weight:700;position:absolute;inset:0;display:grid;place-items:center;}
-    .header-tools-row{margin-top:14px;gap:8px;}
-    .tool-btn{font-size:12px;padding:10px 9px;}
-    .content{padding:18px 12px 84px;}
-    .home-tabs{gap:5px;padding:4px;}
-    .home-tab{font-size:12px;padding:10px 6px;}
-    .result-item{padding:12px;gap:10px;}
-  }
-
-/* JIG SEARCH 2.0 — refinement layer */
-:root{
-  --blue:#2563eb; --blue-dark:#173b8f; --blue-light:#60a5fa;
-  --bg:#f3f6fc; --card:#fff; --border:#e2e8f0; --text:#172033; --muted:#718096;
-  --shadow-sm:0 2px 8px rgba(23,45,90,.055); --shadow-md:0 12px 28px rgba(23,45,90,.09);
-  --shadow-lg:0 20px 55px rgba(23,45,90,.16);
-}
-html.dark{--bg:#0b1120;--card:#141d2e;--border:#29364b;--text:#edf3ff;--muted:#9aabc5;--shadow-sm:0 2px 8px rgba(0,0,0,.18);--shadow-md:0 12px 28px rgba(0,0,0,.22);--shadow-lg:0 20px 55px rgba(0,0,0,.32)}
-body{background:radial-gradient(ellipse at 50% -15%,rgba(37,99,235,.10),transparent 42%),var(--bg);color:var(--text);padding-bottom:calc(88px + env(safe-area-inset-bottom))}
-.header{position:relative;isolation:isolate;overflow:visible;background:linear-gradient(135deg,#101d3c 0%,#173b78 52%,#2563eb 100%);padding:18px 18px 24px;border-radius:0 0 28px 28px;box-shadow:0 14px 35px rgba(23,59,143,.22)}
-.header:before{content:"";position:absolute;z-index:-1;width:240px;height:240px;border:1px solid rgba(255,255,255,.11);border-radius:50%;right:-80px;top:-125px;box-shadow:0 0 0 28px rgba(255,255,255,.035),0 0 0 58px rgba(255,255,255,.025)}
-.brand{max-width:980px;margin:0 auto 16px}.brand-icon{box-shadow:0 7px 20px rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.2)}
-.title{letter-spacing:.11em;text-shadow:0 2px 10px rgba(0,0,0,.14)}
-.powered{color:rgba(255,255,255,.7);font-size:11px;letter-spacing:.03em}
-.search-box{max-width:820px;margin:0 auto;padding:7px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.24);border-radius:20px;backdrop-filter:blur(14px);box-shadow:0 12px 28px rgba(0,0,0,.12)}
-.search-input-wrap{border-radius:14px;box-shadow:inset 0 1px 2px rgba(0,0,0,.03)}
-input#q{font-size:16px;min-height:48px}
-#searchBtn{border-radius:14px;background:linear-gradient(135deg,#60a5fa,#3b82f6);box-shadow:0 5px 14px rgba(0,0,0,.15);font-weight:800}
-#headerToolsRow{max-width:820px;margin:14px auto 0;display:flex;justify-content:center;gap:10px}
-#headerToolsRow .tool-btn{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.11);color:#fff;border-radius:13px;backdrop-filter:blur(10px);transition:transform .18s,background .18s}
-#headerToolsRow .tool-btn:active{transform:scale(.97)}
-.content{max-width:1040px;margin:0 auto;padding:24px 18px 36px}
-.home-tabs{padding:5px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm);margin:0 0 18px}
-.home-tab{border-radius:12px;font-weight:750;transition:background .2s,transform .2s}
-.status{border-radius:14px;background:var(--card);border:1px solid var(--border);padding:12px 14px;box-shadow:var(--shadow-sm)}
-.results{gap:12px}
-.result-item{border:1px solid var(--border);border-radius:18px;background:var(--card);box-shadow:var(--shadow-sm);transition:transform .18s,border-color .18s,box-shadow .18s;overflow:hidden}
-.result-item:active{transform:scale(.992)}
-.result-item:hover{border-color:rgba(37,99,235,.38);box-shadow:var(--shadow-md)}
-.tool-btn,.load-more{border-radius:13px}
-input,select,button{accent-color:var(--blue)}
-button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(96,165,250,.55);outline-offset:2px}
-/* Bottom navigation is intentionally a shortcut layer; existing app actions remain unchanged. */
-.jig-bottom-nav{position:fixed;z-index:900;bottom:calc(10px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:7px;background:rgba(17,29,54,.94);border:1px solid rgba(255,255,255,.12);border-radius:22px;box-shadow:0 12px 35px rgba(5,15,35,.28);backdrop-filter:blur(18px)}
-.jig-bottom-nav button{min-width:0;border:0;background:transparent;color:#b9c8e5;border-radius:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;font:inherit;font-size:10px;font-weight:700;cursor:pointer;transition:background .18s,color .18s}
-.jig-bottom-nav button .nav-ico{font-size:19px;line-height:1.1}
-.jig-bottom-nav button.active,.jig-bottom-nav button:focus-visible{background:#2563eb;color:#fff;outline:none}
-.jig-bottom-nav button:active{transform:scale(.96)}
-@media(min-width:760px){body{padding-bottom:30px}.jig-bottom-nav{width:420px;bottom:18px}.content{padding-top:28px}.header{padding-top:22px}}
-@media(max-width:480px){.header{padding:14px 12px 20px;border-radius:0 0 24px 24px}.brand{margin-bottom:12px}.content{padding:18px 12px 24px}.result-item{border-radius:15px}.jig-bottom-nav{bottom:calc(8px + env(safe-area-inset-bottom));border-radius:19px}.jig-bottom-nav button{padding:7px 2px;font-size:9px}}
-
-</style>
+.ps-highlight{background:#ffd6d6;color:#d40000;font-weight:700;border-radius:3px;padding:0 2px;}</style>
 </head>
 <body>
 
@@ -1120,13 +1003,6 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     <div id="results" class="results"></div>
     <button id="loadMoreBtn" class="load-more" style="display:none;">Load More</button>
   </div>
-
-  <nav class="jig-bottom-nav" aria-label="Quick navigation" dir="auto">
-    <button type="button" class="active" data-jig-nav="search"><span class="nav-ico">⌕</span><span data-nav-label="search">Search</span></button>
-    <button type="button" data-jig-nav="recent"><span class="nav-ico">◷</span><span data-nav-label="recent">Recent</span></button>
-    <button type="button" data-jig-nav="favorites"><span class="nav-ico">☆</span><span data-nav-label="favorites">Favorites</span></button>
-    <button type="button" data-jig-nav="tools"><span class="nav-ico">⌘</span><span data-nav-label="tools">Tools</span></button>
-  </nav>
 
   <div id="cameraModalOverlay" class="camera-modal-overlay" style="display:none;">
     <div class="camera-modal" role="dialog" aria-modal="true" aria-labelledby="cameraModalTitle">
@@ -3923,42 +3799,5 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
     });
   }
 </script>
-
-<script>
-(function(){
-  const nav=document.querySelector('.jig-bottom-nav');
-  if(!nav) return;
-  const labels={en:{search:'Search',recent:'Recent',favorites:'Favorites',tools:'Tools'},ar:{search:'بحث',recent:'الأخيرة',favorites:'المفضلة',tools:'الأدوات'}};
-  function syncLabels(){
-    const lang=document.documentElement.lang==='ar'?'ar':'en';
-    nav.querySelectorAll('[data-nav-label]').forEach(el=>el.textContent=labels[lang][el.dataset.navLabel]);
-    nav.dir=document.documentElement.dir||'ltr';
-  }
-  nav.addEventListener('click',function(e){
-    const btn=e.target.closest('button[data-jig-nav]'); if(!btn) return;
-    nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));
-    const action=btn.dataset.jigNav;
-    if(action==='search'){
-      const q=document.getElementById('q');
-      window.scrollTo({top:0,behavior:'smooth'});
-      if(q) setTimeout(()=>q.focus({preventScroll:true}),250);
-    }else if(action==='recent'||action==='favorites'){
-      const tab=document.querySelector('.home-tab[data-tab="'+action+'"]');
-      if(tab) tab.click();
-      const content=document.querySelector('.content'); if(content) content.scrollIntoView({behavior:'smooth',block:'start'});
-    }else if(action==='tools'){
-      const advanced=document.getElementById('advancedSearchBtn');
-      if(advanced) advanced.click();
-      window.scrollTo({top:0,behavior:'smooth'});
-    }
-  });
-  syncLabels();
-  const langBtn=document.getElementById('langToggleBtn');
-  if(langBtn) langBtn.addEventListener('click',()=>setTimeout(syncLabels,50));
-  const observer=new MutationObserver(syncLabels);
-  observer.observe(document.documentElement,{attributes:true,attributeFilter:['lang','dir']});
-})();
-</script>
-
 </body>
 </html>
