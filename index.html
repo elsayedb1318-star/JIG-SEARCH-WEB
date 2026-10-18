@@ -284,12 +284,6 @@
   button#searchBtn:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(26,86,219,.35); }
   button#searchBtn:active{ transform:translateY(0); }
   button#searchBtn:disabled{ background:#9db4e8; box-shadow:none; cursor:default; transform:none; }
-  .content-search-toggle{
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    margin-top:12px; font-size:14px; color:var(--muted); cursor:pointer; user-select:none;
-  }
-  .content-search-toggle input{ width:18px; height:18px; accent-color:var(--blue); cursor:pointer; margin:0; }
-  .content-search-toggle.on{ color:var(--blue); font-weight:600; }
   .powered{
     text-align:center;
     color:var(--muted);
@@ -962,10 +956,6 @@
         <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
       </div>
       <button type="button" id="searchBtn">🔍 Search</button>
-      <label id="contentSearchWrap" class="content-search-toggle">
-        <input type="checkbox" id="contentSearchToggle" />
-        <span id="contentSearchLabel">📄 Search inside files (needs internet)</span>
-      </label>
     </form>
     <div class="powered">Prepared by Elsayed adel</div>
     <div id="headerToolsRow" class="header-tools-row">
@@ -1112,9 +1102,6 @@
   const selectionSearchGo = document.getElementById('selectionSearchGo');
   const selectionSearchClose = document.getElementById('selectionSearchClose');
   const searchBtn = document.getElementById('searchBtn');
-  const contentSearchToggle = document.getElementById('contentSearchToggle');
-  const contentSearchWrap = document.getElementById('contentSearchWrap');
-  const contentSearchLabel = document.getElementById('contentSearchLabel');
   const qSearchIcon = document.getElementById('qSearchIcon');
   const statusEl = document.getElementById('statusText');
   const spinnerEl = document.getElementById('spinner');
@@ -1178,10 +1165,6 @@
       clearSearchAria: 'Clear search',
       searchIconAria: 'Search',
       searchBtn: '🔍 Search',
-      contentSearchLabel: '📄 Search inside files (needs internet)',
-      contentSearching: '⏳ Searching inside files...',
-      contentSearchOffline: '❌ Searching inside files needs an internet connection.',
-      contentSearchTooShort: 'Type at least 2 characters to search inside files',
       poweredBy: 'Prepared by Elsayed adel',
       filterLabel: '📁',
       filterAll: 'All',
@@ -1274,10 +1257,6 @@
       clearSearchAria: 'مسح البحث',
       searchIconAria: 'بحث',
       searchBtn: '🔍 بحث',
-      contentSearchLabel: '📄 بحث داخل الملفات (يحتاج إنترنت)',
-      contentSearching: '⏳ جارِ البحث داخل الملفات...',
-      contentSearchOffline: '❌ البحث داخل الملفات يحتاج اتصال بالإنترنت.',
-      contentSearchTooShort: 'اكتب حرفين على الأقل للبحث داخل الملفات',
       poweredBy: 'إعداد: السيد عادل',
       filterLabel: '📁',
       filterAll: 'الكل',
@@ -1408,7 +1387,6 @@
     qClear.setAttribute('aria-label', t('clearSearchAria'));
     qSearchIcon.setAttribute('aria-label', t('searchIconAria'));
     searchBtn.textContent = t('searchBtn');
-    contentSearchLabel.textContent = t('contentSearchLabel');
     const poweredEl = document.querySelector('.powered');
     if(poweredEl) poweredEl.textContent = t('poweredBy');
     advancedSearchBtn.textContent = t('advancedSearchBtn');
@@ -2974,56 +2952,6 @@
     renderRecentSearches();
   }
 
-  // ===== بحث داخل محتوى الملفات (Full-text) =====
-  // Google Drive نفسه بيفهرس نص الـ PDF (وبيعمل OCR على الممسوح)، فالبحث بيتم
-  // على سيرفراتهم والتطبيق بيستلم قايمة صغيرة بأسماء الملفات بس (استهلاك نت قليل).
-  // بنفلتر النتايج على الملفات الموجودة في الفهرس المحلي (وفلتر الفولدر الحالي).
-  const CONTENT_SEARCH_KEY = 'jigsearch_content_search_v1';
-  const CONTENT_SEARCH_MAX_PAGES = 5;
-  try{ contentSearchToggle.checked = localStorage.getItem(CONTENT_SEARCH_KEY) === '1'; }catch(e){}
-  function syncContentToggleUi(){ contentSearchWrap.classList.toggle('on', contentSearchToggle.checked); }
-  syncContentToggleUi();
-  contentSearchToggle.addEventListener('change', () => {
-    try{ localStorage.setItem(CONTENT_SEARCH_KEY, contentSearchToggle.checked ? '1' : '0'); }catch(e){}
-    syncContentToggleUi();
-    searchSuggestions.style.display = 'none';
-    if(qInput.value.trim()) runSearch();
-  });
-  function escapeDriveQueryValue(v){ return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-
-  async function runContentSearch(term, myToken){
-    if(term.length < 2){ setStatusKey('contentSearchTooShort'); return; }
-    if(navigator.onLine === false){ setStatusKey('contentSearchOffline', null, true); return; }
-    setStatusKey('contentSearching');
-    const words = splitSearchWords(term);
-    lastSearchWordForms = words;
-    try{
-      const q = `fullText contains '${escapeDriveQueryValue(term)}' and trashed = false`;
-      const found = new Map();
-      let pageToken = null, pages = 0;
-      do{
-        const data = await driveList(q, pageToken, 2);
-        (data.files || []).forEach(f => {
-          const known = searchFileById.get(f.id);
-          if(!known) return; // خارج الفهرس/الفولدرات المفهرسة
-          if(activeFolderFilter !== null && known.folder !== activeFolderFilter) return;
-          found.set(f.id, known);
-        });
-        pageToken = data.nextPageToken || null;
-        pages++;
-      }while(pageToken && pages < CONTENT_SEARCH_MAX_PAGES);
-      if(myToken !== searchToken) return; // بحث أحدث بدأ
-      const matched = Array.from(found.values());
-      showResultsPage(sortByRelevance(matched, term, words), false);
-      if(matched.length) setStatusKey('foundResults', { n: matched.length });
-      else setStatusKey('noResults');
-      saveRecentSearch(term);
-    }catch(err){
-      if(myToken !== searchToken) return;
-      setStatusKey(errorStatusKey(err), errorStatusParams(err), true);
-    }
-  }
-
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
   // من غير أي طلبات جديدة لـ Google Drive - أسرع بكتير ومش بيستهلك quota الـ API
   async function runSearch(){
@@ -3049,12 +2977,6 @@
     if(myToken !== searchToken) return; // بحث أحدث بدأ فعلاً
     // مزامنة صامتة في الخلفية (بدون انتظار) عشان أي ملف جديد/محذوف يظهر في البحث الجاي
     if(typeof checkForNewFiles === 'function' && navigator.onLine !== false) checkForNewFiles();
-
-    // وضع "بحث داخل الملفات": بدل البحث في الأسماء، نسأل Drive عن النص جوه الملفات
-    if(contentSearchToggle.checked){
-      await runContentSearch(term, myToken);
-      return;
-    }
 
     const words = splitSearchWords(term);
     lastSearchWordForms = words;
