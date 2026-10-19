@@ -3011,8 +3011,18 @@
     // وعند إلغاء الخيار بنرجع نعرض نتايج البحث العادي لو فيه كلمة مكتوبة.
     if(!contentSearchToggle.checked && qInput.value.trim()) runSearch();
   });
+  // على أندرويد بنفتح تطبيق Google Drive نفسه (مش المتصفح) عن طريق Intent،
+  // ولو التطبيق مش متثبت بيرجع تلقائيًا لفتح الرابط في المتصفح (browser_fallback_url).
+  // على باقي الأجهزة بنفتح الرابط في تاب جديد (iOS بيفتحه في تطبيق Drive لو متثبت).
   function openDriveContentSearch(term){
-    window.open('https://drive.google.com/drive/search?q=' + encodeURIComponent(term), '_blank', 'noopener');
+    const webUrl = 'https://drive.google.com/drive/search?q=' + encodeURIComponent(term);
+    if(/Android/i.test(navigator.userAgent || '')){
+      window.location.href = 'intent://drive.google.com/drive/search?q=' + encodeURIComponent(term)
+        + '#Intent;scheme=https;package=com.google.android.apps.docs;'
+        + 'S.browser_fallback_url=' + encodeURIComponent(webUrl) + ';end';
+      return;
+    }
+    window.open(webUrl, '_blank', 'noopener');
   }
 
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
