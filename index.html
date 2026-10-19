@@ -284,6 +284,30 @@
   button#searchBtn:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(26,86,219,.35); }
   button#searchBtn:active{ transform:translateY(0); }
   button#searchBtn:disabled{ background:#9db4e8; box-shadow:none; cursor:default; transform:none; }
+  .content-search-toggle{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    margin-top:12px; font-size:14px; color:var(--muted); cursor:pointer; user-select:none;
+  }
+  .content-search-toggle input{ width:18px; height:18px; accent-color:var(--blue); cursor:pointer; margin:0; }
+  .content-search-toggle.on{ color:var(--blue); font-weight:600; }
+  .drive-search-form{
+    display:flex; align-items:center; gap:10px;
+    margin-top:14px; padding:0 8px 0 16px; height:48px;
+    background:var(--card); border:1px solid var(--border); border-radius:999px;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .drive-search-form:focus-within{ border-color:var(--blue); box-shadow:0 0 0 3px rgba(26,86,219,.15); }
+  .drive-search-form input{
+    flex:1; min-width:0; border:none; outline:none; background:transparent;
+    font-size:15px; font-family:inherit; color:var(--text); text-align:center;
+  }
+  .drive-search-form input::placeholder{ color:var(--muted); }
+  .drive-search-form button{
+    flex:0 0 auto; width:34px; height:34px; border:none; border-radius:50%;
+    background:transparent; color:var(--muted); cursor:pointer; font-size:17px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .drive-search-form button:hover{ background:rgba(26,86,219,.1); color:var(--blue); }
   .powered{
     text-align:center;
     color:var(--muted);
@@ -956,6 +980,10 @@
         <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
       </div>
       <button type="button" id="searchBtn">🔍 Search</button>
+      <label id="contentSearchWrap" class="content-search-toggle">
+        <input type="checkbox" id="contentSearchToggle" />
+        <span id="contentSearchLabel">📄 Search inside files (opens Google Drive)</span>
+      </label>
     </form>
     <div class="powered">Prepared by Elsayed adel</div>
     <div id="headerToolsRow" class="header-tools-row">
@@ -1102,6 +1130,9 @@
   const selectionSearchGo = document.getElementById('selectionSearchGo');
   const selectionSearchClose = document.getElementById('selectionSearchClose');
   const searchBtn = document.getElementById('searchBtn');
+  const contentSearchToggle = document.getElementById('contentSearchToggle');
+  const contentSearchWrap = document.getElementById('contentSearchWrap');
+  const contentSearchLabel = document.getElementById('contentSearchLabel');
   const qSearchIcon = document.getElementById('qSearchIcon');
   const statusEl = document.getElementById('statusText');
   const spinnerEl = document.getElementById('spinner');
@@ -1165,6 +1196,11 @@
       clearSearchAria: 'Clear search',
       searchIconAria: 'Search',
       searchBtn: '🔍 Search',
+      contentSearchLabel: '📄 Search inside files (opens Google Drive)',
+      contentSearching: '⏳ Searching inside files...',
+      contentSearchOffline: '❌ Searching inside files needs an internet connection.',
+      contentSearchTooShort: 'Type at least 2 characters to search inside files',
+      contentSearchBlocked: '❌ The server refused searching inside files (the Worker/API key doesn\'t allow full-text queries). Normal search still works — untick "Search inside files".',
       poweredBy: 'Prepared by Elsayed adel',
       filterLabel: '📁',
       filterAll: 'All',
@@ -1257,6 +1293,11 @@
       clearSearchAria: 'مسح البحث',
       searchIconAria: 'بحث',
       searchBtn: '🔍 بحث',
+      contentSearchLabel: '📄 بحث داخل الملفات (يفتح Google Drive)',
+      contentSearching: '⏳ جارِ البحث داخل الملفات...',
+      contentSearchOffline: '❌ البحث داخل الملفات يحتاج اتصال بالإنترنت.',
+      contentSearchTooShort: 'اكتب حرفين على الأقل للبحث داخل الملفات',
+      contentSearchBlocked: '❌ السيرفر رفض البحث داخل الملفات (الـ Worker أو مفتاح الـ API مش بيسمح باستعلام النص الكامل). البحث العادي شغال — ألغِ علامة "بحث داخل الملفات".',
       poweredBy: 'إعداد: السيد عادل',
       filterLabel: '📁',
       filterAll: 'الكل',
@@ -1387,6 +1428,7 @@
     qClear.setAttribute('aria-label', t('clearSearchAria'));
     qSearchIcon.setAttribute('aria-label', t('searchIconAria'));
     searchBtn.textContent = t('searchBtn');
+    contentSearchLabel.textContent = t('contentSearchLabel');
     const poweredEl = document.querySelector('.powered');
     if(poweredEl) poweredEl.textContent = t('poweredBy');
     advancedSearchBtn.textContent = t('advancedSearchBtn');
@@ -2952,6 +2994,27 @@
     renderRecentSearches();
   }
 
+  // ===== بحث داخل الملفات =====
+  // لما الخيار يكون مفعّل، البحث بيفتح بحث Google Drive الأصلي بالكلمة المكتوبة
+  // (في تطبيق Drive لو متثبت أو في تاب جديد). Drive بيبحث بحساب المستخدم نفسه
+  // فبيدعم البحث داخل الملفات (PDF وغيره) والـ OCR بكل إمكانياته.
+  // لازم تكون مسجّل دخول بحساب Google.
+  const CONTENT_SEARCH_KEY = 'jigsearch_content_search_v1';
+  try{ contentSearchToggle.checked = localStorage.getItem(CONTENT_SEARCH_KEY) === '1'; }catch(e){}
+  function syncContentToggleUi(){ contentSearchWrap.classList.toggle('on', contentSearchToggle.checked); }
+  syncContentToggleUi();
+  contentSearchToggle.addEventListener('change', () => {
+    try{ localStorage.setItem(CONTENT_SEARCH_KEY, contentSearchToggle.checked ? '1' : '0'); }catch(e){}
+    syncContentToggleUi();
+    searchSuggestions.style.display = 'none';
+    // تفعيل الخيار مش بيفتح Drive لوحده؛ البحث بيتم لما تدوس "بحث" / Enter.
+    // وعند إلغاء الخيار بنرجع نعرض نتايج البحث العادي لو فيه كلمة مكتوبة.
+    if(!contentSearchToggle.checked && qInput.value.trim()) runSearch();
+  });
+  function openDriveContentSearch(term){
+    window.open('https://drive.google.com/drive/search?q=' + encodeURIComponent(term), '_blank', 'noopener');
+  }
+
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
   // من غير أي طلبات جديدة لـ Google Drive - أسرع بكتير ومش بيستهلك quota الـ API
   async function runSearch(){
@@ -2966,6 +3029,13 @@
       renderedCount = 0;
       lastSearchWordForms = null;
       loadMoreBtn.style.display = "none";
+      return;
+    }
+    // وضع "بحث داخل الملفات": نفتح بحث Google Drive مباشرة (قبل أي await عشان
+    // المتصفح ما يمنعش فتح التاب)، من غير ما نمس نتايج البحث المحلي
+    if(contentSearchToggle.checked){
+      openDriveContentSearch(term);
+      saveRecentSearch(term);
       return;
     }
     if(!checkSetup()) return;
