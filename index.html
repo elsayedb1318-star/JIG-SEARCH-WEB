@@ -284,6 +284,11 @@
   button#searchBtn:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(26,86,219,.35); }
   button#searchBtn:active{ transform:translateY(0); }
   button#searchBtn:disabled{ background:#9db4e8; box-shadow:none; cursor:default; transform:none; }
+  .drive-search-option{display:flex;align-items:center;justify-content:center;gap:9px;margin:12px auto 0;max-width:520px;padding:10px 14px;border:1px solid var(--border, #d8dfeb);border-radius:12px;background:var(--surface, #fff);font-size:14px;font-weight:600;color:var(--text, #334155);cursor:pointer;user-select:none;transition:border-color .15s,background .15s,box-shadow .15s;}
+  .drive-search-option:has(input:checked){border-color:var(--blue);background:rgba(37,99,235,.08);box-shadow:0 0 0 2px rgba(37,99,235,.10);}
+  .drive-search-option input{width:18px;height:18px;accent-color:var(--blue);cursor:pointer;flex:0 0 auto;}
+  .drive-search-option span{line-height:1.4;}
+  @media(max-width:480px){.drive-search-option{width:100%;box-sizing:border-box;font-size:13px;}}
   .powered{
     text-align:center;
     color:var(--muted);
@@ -496,6 +501,7 @@
     font-family:inherit;
   }
   .selection-search-bar{
+    display:none !important; /* Keep selection helper hidden so it cannot cover bottom navigation. */
     position:fixed;
     left:12px;
     right:12px;
@@ -956,6 +962,20 @@
     .bottom-nav .tool-btn,.bottom-nav .home-tab{font-size:9px;}
     .bottom-nav .nav-icon{font-size:18px;}
   }
+
+  /* Page background image */
+  body{
+    background-color:var(--bg);
+    background-image:url("background.png");
+    background-size:cover;
+    background-position:center top;
+    background-repeat:no-repeat;
+    background-attachment:fixed;
+  }
+  html.dark body{
+    background-image:linear-gradient(rgba(15,18,24,.78),rgba(15,18,24,.78)),url("background.png");
+    background-color:var(--bg);
+  }
 </style>
 </head>
 <body>
@@ -991,6 +1011,10 @@
         <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
       </div>
       <button type="button" id="searchBtn">🔍 Search</button>
+      <label class="drive-search-option" for="searchGoogleDrive">
+        <input type="checkbox" id="searchGoogleDrive" />
+        <span id="searchGoogleDriveLabel">Search in Files by Google Drive</span>
+      </label>
     </form>
     <div id="headerToolsRow" class="header-tools-row">
       <div class="advanced-search">
@@ -1134,10 +1158,13 @@
   const qClear = document.getElementById('qClear');
   const searchSuggestions = document.getElementById('searchSuggestions');
   const selectionSearchBar = document.getElementById('selectionSearchBar');
+  if(selectionSearchBar) selectionSearchBar.style.display = 'none';
   const selectionSearchInput = document.getElementById('selectionSearchInput');
   const selectionSearchGo = document.getElementById('selectionSearchGo');
   const selectionSearchClose = document.getElementById('selectionSearchClose');
   const searchBtn = document.getElementById('searchBtn');
+  const searchGoogleDrive = document.getElementById('searchGoogleDrive');
+  const searchGoogleDriveLabel = document.getElementById('searchGoogleDriveLabel');
   const qSearchIcon = document.getElementById('qSearchIcon');
   const statusEl = document.getElementById('statusText');
   const spinnerEl = document.getElementById('spinner');
@@ -1201,6 +1228,7 @@
       clearSearchAria: 'Clear search',
       searchIconAria: 'Search',
       searchBtn: '🔍 Search',
+      searchGoogleDrive: 'Search in Files by Google Drive',
       poweredBy: 'Prepared by Elsayed adel',
       filterLabel: '📁',
       filterAll: 'All',
@@ -1293,6 +1321,7 @@
       clearSearchAria: 'مسح البحث',
       searchIconAria: 'بحث',
       searchBtn: '🔍 بحث',
+      searchGoogleDrive: 'البحث داخل الملفات عبر Google Drive',
       poweredBy: 'إعداد: السيد عادل',
       filterLabel: '📁',
       filterAll: 'الكل',
@@ -1423,6 +1452,7 @@
     qClear.setAttribute('aria-label', t('clearSearchAria'));
     qSearchIcon.setAttribute('aria-label', t('searchIconAria'));
     searchBtn.textContent = t('searchBtn');
+    if(searchGoogleDriveLabel) searchGoogleDriveLabel.textContent = t('searchGoogleDrive');
     const poweredEl = document.querySelector('.powered');
     if(poweredEl) poweredEl.textContent = t('poweredBy');
     advancedSearchBtn.textContent = t('advancedSearchBtn');
@@ -2988,9 +3018,24 @@
     renderRecentSearches();
   }
 
+  // عند تحديد Search in Files by Google Drive ثم الضغط على Search،
+  // يفتح Google Drive مباشرةً ويبحث عن نفس عبارة البحث.
+  function openGoogleDriveSearch(){
+    const term = qInput.value.trim();
+    if(!term){
+      setStatusKey('typeFirst');
+      qInput.focus();
+      return true;
+    }
+    const driveUrl = 'https://drive.google.com/drive/search?q=' + encodeURIComponent(term);
+    window.location.href = driveUrl;
+    return true;
+  }
+
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
   // من غير أي طلبات جديدة لـ Google Drive - أسرع بكتير ومش بيستهلك quota الـ API
   async function runSearch(){
+    if(searchGoogleDrive && searchGoogleDrive.checked){ openGoogleDriveSearch(); return; }
     searchSuggestions.style.display = 'none';
     const term = qInput.value.trim();
     setActiveHomeTab(null);
