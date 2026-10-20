@@ -284,30 +284,6 @@
   button#searchBtn:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(26,86,219,.35); }
   button#searchBtn:active{ transform:translateY(0); }
   button#searchBtn:disabled{ background:#9db4e8; box-shadow:none; cursor:default; transform:none; }
-  .content-search-toggle{
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    margin-top:12px; font-size:14px; color:var(--muted); cursor:pointer; user-select:none;
-  }
-  .content-search-toggle input{ width:18px; height:18px; accent-color:var(--blue); cursor:pointer; margin:0; }
-  .content-search-toggle.on{ color:var(--blue); font-weight:600; }
-  .drive-search-form{
-    display:flex; align-items:center; gap:10px;
-    margin-top:14px; padding:0 8px 0 16px; height:48px;
-    background:var(--card); border:1px solid var(--border); border-radius:999px;
-    transition:border-color .15s ease, box-shadow .15s ease;
-  }
-  .drive-search-form:focus-within{ border-color:var(--blue); box-shadow:0 0 0 3px rgba(26,86,219,.15); }
-  .drive-search-form input{
-    flex:1; min-width:0; border:none; outline:none; background:transparent;
-    font-size:15px; font-family:inherit; color:var(--text); text-align:center;
-  }
-  .drive-search-form input::placeholder{ color:var(--muted); }
-  .drive-search-form button{
-    flex:0 0 auto; width:34px; height:34px; border:none; border-radius:50%;
-    background:transparent; color:var(--muted); cursor:pointer; font-size:17px; line-height:1;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .drive-search-form button:hover{ background:rgba(26,86,219,.1); color:var(--blue); }
   .powered{
     text-align:center;
     color:var(--muted);
@@ -724,7 +700,12 @@
     box-shadow:var(--shadow-lg);
     overflow:hidden;
     min-width:230px;
-    z-index:20;
+    z-index:1000;
+    pointer-events:auto;
+  }
+  .advanced-search{
+    position:relative;
+    z-index:1001;
   }
   .advanced-menu-item{
     display:block;
@@ -948,42 +929,7 @@
     resize:vertical;
     margin-bottom:4px;
   }
-.ps-highlight{background:#ffd6d6;color:#d40000;font-weight:700;border-radius:3px;padding:0 2px;}
-  /* Brand credit directly under the title */
-  .brand-heading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;line-height:1.15}
-  .brand-heading .title{margin:0}
-  .brand-heading .powered{font-size:12px;font-weight:800;letter-spacing:.15px;margin-top:4px;text-align:center;white-space:nowrap}
-  /* Four compact, borderless shortcuts aligned with the search field */
-  .bottom-nav{
-    position:fixed;z-index:1000;bottom:calc(8px + env(safe-area-inset-bottom));left:50%;
-    transform:translateX(-50%);width:calc(100% - 24px);max-width:520px;
-    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;
-    gap:2px;padding:6px 4px;background:var(--card);border:0;border-radius:14px;
-    box-shadow:0 5px 22px rgba(20,35,70,.14);box-sizing:border-box;
-  }
-  .bottom-nav .tool-btn,.bottom-nav .home-tab{
-    display:flex;align-items:center;justify-content:center;flex-direction:column;
-    min-width:0;width:100%;min-height:44px;padding:6px 2px;margin:0;
-    border:0!important;outline:0;box-shadow:none!important;border-radius:9px;
-    background:transparent!important;color:var(--text);font-family:inherit;font-size:11px;font-weight:600;line-height:1.25;
-    text-align:center;white-space:normal;cursor:pointer;gap:4px;
-  }
-  .bottom-nav .bottom-nav-icon{display:block;font-size:18px;line-height:1.1;flex:0 0 auto}
-  .bottom-nav .bottom-nav-label{display:block;max-width:100%;overflow-wrap:anywhere;line-height:1.15}
-  .bottom-nav .tool-btn:hover,.bottom-nav .home-tab:hover,
-  .bottom-nav .home-tab.active{background:var(--bg)!important;color:var(--blue)}
-  .bottom-nav .advanced-search{position:static;min-width:0}
-  .bottom-nav .advanced-search .tool-btn{height:100%}
-  .bottom-nav .advanced-menu{position:absolute;bottom:calc(100% + 8px);left:0;right:auto;z-index:1002}
-  .bottom-nav #importantLinksBtn{min-width:0}
-  .content{padding-bottom:100px!important}
-  @media(max-width:380px){
-    .bottom-nav{width:calc(100% - 12px);gap:0;padding:5px 2px}
-    .bottom-nav .tool-btn,.bottom-nav .home-tab{font-size:10px;padding:5px 1px}
-    .brand-heading .powered{font-size:10px}
-  }
-
-</style>
+.ps-highlight{background:#ffd6d6;color:#d40000;font-weight:700;border-radius:3px;padding:0 2px;}</style>
 </head>
 <body>
 
@@ -994,10 +940,7 @@
         <div class="brand-icon">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="#fff" stroke-width="2"/><path d="M19 19L15 15" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
         </div>
-        <div class="brand-heading">
-          <h1 class="title">JIG SEARCH</h1>
-          <div class="powered">Prepared by Elsayed adel</div>
-        </div>
+        <h1 class="title">JIG SEARCH</h1>
       </div>
       <button type="button" id="themeToggleBtn" class="header-corner-btn" aria-label="Dark Mode">🌙</button>
     </div>
@@ -1018,11 +961,8 @@
         <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
       </div>
       <button type="button" id="searchBtn">🔍 Search</button>
-      <label id="contentSearchWrap" class="content-search-toggle">
-        <input type="checkbox" id="contentSearchToggle" />
-        <span id="contentSearchLabel">📄 Search inside files (opens Google Drive)</span>
-      </label>
     </form>
+    <div class="powered">Prepared by Elsayed adel</div>
     <div id="headerToolsRow" class="header-tools-row">
       <div class="advanced-search">
         <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ Advanced Search</button>
@@ -1036,8 +976,6 @@
     </div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
   </div>
-
-  <nav id="bottomNav" class="bottom-nav" aria-label="Quick navigation"></nav>
 
   <div class="content">
     <div id="setupWarning" class="setup-warning" style="display:none;"></div>
@@ -1169,9 +1107,6 @@
   const selectionSearchGo = document.getElementById('selectionSearchGo');
   const selectionSearchClose = document.getElementById('selectionSearchClose');
   const searchBtn = document.getElementById('searchBtn');
-  const contentSearchToggle = document.getElementById('contentSearchToggle');
-  const contentSearchWrap = document.getElementById('contentSearchWrap');
-  const contentSearchLabel = document.getElementById('contentSearchLabel');
   const qSearchIcon = document.getElementById('qSearchIcon');
   const statusEl = document.getElementById('statusText');
   const spinnerEl = document.getElementById('spinner');
@@ -1235,11 +1170,6 @@
       clearSearchAria: 'Clear search',
       searchIconAria: 'Search',
       searchBtn: '🔍 Search',
-      contentSearchLabel: '📄 Search inside files (opens Google Drive)',
-      contentSearching: '⏳ Searching inside files...',
-      contentSearchOffline: '❌ Searching inside files needs an internet connection.',
-      contentSearchTooShort: 'Type at least 2 characters to search inside files',
-      contentSearchBlocked: '❌ The server refused searching inside files (the Worker/API key doesn\'t allow full-text queries). Normal search still works — untick "Search inside files".',
       poweredBy: 'Prepared by Elsayed adel',
       filterLabel: '📁',
       filterAll: 'All',
@@ -1332,11 +1262,6 @@
       clearSearchAria: 'مسح البحث',
       searchIconAria: 'بحث',
       searchBtn: '🔍 بحث',
-      contentSearchLabel: '📄 بحث داخل الملفات (يفتح Google Drive)',
-      contentSearching: '⏳ جارِ البحث داخل الملفات...',
-      contentSearchOffline: '❌ البحث داخل الملفات يحتاج اتصال بالإنترنت.',
-      contentSearchTooShort: 'اكتب حرفين على الأقل للبحث داخل الملفات',
-      contentSearchBlocked: '❌ السيرفر رفض البحث داخل الملفات (الـ Worker أو مفتاح الـ API مش بيسمح باستعلام النص الكامل). البحث العادي شغال — ألغِ علامة "بحث داخل الملفات".',
       poweredBy: 'إعداد: السيد عادل',
       filterLabel: '📁',
       filterAll: 'الكل',
@@ -1467,7 +1392,6 @@
     qClear.setAttribute('aria-label', t('clearSearchAria'));
     qSearchIcon.setAttribute('aria-label', t('searchIconAria'));
     searchBtn.textContent = t('searchBtn');
-    contentSearchLabel.textContent = t('contentSearchLabel');
     const poweredEl = document.querySelector('.powered');
     if(poweredEl) poweredEl.textContent = t('poweredBy');
     advancedSearchBtn.textContent = t('advancedSearchBtn');
@@ -3033,37 +2957,6 @@
     renderRecentSearches();
   }
 
-  // ===== بحث داخل الملفات =====
-  // لما الخيار يكون مفعّل، البحث بيفتح بحث Google Drive الأصلي بالكلمة المكتوبة
-  // (في تطبيق Drive لو متثبت أو في تاب جديد). Drive بيبحث بحساب المستخدم نفسه
-  // فبيدعم البحث داخل الملفات (PDF وغيره) والـ OCR بكل إمكانياته.
-  // لازم تكون مسجّل دخول بحساب Google.
-  const CONTENT_SEARCH_KEY = 'jigsearch_content_search_v1';
-  try{ contentSearchToggle.checked = localStorage.getItem(CONTENT_SEARCH_KEY) === '1'; }catch(e){}
-  function syncContentToggleUi(){ contentSearchWrap.classList.toggle('on', contentSearchToggle.checked); }
-  syncContentToggleUi();
-  contentSearchToggle.addEventListener('change', () => {
-    try{ localStorage.setItem(CONTENT_SEARCH_KEY, contentSearchToggle.checked ? '1' : '0'); }catch(e){}
-    syncContentToggleUi();
-    searchSuggestions.style.display = 'none';
-    // تفعيل الخيار مش بيفتح Drive لوحده؛ البحث بيتم لما تدوس "بحث" / Enter.
-    // وعند إلغاء الخيار بنرجع نعرض نتايج البحث العادي لو فيه كلمة مكتوبة.
-    if(!contentSearchToggle.checked && qInput.value.trim()) runSearch();
-  });
-  // على أندرويد بنفتح تطبيق Google Drive نفسه (مش المتصفح) عن طريق Intent،
-  // ولو التطبيق مش متثبت بيرجع تلقائيًا لفتح الرابط في المتصفح (browser_fallback_url).
-  // على باقي الأجهزة بنفتح الرابط في تاب جديد (iOS بيفتحه في تطبيق Drive لو متثبت).
-  function openDriveContentSearch(term){
-    const webUrl = 'https://drive.google.com/drive/search?q=' + encodeURIComponent(term);
-    if(/Android/i.test(navigator.userAgent || '')){
-      window.location.href = 'intent://drive.google.com/drive/search?q=' + encodeURIComponent(term)
-        + '#Intent;scheme=https;package=com.google.android.apps.docs;'
-        + 'S.browser_fallback_url=' + encodeURIComponent(webUrl) + ';end';
-      return;
-    }
-    window.open(webUrl, '_blank', 'noopener');
-  }
-
   // البحث بيتم بالكامل محليًا على الفهرس المخزن (allFolderIds + indexedFiles)
   // من غير أي طلبات جديدة لـ Google Drive - أسرع بكتير ومش بيستهلك quota الـ API
   async function runSearch(){
@@ -3078,13 +2971,6 @@
       renderedCount = 0;
       lastSearchWordForms = null;
       loadMoreBtn.style.display = "none";
-      return;
-    }
-    // وضع "بحث داخل الملفات": نفتح بحث Google Drive مباشرة (قبل أي await عشان
-    // المتصفح ما يمنعش فتح التاب)، من غير ما نمس نتايج البحث المحلي
-    if(contentSearchToggle.checked){
-      openDriveContentSearch(term);
-      saveRecentSearch(term);
       return;
     }
     if(!checkSetup()) return;
@@ -3126,11 +3012,31 @@
   }
 
   // ===== قايمة "بحث متقدم" المنسدلة =====
-  function openAdvancedMenu(){ advancedSearchMenu.style.display = 'block'; }
-  function closeAdvancedMenu(){ advancedSearchMenu.style.display = 'none'; }
-  advancedSearchBtn.addEventListener('click', () => {
-    if(advancedSearchMenu.style.display === 'block') closeAdvancedMenu();
-    else openAdvancedMenu();
+  function openAdvancedMenu(){
+    advancedSearchMenu.style.display = 'block';
+    advancedSearchBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeAdvancedMenu(){
+    advancedSearchMenu.style.display = 'none';
+    advancedSearchBtn.setAttribute('aria-expanded', 'false');
+  }
+  advancedSearchBtn.setAttribute('aria-controls', 'advancedSearchMenu');
+  advancedSearchBtn.setAttribute('aria-expanded', 'false');
+  advancedSearchBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if(getComputedStyle(advancedSearchMenu).display !== 'none') closeAdvancedMenu();
+    else {
+      // اقفل أي قائمة/نافذة سابقة قبل فتح القائمة الجديدة
+      closeLinksModal();
+      closeAdvancedMenu();
+      openAdvancedMenu();
+    }
+  });
+  advancedSearchMenu.addEventListener('click', (e) => {
+    // أي اختيار من القائمة يقفلها فورًا، ثم ينفذ الإجراء الخاص بالاختيار
+    if(e.target.closest('.advanced-menu-item')) closeAdvancedMenu();
+    e.stopPropagation();
   });
   document.addEventListener('click', (e) => {
     if(!e.target.closest('.advanced-search')) closeAdvancedMenu();
@@ -3485,10 +3391,11 @@
     if(val){ qInput.value = val; qClear.style.display = 'flex'; runSearch(); }
   });
 
-  scanBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('scan'); });
-  ocrBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('ocr'); });
+  scanBtn.addEventListener('click', () => { closeAdvancedMenu(); closeLinksModal(); openCamera('scan'); });
+  ocrBtn.addEventListener('click', () => { closeAdvancedMenu(); closeLinksModal(); openCamera('ocr'); });
   testDeconentBtn.addEventListener('click', () => {
     closeAdvancedMenu();
+    closeLinksModal();
     window.open('https://drive.google.com/drive/folders/1o2UwDHE3CCn11td1ewQpRW0iYCtGyb09', '_blank', 'noopener');
   });
   function closeLinksModal(){ linksModalOverlay.style.display = 'none'; }
@@ -3647,7 +3554,7 @@
   // نفس الاستعلام بيرجّع كمان أي فولدر جديد اتعمل بعد آخر مزامنة (modifiedTime
   // بتتحسب من وقت الإنشاء)، فبنكتشف الفولدرات الجديدة ونعمل لها فهرسة كاملة
   // لمحتواها بس (مش لكل الدرايف) ونضيفها لنفس فهرس البحث.
-  const NEW_FILES_SYNC_COOLDOWN_MS = 55 * 60 * 1000; // مزامنة واحدة كل ساعة تقريبًا مهما كان السبب (بحث/رجوع للتطبيق/نت)
+  const NEW_FILES_SYNC_COOLDOWN_MS = 45 * 1000;
   let lastSyncTs = 0;
   let isSyncingNewFiles = false;
   let lastSyncStats = { added: 0, updated: 0, removed: 0 };
@@ -3662,31 +3569,7 @@
     const syncStartedAt = Date.now();
     try{
       const isoTs = new Date(cached.ts).toISOString().replace(/\.\d{3}Z$/, 'Z');
-      // فحص مجمّع: بدل طلب لكل فولدر، بنسأل Drive عن مجموعة فولدرات في طلب واحد
-      // (بشرط OR). لو المجموعة مفيهاش أي تغيير (الحالة الأغلب) بنتخطاها كلها،
-      // ولو فيها تغيير بنفحص فولدراتها واحد واحد زي الأول. لو الفحص المجمّع
-      // نفسه فشل، بنفحص المجموعة بالتفصيل احتياطًا عشان مانفوّتش حاجة.
-      const GROUP_SIZE = 40;
-      const allIds = allFolderIds;
-      const groups = [];
-      for(let g = 0; g < allIds.length; g += GROUP_SIZE) groups.push(allIds.slice(g, g + GROUP_SIZE));
-      const groupsToScan = [];
-      let gi = 0;
-      async function probeWorker(){
-        while(gi < groups.length){
-          const grp = groups[gi++];
-          const parentsClause = grp.map(id => `'${id}' in parents`).join(' or ');
-          const q = `(${parentsClause}) and modifiedTime > '${isoTs}'`;
-          try{
-            const data = await driveList(q, null, 1);
-            if((data.files || []).length) groupsToScan.push(grp);
-          }catch(e){
-            groupsToScan.push(grp);
-          }
-        }
-      }
-      await Promise.all(Array.from({ length: Math.min(3, groups.length) }, probeWorker));
-      const ids = groupsToScan.flat();
+      const ids = allFolderIds;
       const knownFilesById = new Map(indexedFiles.map(f => [f.id, f]));
       const knownFolderIds = new Set(allFolderIds);
       const newFiles = [];
@@ -3867,7 +3750,7 @@
 
   // فحص خفيف (مزامنة تفاضلية) لملفات/فولدرات جديدة، وتحديث النتايج المعروضة
   // حاليًا لو كان فيه بحث شغال، من غير ما يوقف المستخدم أو يحتاج يدوس زرار
-  const NEW_FILES_CHECK_INTERVAL_MS = 60 * 60 * 1000; // كل ساعة طول ما الصفحة مفتوحة
+  const NEW_FILES_CHECK_INTERVAL_MS = 10 * 60 * 1000; // كل 10 دقايق طول ما الصفحة مفتوحة
   async function checkForNewFiles(){
     const found = await syncNewFiles();
     if(found){
@@ -3942,59 +3825,5 @@
     });
   }
 </script>
-
-<script>
-(function(){
-  function arrangeBottomNav(){
-    const nav=document.getElementById('bottomNav');
-    const advanced=document.querySelector('#headerToolsRow .advanced-search');
-    const links=document.getElementById('importantLinksBtn');
-    const recent=document.querySelector('#homeTabs [data-tab="recent"]');
-    const favorites=document.querySelector('#homeTabs [data-tab="favorites"]');
-    if(!nav || !advanced || !links || !recent || !favorites) return;
-    nav.appendChild(advanced);
-    nav.appendChild(recent);
-    nav.appendChild(favorites);
-    nav.appendChild(links);
-
-    // Stack each shortcut icon above its label, including after language changes.
-    function stackIconAndLabel(button){
-      if(!button) return;
-      const raw=(button.textContent || '').replace(/\s+/g,' ').trim();
-      if(!raw || (button.querySelector('.bottom-nav-icon') && button.querySelector('.bottom-nav-label'))) return;
-      const match=raw.match(/^(⚙️|⚙|🕘|⭐|🔗|🔎|📁|📷)\s*/u);
-      const icon=match ? match[1] : '';
-      const label=match ? raw.slice(match[0].length).trim() : raw;
-      button.replaceChildren();
-      if(icon){
-        const iconSpan=document.createElement('span');
-        iconSpan.className='bottom-nav-icon';
-        iconSpan.setAttribute('aria-hidden','true');
-        iconSpan.textContent=icon;
-        button.appendChild(iconSpan);
-      }
-      const labelSpan=document.createElement('span');
-      labelSpan.className='bottom-nav-label';
-      labelSpan.textContent=label;
-      button.appendChild(labelSpan);
-    }
-    [advanced.querySelector('.tool-btn'),recent,favorites,links].forEach(stackIconAndLabel);
-    [advanced.querySelector('.tool-btn'),recent,favorites,links].forEach(button=>{
-      if(!button) return;
-      const observer=new MutationObserver(()=>{
-        if(!button.querySelector('.bottom-nav-label')) stackIconAndLabel(button);
-      });
-      observer.observe(button,{childList:true,subtree:true,characterData:true});
-    });
-    const oldRow=document.getElementById('headerToolsRow');
-    if(oldRow) oldRow.style.display='none';
-    const oldTabs=document.getElementById('homeTabs');
-    if(oldTabs) oldTabs.style.display='none';
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',arrangeBottomNav,{once:true});
-  else arrangeBottomNav();
-})();
-</script>
-
 </body>
 </html>
