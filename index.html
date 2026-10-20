@@ -700,12 +700,7 @@
     box-shadow:var(--shadow-lg);
     overflow:hidden;
     min-width:230px;
-    z-index:1000;
-    pointer-events:auto;
-  }
-  .advanced-search{
-    position:relative;
-    z-index:1001;
+    z-index:20;
   }
   .advanced-menu-item{
     display:block;
@@ -929,7 +924,38 @@
     resize:vertical;
     margin-bottom:4px;
   }
-.ps-highlight{background:#ffd6d6;color:#d40000;font-weight:700;border-radius:3px;padding:0 2px;}</style>
+.ps-highlight{background:#ffd6d6;color:#d40000;font-weight:700;border-radius:3px;padding:0 2px;}
+  /* Bottom quick navigation */
+  .brand-title-wrap{display:flex;flex-direction:column;align-items:flex-start;min-width:0;}
+  .brand-title-wrap .title{text-align:left;}
+  .brand-title-wrap .powered{font-size:12px;font-weight:700;text-align:left;margin-top:3px;color:var(--muted);white-space:nowrap;}
+  .bottom-nav{
+    position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:50;
+    width:calc(100% - 32px);max-width:520px;box-sizing:border-box;
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:0;
+    padding:7px 0 calc(7px + env(safe-area-inset-bottom));
+    background:var(--card);border-top:1px solid var(--border);
+  }
+  .bottom-nav .tool-btn,.bottom-nav .home-tab{
+    width:100%;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    padding:4px 2px;background:transparent;border:0!important;border-radius:0;box-shadow:none;
+    color:var(--muted);font:inherit;font-size:10px;line-height:1.2;white-space:normal;text-align:center;
+    cursor:pointer;transform:none!important;
+  }
+  .bottom-nav .tool-btn:hover,.bottom-nav .home-tab:hover{background:transparent;color:var(--blue);}
+  .bottom-nav .nav-icon{font-size:19px;line-height:1.1;display:block;}
+  .bottom-nav .nav-label{display:block;overflow-wrap:anywhere;}
+  .bottom-nav .advanced-search{width:100%;}
+  .bottom-nav .advanced-menu{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);}
+  .content{padding-bottom:105px;}
+  @media(max-width:420px){
+    .brand-title-wrap .title{font-size:21px;letter-spacing:.2px;}
+    .brand-title-wrap .powered{font-size:10px;}
+    .bottom-nav{width:calc(100% - 24px);}
+    .bottom-nav .tool-btn,.bottom-nav .home-tab{font-size:9px;}
+    .bottom-nav .nav-icon{font-size:18px;}
+  }
+</style>
 </head>
 <body>
 
@@ -940,7 +966,10 @@
         <div class="brand-icon">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="#fff" stroke-width="2"/><path d="M19 19L15 15" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
         </div>
-        <h1 class="title">JIG SEARCH</h1>
+        <div class="brand-title-wrap">
+          <h1 class="title">JIG SEARCH</h1>
+          <div class="powered">Prepared by Elsayed adel</div>
+        </div>
       </div>
       <button type="button" id="themeToggleBtn" class="header-corner-btn" aria-label="Dark Mode">🌙</button>
     </div>
@@ -962,7 +991,6 @@
       </div>
       <button type="button" id="searchBtn">🔍 Search</button>
     </form>
-    <div class="powered">Prepared by Elsayed adel</div>
     <div id="headerToolsRow" class="header-tools-row">
       <div class="advanced-search">
         <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ Advanced Search</button>
@@ -976,6 +1004,8 @@
     </div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
   </div>
+
+  <nav id="bottomNav" class="bottom-nav" aria-label="Quick navigation"></nav>
 
   <div class="content">
     <div id="setupWarning" class="setup-warning" style="display:none;"></div>
@@ -3011,32 +3041,47 @@
     });
   }
 
-  // ===== قايمة "بحث متقدم" المنسدلة =====
-  function openAdvancedMenu(){
-    advancedSearchMenu.style.display = 'block';
-    advancedSearchBtn.setAttribute('aria-expanded', 'true');
-  }
-  function closeAdvancedMenu(){
-    advancedSearchMenu.style.display = 'none';
-    advancedSearchBtn.setAttribute('aria-expanded', 'false');
-  }
-  advancedSearchBtn.setAttribute('aria-controls', 'advancedSearchMenu');
-  advancedSearchBtn.setAttribute('aria-expanded', 'false');
-  advancedSearchBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if(getComputedStyle(advancedSearchMenu).display !== 'none') closeAdvancedMenu();
-    else {
-      // اقفل أي قائمة/نافذة سابقة قبل فتح القائمة الجديدة
-      closeLinksModal();
-      closeAdvancedMenu();
-      openAdvancedMenu();
+  // نقل الاختصارات إلى شريط سفلي واحد مع بقاء عناصر التحكم الأصلية ووظائفها.
+  (function setupBottomNavigation(){
+    const nav = document.getElementById('bottomNav');
+    const advanced = document.querySelector('.advanced-search');
+    const links = document.getElementById('importantLinksBtn');
+    const recent = document.querySelector('#homeTabs [data-tab="recent"]');
+    const favorites = document.querySelector('#homeTabs [data-tab="favorites"]');
+    if(!nav || !advanced || !links || !recent || !favorites) return;
+    function decorate(btn, icon, label){
+      btn.innerHTML = '<span class="nav-icon" aria-hidden="true">'+icon+'</span><span class="nav-label">'+label+'</span>';
     }
-  });
-  advancedSearchMenu.addEventListener('click', (e) => {
-    // أي اختيار من القائمة يقفلها فورًا، ثم ينفذ الإجراء الخاص بالاختيار
-    if(e.target.closest('.advanced-menu-item')) closeAdvancedMenu();
-    e.stopPropagation();
+    decorate(document.getElementById('advancedSearchBtn'),'⚙️','Advanced Search');
+    decorate(links,'🔗','Important Links');
+    decorate(recent,'🕘','Recent Files');
+    decorate(favorites,'⭐','Favorites');
+    nav.append(advanced, recent, favorites, links);
+    const headerTools = document.getElementById('headerToolsRow');
+    if(headerTools) headerTools.style.display='none';
+    const tabs = document.getElementById('homeTabs');
+    if(tabs) tabs.style.display='none';
+    // Update labels when the language changes, without changing the existing event handlers.
+    const updateLabels = () => {
+      const labels = [
+        [document.getElementById('advancedSearchBtn'), (typeof t==='function' ? t('advancedSearchBtn') : 'Advanced Search')],
+        [links, (typeof t==='function' ? t('importantLinksBtn') : 'Important Links')],
+        [recent, (typeof t==='function' ? t('tabRecent') : 'Recent Files')],
+        [favorites, (typeof t==='function' ? t('tabFavorites') : 'Favorites')]
+      ];
+      labels.forEach(([btn,label])=>{const node=btn && btn.querySelector('.nav-label'); if(node && label) node.textContent=String(label).replace(/^[^A-Za-z؀-ۿ]+/,'');});
+    };
+    updateLabels();
+    document.getElementById('advancedSearchBtn').addEventListener('click',()=>{});
+    document.querySelectorAll('#advancedSearchMenu .advanced-menu-item').forEach(item=>item.addEventListener('click',()=>setTimeout(()=>{const menu=document.getElementById('advancedSearchMenu'); if(menu) menu.style.display='none';},0)));
+  })();
+
+  // ===== قايمة "بحث متقدم" المنسدلة =====
+  function openAdvancedMenu(){ advancedSearchMenu.style.display = 'block'; }
+  function closeAdvancedMenu(){ advancedSearchMenu.style.display = 'none'; }
+  advancedSearchBtn.addEventListener('click', () => {
+    if(advancedSearchMenu.style.display === 'block') closeAdvancedMenu();
+    else openAdvancedMenu();
   });
   document.addEventListener('click', (e) => {
     if(!e.target.closest('.advanced-search')) closeAdvancedMenu();
@@ -3391,11 +3436,10 @@
     if(val){ qInput.value = val; qClear.style.display = 'flex'; runSearch(); }
   });
 
-  scanBtn.addEventListener('click', () => { closeAdvancedMenu(); closeLinksModal(); openCamera('scan'); });
-  ocrBtn.addEventListener('click', () => { closeAdvancedMenu(); closeLinksModal(); openCamera('ocr'); });
+  scanBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('scan'); });
+  ocrBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('ocr'); });
   testDeconentBtn.addEventListener('click', () => {
     closeAdvancedMenu();
-    closeLinksModal();
     window.open('https://drive.google.com/drive/folders/1o2UwDHE3CCn11td1ewQpRW0iYCtGyb09', '_blank', 'noopener');
   });
   function closeLinksModal(){ linksModalOverlay.style.display = 'none'; }
@@ -3825,5 +3869,6 @@
     });
   }
 </script>
+
 </body>
 </html>
