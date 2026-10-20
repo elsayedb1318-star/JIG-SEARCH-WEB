@@ -948,7 +948,42 @@
     resize:vertical;
     margin-bottom:4px;
   }
-.ps-highlight{background:#ffd6d6;color:#d40000;font-weight:700;border-radius:3px;padding:0 2px;}</style>
+.ps-highlight{background:#ffd6d6;color:#d40000;font-weight:700;border-radius:3px;padding:0 2px;}
+  /* Brand credit directly under the title */
+  .brand-heading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;line-height:1.15}
+  .brand-heading .title{margin:0}
+  .brand-heading .powered{font-size:12px;font-weight:800;letter-spacing:.15px;margin-top:4px;text-align:center;white-space:nowrap}
+  /* Four compact, borderless shortcuts aligned with the search field */
+  .bottom-nav{
+    position:fixed;z-index:1000;bottom:calc(8px + env(safe-area-inset-bottom));left:50%;
+    transform:translateX(-50%);width:calc(100% - 24px);max-width:520px;
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;
+    gap:2px;padding:6px 4px;background:var(--card);border:0;border-radius:14px;
+    box-shadow:0 5px 22px rgba(20,35,70,.14);box-sizing:border-box;
+  }
+  .bottom-nav .tool-btn,.bottom-nav .home-tab{
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    min-width:0;width:100%;min-height:44px;padding:6px 2px;margin:0;
+    border:0!important;outline:0;box-shadow:none!important;border-radius:9px;
+    background:transparent!important;color:var(--text);font-family:inherit;font-size:11px;font-weight:600;line-height:1.25;
+    text-align:center;white-space:normal;cursor:pointer;gap:4px;
+  }
+  .bottom-nav .bottom-nav-icon{display:block;font-size:18px;line-height:1.1;flex:0 0 auto}
+  .bottom-nav .bottom-nav-label{display:block;max-width:100%;overflow-wrap:anywhere;line-height:1.15}
+  .bottom-nav .tool-btn:hover,.bottom-nav .home-tab:hover,
+  .bottom-nav .home-tab.active{background:var(--bg)!important;color:var(--blue)}
+  .bottom-nav .advanced-search{position:static;min-width:0}
+  .bottom-nav .advanced-search .tool-btn{height:100%}
+  .bottom-nav .advanced-menu{position:absolute;bottom:calc(100% + 8px);left:0;right:auto;z-index:1002}
+  .bottom-nav #importantLinksBtn{min-width:0}
+  .content{padding-bottom:100px!important}
+  @media(max-width:380px){
+    .bottom-nav{width:calc(100% - 12px);gap:0;padding:5px 2px}
+    .bottom-nav .tool-btn,.bottom-nav .home-tab{font-size:10px;padding:5px 1px}
+    .brand-heading .powered{font-size:10px}
+  }
+
+</style>
 </head>
 <body>
 
@@ -959,7 +994,10 @@
         <div class="brand-icon">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.5" cy="10.5" r="6.5" stroke="#fff" stroke-width="2"/><path d="M19 19L15 15" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
         </div>
-        <h1 class="title">JIG SEARCH</h1>
+        <div class="brand-heading">
+          <h1 class="title">JIG SEARCH</h1>
+          <div class="powered">Prepared by Elsayed adel</div>
+        </div>
       </div>
       <button type="button" id="themeToggleBtn" class="header-corner-btn" aria-label="Dark Mode">🌙</button>
     </div>
@@ -985,7 +1023,6 @@
         <span id="contentSearchLabel">📄 Search inside files (opens Google Drive)</span>
       </label>
     </form>
-    <div class="powered">Prepared by Elsayed adel</div>
     <div id="headerToolsRow" class="header-tools-row">
       <div class="advanced-search">
         <button type="button" id="advancedSearchBtn" class="tool-btn">⚙️ Advanced Search</button>
@@ -999,6 +1036,8 @@
     </div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
   </div>
+
+  <nav id="bottomNav" class="bottom-nav" aria-label="Quick navigation"></nav>
 
   <div class="content">
     <div id="setupWarning" class="setup-warning" style="display:none;"></div>
@@ -3903,5 +3942,59 @@
     });
   }
 </script>
+
+<script>
+(function(){
+  function arrangeBottomNav(){
+    const nav=document.getElementById('bottomNav');
+    const advanced=document.querySelector('#headerToolsRow .advanced-search');
+    const links=document.getElementById('importantLinksBtn');
+    const recent=document.querySelector('#homeTabs [data-tab="recent"]');
+    const favorites=document.querySelector('#homeTabs [data-tab="favorites"]');
+    if(!nav || !advanced || !links || !recent || !favorites) return;
+    nav.appendChild(advanced);
+    nav.appendChild(recent);
+    nav.appendChild(favorites);
+    nav.appendChild(links);
+
+    // Stack each shortcut icon above its label, including after language changes.
+    function stackIconAndLabel(button){
+      if(!button) return;
+      const raw=(button.textContent || '').replace(/\s+/g,' ').trim();
+      if(!raw || (button.querySelector('.bottom-nav-icon') && button.querySelector('.bottom-nav-label'))) return;
+      const match=raw.match(/^(⚙️|⚙|🕘|⭐|🔗|🔎|📁|📷)\s*/u);
+      const icon=match ? match[1] : '';
+      const label=match ? raw.slice(match[0].length).trim() : raw;
+      button.replaceChildren();
+      if(icon){
+        const iconSpan=document.createElement('span');
+        iconSpan.className='bottom-nav-icon';
+        iconSpan.setAttribute('aria-hidden','true');
+        iconSpan.textContent=icon;
+        button.appendChild(iconSpan);
+      }
+      const labelSpan=document.createElement('span');
+      labelSpan.className='bottom-nav-label';
+      labelSpan.textContent=label;
+      button.appendChild(labelSpan);
+    }
+    [advanced.querySelector('.tool-btn'),recent,favorites,links].forEach(stackIconAndLabel);
+    [advanced.querySelector('.tool-btn'),recent,favorites,links].forEach(button=>{
+      if(!button) return;
+      const observer=new MutationObserver(()=>{
+        if(!button.querySelector('.bottom-nav-label')) stackIconAndLabel(button);
+      });
+      observer.observe(button,{childList:true,subtree:true,characterData:true});
+    });
+    const oldRow=document.getElementById('headerToolsRow');
+    if(oldRow) oldRow.style.display='none';
+    const oldTabs=document.getElementById('homeTabs');
+    if(oldTabs) oldTabs.style.display='none';
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',arrangeBottomNav,{once:true});
+  else arrangeBottomNav();
+})();
+</script>
+
 </body>
 </html>
