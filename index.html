@@ -499,8 +499,8 @@
     position:fixed;
     left:12px;
     right:12px;
-    bottom:16px;
-    z-index:60;
+    bottom:calc(76px + env(safe-area-inset-bottom));
+    z-index:40;
     display:flex;
     align-items:center;
     gap:8px;
@@ -943,7 +943,8 @@
     cursor:pointer;transform:none!important;
   }
   .bottom-nav .tool-btn:hover,.bottom-nav .home-tab:hover{background:transparent;color:var(--blue);}
-  .bottom-nav .nav-icon{font-size:19px;line-height:1.1;display:block;}
+  .bottom-nav .nav-icon{font-size:19px;line-height:1.1;display:block;order:0;}
+  .bottom-nav .nav-label{order:1;}
   .bottom-nav .nav-label{display:block;overflow-wrap:anywhere;}
   .bottom-nav .advanced-search{width:100%;}
   .bottom-nav .advanced-menu{top:auto;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);}
@@ -3056,7 +3057,7 @@
     decorate(links,'🔗','Important Links');
     decorate(recent,'🕘','Recent Files');
     decorate(favorites,'⭐','Favorites');
-    nav.append(advanced, recent, favorites, links);
+    nav.append(recent, favorites, links, advanced);
     const headerTools = document.getElementById('headerToolsRow');
     if(headerTools) headerTools.style.display='none';
     const tabs = document.getElementById('homeTabs');
@@ -3064,10 +3065,10 @@
     // Update labels when the language changes, without changing the existing event handlers.
     const updateLabels = () => {
       const labels = [
-        [document.getElementById('advancedSearchBtn'), (typeof t==='function' ? t('advancedSearchBtn') : 'Advanced Search')],
-        [links, (typeof t==='function' ? t('importantLinksBtn') : 'Important Links')],
         [recent, (typeof t==='function' ? t('tabRecent') : 'Recent Files')],
-        [favorites, (typeof t==='function' ? t('tabFavorites') : 'Favorites')]
+        [favorites, (typeof t==='function' ? t('tabFavorites') : 'Favorites')],
+        [links, (typeof t==='function' ? t('importantLinksBtn') : 'Important Links')],
+        [document.getElementById('advancedSearchBtn'), (typeof t==='function' ? t('advancedSearchBtn') : 'Advanced Search')]
       ];
       labels.forEach(([btn,label])=>{const node=btn && btn.querySelector('.nav-label'); if(node && label) node.textContent=String(label).replace(/^[^A-Za-z؀-ۿ]+/,'');});
     };
@@ -3764,18 +3765,12 @@
   // ===== لو المستخدم حدد/نسخ أي كلمة في أي مكان في الصفحة، بيظهرله شريط
   // صغير يسأله "هل تريد البحث؟" مع إمكانية تعديل النص قبل البحث =====
   let selectionCheckTimer = null;
+  // تعطيل شريط البحث العائم عند تحديد النص حتى لا يغطي شريط التنقل السفلي.
   document.addEventListener('selectionchange', () => {
     clearTimeout(selectionCheckTimer);
     selectionCheckTimer = setTimeout(() => {
-      const sel = window.getSelection();
-      const text = sel ? sel.toString().trim() : '';
-      if(text && text.length > 0 && text.length < 300){
-        selectionSearchInput.value = text;
-        selectionSearchBar.style.display = 'flex';
-      }else{
-        selectionSearchBar.style.display = 'none';
-      }
-    }, 200);
+      if(selectionSearchBar) selectionSearchBar.style.display = 'none';
+    }, 100);
   });
   selectionSearchGo.addEventListener('click', () => {
     const val = selectionSearchInput.value.trim();
