@@ -415,6 +415,10 @@
     background:#f3e8fd;
     color:#7e22ce;
   }
+  .file-icon.zip{
+    background:#fff6d6;
+    color:#a16207;
+  }
   .file-icon.custom{
     background:var(--card);
     border:1px solid var(--border);
@@ -1284,7 +1288,7 @@
   const APP_TOKEN = "jigsearch-2f8a7c1e";
   const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
-  const CACHE_KEY = 'jigsearch_index_v9'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
+  const CACHE_KEY = 'jigsearch_index_v10'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
 
   const qInput = document.getElementById('q');
   const searchForm = document.getElementById('searchForm');
@@ -2196,7 +2200,12 @@
     'image/webp': 'image',
     'image/bmp': 'image',
     'image/tiff': 'image',
-    'image/heic': 'image'
+    'image/heic': 'image',
+    // zip
+    'application/zip': 'zip',
+    'application/x-zip-compressed': 'zip',
+    'application/x-zip': 'zip',
+    'multipart/x-zip': 'zip'
   };
   // الأنواع اللي أولها g (gsheet/gdoc/gslides) دي ملفات جوجل نيتيف، مش ملف حقيقي
   // على القرص، فبتتفتح مباشرة في المتصفح بدل ما تتحمّل
@@ -2668,6 +2677,7 @@
     if(f.type === 'word' || f.type === 'gdoc') return 'DOC';
     if(f.type === 'ppt' || f.type === 'gslides') return 'PPT';
     if(f.type === 'image') return 'IMG';
+    if(f.type === 'zip') return 'ZIP';
     return 'PDF';
   }
   // بيرجع SVG أيقونة ملف عامة (بتاخد لونها من CSS currentColor حسب النوع)
@@ -2681,6 +2691,7 @@
     if(f.type === 'word' || f.type === 'gdoc') return 'doc';
     if(f.type === 'ppt' || f.type === 'gslides') return 'ppt';
     if(f.type === 'image') return 'img';
+    if(f.type === 'zip') return 'zip';
     return '';
   }
   // ===== أيقونات مخصصة لكل فولدر رئيسي - بتحل محل أيقونة نوع الملف لو الفولدر ليه أيقونة معرّفة =====
@@ -2716,6 +2727,7 @@
     if(f.type === 'word') return 'Word file';
     if(f.type === 'ppt') return 'PowerPoint file';
     if(f.type === 'image') return 'Image';
+    if(f.type === 'zip') return 'ZIP file';
     return 'PDF file';
   }
   // بيرجع روابط الملف الثلاثة: فتح (معاينة/تحرير)، تحميل، ومشاركة - حسب نوعه
