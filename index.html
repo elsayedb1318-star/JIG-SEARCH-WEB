@@ -4047,25 +4047,37 @@
   });
 
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-    // بيفضل نفس الصفحة شغالة بكود JS قديم في الذاكرة حتى بعد ما نسخة جديدة
-    // من sw.js تتفعّل (لأنها بتاخد الحكم فورًا - skipWaiting/clients.claim -
-    // من غير ما تستنى الصفحة تتقفل)، فلازم نظهر بانر يطلب من المستخدم يعمل
-    // تحديث (reload) عشان الكود الشغال دلوقتي يتغيّر فعليًا للنسخة الجديدة.
-    // hadController=false في أول تحميل عادي (تسجيل SW لأول مرة) - مش نعتبرها
-    // "تحديث"، بنستنى أول controllerchange بعد كده بس
+    // تحديث صامت: لما نسخة جديدة من sw.js تتفعّل، الصفحة بتعمل reload لوحدها من
+    // غير بانر. لو المستخدم كاتب في البحث أو التطبيق مشغول، بنستنى لحد ما
+    // الصفحة تروح للخلفية أو الخانة تفضى.
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      const check = () => { reg.update().catch(()=>{}); };
+      setInterval(check, 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => {
+        if(document.visibilityState === 'visible') check();
+      });
+    }).catch(()=>{});
     let hadController = !!navigator.serviceWorker.controller;
     let reloading = false;
+    let updatePending = false;
+    const doSilentReload = () => {
+      if(reloading) return;
+      reloading = true;
+      window.location.reload();
+    };
+    const tryApplyUpdate = () => {
+      if(!updatePending || reloading) return;
+      if(document.visibilityState === 'hidden' || !qInput.value.trim()) doSilentReload();
+    };
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if(hadController && !reloading){
-        appUpdateBanner.style.display = 'flex';
+      if(hadController){
+        updatePending = true;
+        tryApplyUpdate();
       }
       hadController = true;
     });
-    appUpdateBanner.addEventListener('click', () => {
-      reloading = true;
-      window.location.reload();
-    });
+    document.addEventListener('visibilitychange', tryApplyUpdate);
+    setInterval(tryApplyUpdate, 15000);
   }
 </script>
 
