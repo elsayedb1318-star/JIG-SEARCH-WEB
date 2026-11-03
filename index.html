@@ -1182,6 +1182,7 @@
       <span id="spinner" class="spinner" aria-hidden="true"></span>
       <span id="statusText"></span>
     </div>
+    <div id="iiNotice" class="ii-notice" style="display:none;" role="status" aria-live="polite"></div>
     <div id="skeletonLoader" class="skeleton-list" style="display:none;">
       <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
       <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
@@ -4080,6 +4081,58 @@
     document.addEventListener('visibilitychange', tryApplyUpdate);
     setInterval(tryApplyUpdate, 15000);
   }
+</script>
+
+<style>
+.ii-notice{margin:8px 12px;padding:10px 12px;border-radius:10px;background:#fff4cc;color:#3b2f00;border:1px solid #f0d878;font-size:14px;line-height:1.6}
+.ii-notice .ii-head{font-weight:700;margin-bottom:4px}
+.ii-notice .ii-body{white-space:pre-wrap;overflow-wrap:anywhere;max-height:40vh;overflow:auto}
+</style>
+<script>
+(function(){
+  var BASE = "https://elsayedb1318-star.github.io/important-instructions/";
+  var KEY = "ii_notice_state_v1", TTL = 60 * 60 * 1000;
+  var box = document.getElementById("iiNotice"), hideTimer = null, lastFetch = 0;
+  function esc(t){ return String(t == null ? "" : t).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch(e){ return null; } }
+  function save(v){ try { localStorage.setItem(KEY, JSON.stringify(v)); } catch(e){} }
+  function show(){
+    clearTimeout(hideTimer);
+    var st = load();
+    if(!st || !st.notice){ box.style.display = "none"; return; }
+    var left = st.firstSeen + TTL - Date.now();
+    if(left <= 0){ box.style.display = "none"; return; }
+    var n = st.notice, ar = document.documentElement.lang === "ar" || /^ar/.test(navigator.language || "");
+    var label = n.action === "edit" ? (ar ? "تم تعديل رسالة" : "Message updated") : (ar ? "رسالة جديدة" : "New message");
+    box.innerHTML = '<div class="ii-head">🔔 ' + esc(label) + ": " + esc(n.title) + '</div><div class="ii-body" dir="auto">' + esc(n.content) + '</div>';
+    box.style.display = "block";
+    hideTimer = setTimeout(show, left + 50);
+  }
+  function loadConfig(){
+    if(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.databaseURL) return Promise.resolve(window.FIREBASE_CONFIG);
+    return new Promise(function(res, rej){
+      var s = document.createElement("script");
+      s.src = BASE + "firebase-config.js";
+      s.onload = function(){ res(window.FIREBASE_CONFIG); };
+      s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+  function check(){
+    lastFetch = Date.now();
+    loadConfig().then(function(c){
+      if(!c || !c.databaseURL) return;
+      return fetch(c.databaseURL.replace(/\/$/, "") + "/notice.json", { cache: "no-store" }).then(function(r){ return r.ok ? r.json() : null; });
+    }).then(function(n){
+      if(!n || !n.ts) return;
+      var st = load();
+      if(!st || !st.notice || st.notice.ts !== n.ts) save({ notice: n, firstSeen: Date.now() });
+    }).catch(function(){}).then(show);
+  }
+  show();
+  check();
+  document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "visible" && Date.now() - lastFetch > 60000) check(); });
+})();
 </script>
 
 </body>
