@@ -4105,6 +4105,7 @@
     };
     const NOTICE_STATE_KEY = 'jigsearch_important_instructions_notice_state_v1';
     const ONE_HOUR = 60 * 60 * 1000;
+    const MAX_NOTICE_AGE = 7 * 24 * 60 * 60 * 1000; // أسبوع من وقت الإضافة أو التعديل
     const IMPORTANT_APP_URL = 'https://elsayedb1318-star.github.io/important-instructions./';
     let db;
     let notices = {};
@@ -4144,10 +4145,27 @@
     }
     function acceptNotice(key, notice){
       if(!notice || !notice.id || !notice.title) return;
+      const now = Date.now();
+      const createdAt = Number(notice.ts);
+      // لا تعرض الإشعار إذا كان أول اتصال بالجهاز بعد مرور أسبوع على الإضافة/التعديل.
+      if(!Number.isFinite(createdAt) || createdAt <= 0 || now >= createdAt + MAX_NOTICE_AGE){
+        delete notices[key];
+        if(state[key]) { delete state[key]; saveState(); }
+        return;
+      }
       if(!state[key]){
-        const firstSeenAt = Date.now();
-        state[key] = { firstSeenAt, expiresAt: firstSeenAt + ONE_HOUR };
+        const firstSeenAt = now;
+        state[key] = { firstSeenAt, expiresAt: Math.min(firstSeenAt + ONE_HOUR, createdAt + MAX_NOTICE_AGE) };
         saveState();
+      } else {
+        // حتى الإشعار الذي سبق رؤيته لا يتجاوز أسبوعًا من وقت الحدث الأصلي.
+        state[key].expiresAt = Math.min(Number(state[key].expiresAt) || (now + ONE_HOUR), createdAt + MAX_NOTICE_AGE);
+        if(now >= state[key].expiresAt){
+          delete notices[key];
+          delete state[key];
+          saveState();
+          return;
+        }
       }
       notices[key] = notice;
     }
