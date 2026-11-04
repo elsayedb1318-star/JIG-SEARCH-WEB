@@ -4136,6 +4136,7 @@
         button.addEventListener('click', () => {
           const url = new URL(IMPORTANT_APP_URL);
           url.searchParams.set('messageId', notice.id);
+          if (notice.groupId) url.searchParams.set('groupId', notice.groupId);
           window.open(url.toString(), '_blank', 'noopener');
         });
         area.appendChild(button);
