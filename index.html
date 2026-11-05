@@ -3070,19 +3070,70 @@
     shareBtn.title = t('previewShareBtn');
     shareBtn.addEventListener('click', async (e) => {
       e.preventDefault(); e.stopPropagation();
-      const shareUrl = getFileUrls(f).share;
-      if (navigator.share) {
+      const originalIcon = shareBtn.textContent;
+      shareBtn.disabled = true;
+      shareBtn.textContent = '⏳';
+      try {
+        // نجيب نفس محتوى الملف من الكاش أولاً، وإلا من الـ Worker، مع الحفاظ
+        // على اسم الملف الأصلي الظاهر في نتيجة البحث عند المشاركة أو التنزيل.
+        const contentUrl = getFileContentUrl(f.id);
+        let blob = null;
         try {
-          await navigator.share({ title: f.name, text: f.name, url: shareUrl });
-        } catch (err) {
-          // إلغاء المستخدم لنافذة المشاركة ليس خطأً يحتاج إلى معالجة.
-          if (err && err.name === 'AbortError') return;
-          try { await navigator.clipboard.writeText(shareUrl); alert(t('linkCopied')); }
-          catch (_) { window.open(shareUrl, '_blank', 'noopener'); }
+          if ('caches' in window) {
+            const cache = await caches.open(FILES_CACHE_NAME);
+            const cached = await cache.match(contentUrl);
+            if (cached) blob = await cached.blob();
+          }
+        } catch (_) {}
+
+        if (!blob || !blob.size) {
+          const response = await fetch(contentUrl, { headers: { 'X-App-Token': APP_TOKEN } });
+          if (!response.ok) throw new Error(response.status === 404 ? 'FILE_GONE' : 'DOWNLOAD_FAILED');
+          blob = await response.blob();
         }
-      } else {
-        try { await navigator.clipboard.writeText(shareUrl); alert(t('linkCopied')); }
-        catch (_) { window.open(shareUrl, '_blank', 'noopener'); }
+        if (!blob || !blob.size) throw new Error('EMPTY_FILE');
+
+        const fallbackMime = ({
+          pdf:'application/pdf', image:'image/jpeg', word:'application/msword',
+          excel:'application/vnd.ms-excel', ppt:'application/vnd.ms-powerpoint',
+          zip:'application/zip'
+        })[f.type] || 'application/octet-stream';
+        const file = new File([blob], f.name || 'file', {
+          type: blob.type && blob.type !== 'application/octet-stream' ? blob.type : fallbackMime
+        });
+
+        // على أندرويد والمتصفحات الداعمة: تفتح قائمة المشاركة والملف نفسه
+        // مرفق باسمه الأصلي، فيمكن إرساله أو حفظه من التطبيقات المتاحة.
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: f.name || 'file', files: [file] });
+        } else {
+          // بديل للمتصفحات التي لا تدعم مشاركة الملفات: تنزيل الملف باسمه
+          // كما يظهر في نتائج البحث، بدل مشاركة رابط فقط.
+          const objectUrl = URL.createObjectURL(file);
+          const downloadLink = document.createElement('a');
+          downloadLink.href = objectUrl;
+          downloadLink.download = f.name || 'file';
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          downloadLink.remove();
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+          if (navigator.share) {
+            try { await navigator.share({ title: f.name || 'file', text: f.name || '' , url: getFileUrls(f).share }); }
+            catch (shareErr) { if (!shareErr || shareErr.name !== 'AbortError') { /* التنزيل تم بالفعل */ } }
+          }
+        }
+        recordFileOpen(f);
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.error('Share/download failed:', err);
+        alert(err && err.message === 'FILE_GONE'
+          ? t('fileGone')
+          : (document.documentElement.lang === 'ar'
+              ? 'تعذر تحميل الملف للمشاركة. تأكد من الاتصال بالإنترنت وحاول مرة أخرى.'
+              : 'Could not download the file for sharing. Check your internet connection and try again.'));
+      } finally {
+        shareBtn.disabled = false;
+        shareBtn.textContent = originalIcon;
       }
     });
 
@@ -4152,14 +4203,20 @@
         const expiresAt = Number(item && item.expiresAt) || (firstSeenAt + ONE_HOUR);
         const notice = notices[key];
         const eventAt = Number(notice && notice.ts);
-        if(!Number.isFinite(firstSeenAt) || firstSeenAt <= 0 || now >= expiresAt ||
+        if(!Number.isFinite(firstSeenAt) || firstSeenAt <= 0 ||
            !Number.isFinite(eventAt) || eventAt <= 0 || now >= eventAt + MAX_NOTICE_AGE){
+          // احذف سجل الإشعار بعد انتهاء نافذته القصوى (7 أيام).
           delete state[key];
           delete notices[key];
           changed = true;
-        } else if(item.expiresAt !== expiresAt){
-          item.expiresAt = expiresAt;
-          changed = true;
+        } else {
+          // مهم: لا تحذف سجل الجهاز بعد انتهاء الساعة؛ احتفظ به كعلامة
+          // أنه شاهد الإشعار بالفعل حتى لا يعاد إظهاره بعد تحديث الصفحة.
+          if(item.expiresAt !== expiresAt){
+            item.expiresAt = expiresAt;
+            changed = true;
+          }
+          if(now >= expiresAt) delete notices[key];
         }
       });
       if(changed) saveState();
@@ -4212,9 +4269,9 @@
       }
       const expiresAt = Number(state[key].expiresAt) || (Number(state[key].firstSeenAt) + ONE_HOUR);
       if(now >= expiresAt){
+        // احتفظ بعلامة المشاهدة في localStorage حتى لا يعاد تشغيل الإشعار
+        // عند وصول snapshot جديد أو بعد نشر نسخة index.html جديدة.
         delete notices[key];
-        delete state[key];
-        saveState();
         return;
       }
       state[key].expiresAt = Math.min(expiresAt, createdAt + MAX_NOTICE_AGE);
