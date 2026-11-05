@@ -4184,48 +4184,43 @@
       messagingSenderId: "387756965772",
       appId: "1:387756965772:web:3ff651e53e19a8a70ae0a9"
     };
-    const NOTICE_STATE_KEY = 'jigsearch_important_instructions_notice_state_v1';
+    // v2: سجل مشاهدة دائم لكل إشعار على هذا المتصفح؛ لا نحذف علامة المشاهدة عند انتهاء الساعة.
+    // تغيير اسم المفتاح يسمح بترحيل بيانات النسخة السابقة بدل بدء عدّ الساعة من جديد.
+    const NOTICE_STATE_KEY = 'jigsearch_important_instructions_notice_state_v2';
+    const LEGACY_STATE_KEY = 'jigsearch_important_instructions_notice_state_v1';
     const ONE_HOUR = 60 * 60 * 1000;
     const MAX_NOTICE_AGE = 7 * 24 * 60 * 60 * 1000; // أسبوع من وقت الإضافة أو التعديل
     const IMPORTANT_APP_URL = 'https://elsayedb1318-star.github.io/important-instructions./';
     let db;
     let notices = {};
     let state = {};
-    try { state = JSON.parse(localStorage.getItem(NOTICE_STATE_KEY) || '{}') || {}; } catch(e) { state = {}; }
+    try {
+      const current = JSON.parse(localStorage.getItem(NOTICE_STATE_KEY) || 'null');
+      const legacy = JSON.parse(localStorage.getItem(LEGACY_STATE_KEY) || '{}');
+      state = (current && typeof current === 'object') ? current : ((legacy && typeof legacy === 'object') ? legacy : {});
+      // احتفظ بسجل النسخة القديمة كما هو، وانسخه للمفتاح الجديد مرة واحدة.
+      localStorage.setItem(NOTICE_STATE_KEY, JSON.stringify(state));
+    } catch(e) { state = {}; }
     const saveState = () => { try { localStorage.setItem(NOTICE_STATE_KEY, JSON.stringify(state)); } catch(e) {} };
     const isArabic = () => document.documentElement.lang === 'ar';
+
     function render(){
       const now = Date.now();
-      // احسب الصلاحية من أول ظهور محفوظ على هذا الجهاز، مع حد أقصى أسبوع من وقت الحدث.
-      let changed = false;
-      Object.entries(state).forEach(([key, item]) => {
-        const firstSeenAt = Number(item && item.firstSeenAt);
-        const expiresAt = Number(item && item.expiresAt) || (firstSeenAt + ONE_HOUR);
-        const notice = notices[key];
-        const eventAt = Number(notice && notice.ts);
-        if(!Number.isFinite(firstSeenAt) || firstSeenAt <= 0 ||
-           !Number.isFinite(eventAt) || eventAt <= 0 || now >= eventAt + MAX_NOTICE_AGE){
-          // احذف سجل الإشعار بعد انتهاء نافذته القصوى (7 أيام).
-          delete state[key];
-          delete notices[key];
-          changed = true;
-        } else {
-          // مهم: لا تحذف سجل الجهاز بعد انتهاء الساعة؛ احتفظ به كعلامة
-          // أنه شاهد الإشعار بالفعل حتى لا يعاد إظهاره بعد تحديث الصفحة.
-          if(item.expiresAt !== expiresAt){
-            item.expiresAt = expiresAt;
-            changed = true;
-          }
-          if(now >= expiresAt) delete notices[key];
-        }
-      });
-      if(changed) saveState();
       const visible = Object.entries(notices)
         .filter(([key, notice]) => {
           const item = state[key];
-          return !!item && now < Number(item.expiresAt) && now < Number(notice.ts) + MAX_NOTICE_AGE;
+          const eventAt = Number(notice && notice.ts);
+          if(!item || !Number.isFinite(eventAt) || eventAt <= 0) return false;
+          const expiresAt = Number(item.expiresAt) || (Number(item.firstSeenAt) + ONE_HOUR);
+          // ساعة واحدة من أول ظهور على هذا الجهاز، وبحد أقصى 7 أيام من الحدث.
+          return Number.isFinite(expiresAt) && now < expiresAt && now < eventAt + MAX_NOTICE_AGE;
         })
         .sort((a,b) => (Number(b[1].ts) || 0) - (Number(a[1].ts) || 0));
+
+      // إزالة المنتهي من الذاكرة المعروضة فقط، مع الإبقاء على سجل المشاهدة في localStorage.
+      const visibleKeys = new Set(visible.map(([key]) => key));
+      Object.keys(notices).forEach(key => { if(!visibleKeys.has(key)) delete notices[key]; });
+
       area.replaceChildren();
       area.hidden = visible.length === 0;
       visible.forEach(([key, notice]) => {
@@ -4252,31 +4247,47 @@
         area.appendChild(button);
       });
     }
+
     function acceptNotice(key, notice){
       if(!notice || !notice.id || !notice.title) return;
       const now = Date.now();
       const createdAt = Number(notice.ts);
-      // لا تعرض إشعارًا إذا اتصل الجهاز لأول مرة بعد أسبوع من الإضافة/التعديل.
+      // الإشعار الذي مرّ عليه أكثر من 7 أيام لا يظهر، ولا نمسح سجل المشاهدة الخاص به.
       if(!Number.isFinite(createdAt) || createdAt <= 0 || now >= createdAt + MAX_NOTICE_AGE){
         delete notices[key];
-        if(state[key]) { delete state[key]; saveState(); }
         return;
       }
-      if(!state[key]){
-        const firstSeenAt = now;
-        state[key] = { firstSeenAt, expiresAt: Math.min(firstSeenAt + ONE_HOUR, createdAt + MAX_NOTICE_AGE) };
+
+      // أول استقبال فقط ينشئ مؤقت الساعة. أي تحديث أو إعادة تحميل لا يعيد تشغيله.
+      if(!state[key] || typeof state[key] !== 'object'){
+        state[key] = { firstSeenAt: now, expiresAt: Math.min(now + ONE_HOUR, createdAt + MAX_NOTICE_AGE) };
+        saveState();
+      } else {
+        const firstSeenAt = Number(state[key].firstSeenAt);
+        let expiresAt = Number(state[key].expiresAt);
+        if(!Number.isFinite(firstSeenAt) || firstSeenAt <= 0){
+          // إصلاح سجل قديم غير مكتمل: لا نسمح بإعادة تشغيل ساعة جديدة إن وُجد وقت انتهاء صالح.
+          if(Number.isFinite(expiresAt) && expiresAt > 0){
+            state[key].firstSeenAt = Math.max(1, expiresAt - ONE_HOUR);
+          } else {
+            state[key].firstSeenAt = now;
+            expiresAt = Math.min(now + ONE_HOUR, createdAt + MAX_NOTICE_AGE);
+          }
+        }
+        if(!Number.isFinite(expiresAt) || expiresAt <= 0){
+          expiresAt = Math.min(Number(state[key].firstSeenAt) + ONE_HOUR, createdAt + MAX_NOTICE_AGE);
+        }
+        state[key].expiresAt = Math.min(expiresAt, createdAt + MAX_NOTICE_AGE);
         saveState();
       }
-      const expiresAt = Number(state[key].expiresAt) || (Number(state[key].firstSeenAt) + ONE_HOUR);
-      if(now >= expiresAt){
-        // احتفظ بعلامة المشاهدة في localStorage حتى لا يعاد تشغيل الإشعار
-        // عند وصول snapshot جديد أو بعد نشر نسخة index.html جديدة.
+
+      if(now >= Number(state[key].expiresAt)){
         delete notices[key];
         return;
       }
-      state[key].expiresAt = Math.min(expiresAt, createdAt + MAX_NOTICE_AGE);
       notices[key] = notice;
     }
+
     function syncSnapshot(snapshot){
       const data = snapshot.val() || {};
       Object.entries(data).forEach(([key, notice]) => acceptNotice(key, notice));
