@@ -308,6 +308,7 @@
     gap:8px;
     margin-top:12px;
   }
+  .instructions-nav-icon{width:19px;height:19px;object-fit:contain;display:block;flex:0 0 19px;}
   .help-btn{ color:#3a4152; }
   html.dark .help-btn{ color:var(--text); }
   .search-highlight{
@@ -1168,13 +1169,13 @@
       <div class="advanced-search">
         <button type="button" id="advancedSearchBtn" class="tool-btn">🛠️ TOOLS</button>
         <div id="advancedSearchMenu" class="advanced-menu" style="display:none;">
-          <button type="button" id="importantInstructionsBtn" class="advanced-menu-item">📋 Important Instructions</button>
           <button type="button" id="scanBtn" class="advanced-menu-item">📷 Scan Barcode/QR</button>
           <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 Scan Number (OCR)</button>
           <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 Test Documents</button>
+          <button type="button" id="importantLinksBtn" class="advanced-menu-item">🔗 Links</button>
         </div>
       </div>
-      <button type="button" id="importantLinksBtn" class="tool-btn help-btn">🔗 Links</button>
+      <button type="button" id="importantInstructionsBtn" class="tool-btn help-btn"><img class="instructions-nav-icon" src="instructions-icon.png" alt=""> <span>Instructions</span></button>
     </div>
     <div id="recentSearches" class="recent-searches" style="display:none;"></div>
     <nav id="bottomNav" class="bottom-nav" aria-label="Quick navigation"></nav>
@@ -1193,7 +1194,7 @@
       <span id="spinner" class="spinner" aria-hidden="true"></span>
       <span id="statusText"></span>
     </div>
-    <div id="instructionNoticeArea" class="instruction-notices" aria-live="polite" aria-label="Important Instructions notifications" hidden></div>
+    <div id="instructionNoticeArea" class="instruction-notices" aria-live="polite" aria-label="Instructions notifications" hidden></div>
     <div id="skeletonLoader" class="skeleton-list" style="display:none;">
       <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
       <div class="skeleton-row"><div class="skeleton-icon"></div><div class="skeleton-line"></div></div>
@@ -1386,7 +1387,7 @@
       filterLabel: '📁',
       filterAll: 'All',
       advancedSearchBtn: '🛠️ TOOLS',
-      importantInstructionsBtn: '📋 Important Instructions',
+      importantInstructionsBtn: 'Instructions',
       scanBtn: '📷 Scan Barcode/QR',
       ocrBtn: '🔎 Scan Number (OCR)',
       testDeconentBtn: '📁 Test Documents',
@@ -1481,7 +1482,7 @@
       filterLabel: '📁',
       filterAll: 'الكل',
       advancedSearchBtn: '🛠️ TOOLS',
-      importantInstructionsBtn: '📋 Important Instructions',
+      importantInstructionsBtn: 'Instructions',
       scanBtn: '📷 مسح باركود/QR',
       ocrBtn: '🔎 مسح رقم (OCR)',
       testDeconentBtn: '📁 مستندات الاختبار',
@@ -1619,7 +1620,7 @@
     const poweredEl = document.querySelector('.powered');
     if(poweredEl) poweredEl.textContent = t('poweredBy');
     setNavText(advancedSearchBtn, t('advancedSearchBtn'));
-    importantInstructionsBtn.textContent = t('importantInstructionsBtn');
+    const instructionsLabel = importantInstructionsBtn.querySelector('span'); if(instructionsLabel) instructionsLabel.textContent = t('importantInstructionsBtn');
     scanBtn.textContent = t('scanBtn');
     ocrBtn.textContent = t('ocrBtn');
     testDeconentBtn.textContent = t('testDeconentBtn');
@@ -3337,18 +3338,18 @@
   (function setupBottomNavigation(){
     const nav = document.getElementById('bottomNav');
     const advanced = document.querySelector('.advanced-search');
-    const links = document.getElementById('importantLinksBtn');
+    const instructions = document.getElementById('importantInstructionsBtn');
     const recent = document.querySelector('#homeTabs [data-tab="recent"]');
     const favorites = document.querySelector('#homeTabs [data-tab="favorites"]');
-    if(!nav || !advanced || !links || !recent || !favorites) return;
+    if(!nav || !advanced || !instructions || !recent || !favorites) return;
     function decorate(btn, icon, label){
       btn.innerHTML = '<span class="nav-icon" aria-hidden="true">'+icon+'</span><span class="nav-label">'+label+'</span>';
     }
     decorate(document.getElementById('advancedSearchBtn'),'🛠️','TOOLS');
-    decorate(links,'🔗','Links');
+    instructions.innerHTML = '<img class="nav-icon instructions-nav-icon" src="instructions-icon.png" alt=""><span class="nav-label">Instructions</span>'; 
     decorate(recent,'🕘','Recent Files');
     decorate(favorites,'⭐','Favorites');
-    nav.append(recent, favorites, links, advanced);
+    nav.append(recent, favorites, instructions, advanced);
     const headerTools = document.getElementById('headerToolsRow');
     if(headerTools) headerTools.style.display='none';
     const tabs = document.getElementById('homeTabs');
@@ -3358,7 +3359,7 @@
       const labels = [
         [recent, (typeof t==='function' ? t('tabRecent') : 'Recent Files')],
         [favorites, (typeof t==='function' ? t('tabFavorites') : 'Favorites')],
-        [links, (typeof t==='function' ? t('importantLinksBtn') : 'Links')],
+        [instructions, (typeof t==='function' ? t('importantInstructionsBtn') : 'Instructions')],
         [document.getElementById('advancedSearchBtn'), (typeof t==='function' ? t('advancedSearchBtn') : 'TOOLS')]
       ];
       labels.forEach(([btn,label])=>{const node=btn && btn.querySelector('.nav-label'); if(node && label) node.textContent=String(label).replace(/^[^A-Za-z؀-ۿ]+/,'');});
