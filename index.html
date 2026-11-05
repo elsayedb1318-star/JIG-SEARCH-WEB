@@ -788,6 +788,9 @@
     padding:2px;
   }
   .star-btn.active{ color:#e8a33d; }
+  .share-result-btn{flex:0 0 auto;background:none;border:0;box-shadow:none;font-size:18px;line-height:1;cursor:pointer;color:var(--blue);padding:3px;margin-inline-start:1px;border-radius:7px;}
+  .share-result-btn:active{background:rgba(26,86,219,.10);transform:scale(.94);}
+  .share-result-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
   .camera-modal-overlay{
     position:fixed;
     inset:0;
@@ -1423,6 +1426,7 @@
       linksModalTitle: '🔗 Links',
       selectionSearchGo: '🔍 Search',
       saveToFavoritesAria: 'Save to favorites',
+      shareFileAria: 'Share file',
       removeFromListAria: 'Remove from this list',
       clearThisListBtn: '🗑 Clear this list',
       recentSearchesLabel: 'Recent searches:',
@@ -1517,6 +1521,7 @@
       linksModalTitle: '🔗 Links',
       selectionSearchGo: '🔍 بحث',
       saveToFavoritesAria: 'إضافة للمفضلة',
+      shareFileAria: 'مشاركة الملف',
       removeFromListAria: 'حذف من هذه القائمة',
       clearThisListBtn: '🗑 مسح هذه القائمة',
       recentSearchesLabel: 'عمليات البحث الأخيرة:',
@@ -3057,9 +3062,34 @@
       if(activeHomeTab === 'favorites') renderFavoritesTab();
     });
 
+    const shareBtn = document.createElement('button');
+    shareBtn.type = 'button';
+    shareBtn.className = 'share-result-btn';
+    shareBtn.textContent = '📤';
+    shareBtn.setAttribute('aria-label', t('shareFileAria'));
+    shareBtn.title = t('previewShareBtn');
+    shareBtn.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const shareUrl = getFileUrls(f).share;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: f.name, text: f.name, url: shareUrl });
+        } catch (err) {
+          // إلغاء المستخدم لنافذة المشاركة ليس خطأً يحتاج إلى معالجة.
+          if (err && err.name === 'AbortError') return;
+          try { await navigator.clipboard.writeText(shareUrl); alert(t('linkCopied')); }
+          catch (_) { window.open(shareUrl, '_blank', 'noopener'); }
+        }
+      } else {
+        try { await navigator.clipboard.writeText(shareUrl); alert(t('linkCopied')); }
+        catch (_) { window.open(shareUrl, '_blank', 'noopener'); }
+      }
+    });
+
     a.appendChild(iconDiv);
     a.appendChild(nameDiv);
     a.appendChild(starBtn);
+    a.appendChild(shareBtn);
     if(opts.onRemove){
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
@@ -4105,6 +4135,7 @@
     };
     const NOTICE_STATE_KEY = 'jigsearch_important_instructions_notice_state_v1';
     const ONE_HOUR = 60 * 60 * 1000;
+    const MAX_NOTICE_AGE = 7 * 24 * 60 * 60 * 1000; // أسبوع من وقت الإضافة أو التعديل
     const IMPORTANT_APP_URL = 'https://elsayedb1318-star.github.io/important-instructions./';
     let db;
     let notices = {};
@@ -4114,8 +4145,30 @@
     const isArabic = () => document.documentElement.lang === 'ar';
     function render(){
       const now = Date.now();
-      const visible = Object.entries(notices).filter(([key]) => state[key] && now < state[key].expiresAt)
-        .sort((a,b) => (b[1].ts || 0) - (a[1].ts || 0));
+      // احسب الصلاحية من أول ظهور محفوظ على هذا الجهاز، مع حد أقصى أسبوع من وقت الحدث.
+      let changed = false;
+      Object.entries(state).forEach(([key, item]) => {
+        const firstSeenAt = Number(item && item.firstSeenAt);
+        const expiresAt = Number(item && item.expiresAt) || (firstSeenAt + ONE_HOUR);
+        const notice = notices[key];
+        const eventAt = Number(notice && notice.ts);
+        if(!Number.isFinite(firstSeenAt) || firstSeenAt <= 0 || now >= expiresAt ||
+           !Number.isFinite(eventAt) || eventAt <= 0 || now >= eventAt + MAX_NOTICE_AGE){
+          delete state[key];
+          delete notices[key];
+          changed = true;
+        } else if(item.expiresAt !== expiresAt){
+          item.expiresAt = expiresAt;
+          changed = true;
+        }
+      });
+      if(changed) saveState();
+      const visible = Object.entries(notices)
+        .filter(([key, notice]) => {
+          const item = state[key];
+          return !!item && now < Number(item.expiresAt) && now < Number(notice.ts) + MAX_NOTICE_AGE;
+        })
+        .sort((a,b) => (Number(b[1].ts) || 0) - (Number(a[1].ts) || 0));
       area.replaceChildren();
       area.hidden = visible.length === 0;
       visible.forEach(([key, notice]) => {
@@ -4144,11 +4197,27 @@
     }
     function acceptNotice(key, notice){
       if(!notice || !notice.id || !notice.title) return;
+      const now = Date.now();
+      const createdAt = Number(notice.ts);
+      // لا تعرض إشعارًا إذا اتصل الجهاز لأول مرة بعد أسبوع من الإضافة/التعديل.
+      if(!Number.isFinite(createdAt) || createdAt <= 0 || now >= createdAt + MAX_NOTICE_AGE){
+        delete notices[key];
+        if(state[key]) { delete state[key]; saveState(); }
+        return;
+      }
       if(!state[key]){
-        const firstSeenAt = Date.now();
-        state[key] = { firstSeenAt, expiresAt: firstSeenAt + ONE_HOUR };
+        const firstSeenAt = now;
+        state[key] = { firstSeenAt, expiresAt: Math.min(firstSeenAt + ONE_HOUR, createdAt + MAX_NOTICE_AGE) };
         saveState();
       }
+      const expiresAt = Number(state[key].expiresAt) || (Number(state[key].firstSeenAt) + ONE_HOUR);
+      if(now >= expiresAt){
+        delete notices[key];
+        delete state[key];
+        saveState();
+        return;
+      }
+      state[key].expiresAt = Math.min(expiresAt, createdAt + MAX_NOTICE_AGE);
       notices[key] = notice;
     }
     function syncSnapshot(snapshot){
@@ -4166,7 +4235,7 @@
       db.ref('.info/connected').on('value', snap => {
         if(snap.val() === true) db.ref('jigNotifications').once('value').then(syncSnapshot).catch(()=>{});
       });
-      setInterval(render, 60 * 1000);
+      setInterval(render, 15 * 1000);
     }catch(e){ console.warn('Important Instructions notifications could not start:', e); }
   })();
 
