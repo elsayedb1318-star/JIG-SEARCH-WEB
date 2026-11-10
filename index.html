@@ -3785,9 +3785,9 @@
           : `Uploading ${file.name} (${completed + 1}/${files.length})...`;
         const form = new FormData();
         form.append('file', file, file.name);
+        form.append('uploadPassword', password);
         const response = await fetch(PROXY_URL + 'upload', {
           method: 'POST',
-          headers: { 'X-Upload-Password': password },
           body: form
         });
         const result = await response.json().catch(() => ({}));
