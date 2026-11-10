@@ -1125,6 +1125,11 @@
   html.dark ::selection{background:rgba(91,157,255,.34);color:#fff;}
   html.dark :focus-visible{outline:2px solid #72a8ff;outline-offset:2px;}
 
+  .upload-box{ display:flex; flex-direction:column; gap:10px; padding:4px 2px 8px; }
+  .upload-box input{ width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; border:1px solid rgba(128,128,128,.5); background:transparent; color:inherit; font:inherit; }
+  .upload-box button{ border:0; cursor:pointer; text-align:center; }
+  .upload-box button:disabled{ opacity:.6; cursor:default; }
+  .upload-status{ font-size:.9rem; white-space:pre-line; min-height:1.2em; }
 </style>
 </head>
 <body>
@@ -1173,7 +1178,7 @@
           <button type="button" id="ocrBtn" class="advanced-menu-item">🔎 Scan Number (OCR)</button>
           <button type="button" id="testDeconentBtn" class="advanced-menu-item">📁 Test Documents</button>
           <button type="button" id="importantLinksBtn" class="advanced-menu-item">🔗 Links</button>
-          <button type="button" id="uploadFilesBtn" class="advanced-menu-item">⬆️ Upload Files</button>
+          <button type="button" id="uploadBtn" class="advanced-menu-item">⬆️ Upload</button>
         </div>
       </div>
       <button type="button" id="importantInstructionsBtn" class="tool-btn help-btn"><img class="instructions-nav-icon" src="instructions-icon.png" alt=""> <span>Instructions</span></button>
@@ -1213,23 +1218,6 @@
     </div>
     <div id="results" class="results"></div>
     <button id="loadMoreBtn" class="load-more" style="display:none;">Load More</button>
-  </div>
-
-  <div id="uploadModalOverlay" class="camera-modal-overlay" style="display:none;">
-    <div class="camera-modal" role="dialog" aria-modal="true" aria-labelledby="uploadModalTitle">
-      <div class="help-modal-header">
-        <h2 id="uploadModalTitle">⬆️ Upload Files</h2>
-        <button type="button" id="uploadModalClose" class="help-modal-close" aria-label="Close">✕</button>
-      </div>
-      <div style="padding:18px;display:flex;flex-direction:column;gap:12px;">
-        <label id="uploadPasswordLabel" for="uploadPasswordInput">Upload password</label>
-        <input id="uploadPasswordInput" type="password" autocomplete="current-password" class="camera-result-text" style="margin:0;" />
-        <label id="uploadFilesLabel" for="uploadFileInput">Choose files</label>
-        <input id="uploadFileInput" type="file" multiple style="width:100%;color:var(--text);" />
-        <div id="uploadStatus" class="camera-status" role="status" aria-live="polite"></div>
-        <button type="button" id="uploadSubmitBtn" class="tool-btn">⬆️ Upload</button>
-      </div>
-    </div>
   </div>
 
   <div id="cameraModalOverlay" class="camera-modal-overlay" style="display:none;">
@@ -1304,6 +1292,21 @@
     </div>
   </div>
 
+  <div id="uploadModalOverlay" class="camera-modal-overlay" style="display:none;">
+    <div class="camera-modal" role="dialog" aria-modal="true" aria-labelledby="uploadModalTitle">
+      <div class="help-modal-header">
+        <h2 id="uploadModalTitle">⬆️ Upload</h2>
+        <button id="uploadModalClose" class="help-modal-close" aria-label="Close">✕</button>
+      </div>
+      <div class="upload-box">
+        <input type="file" id="uploadFileInput" multiple />
+        <input type="password" id="uploadPinInput" placeholder="PIN" inputmode="numeric" autocomplete="off" />
+        <button type="button" id="uploadGoBtn" class="modal-link-btn">Upload</button>
+        <div id="uploadStatus" class="upload-status" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="selectionSearchBar" class="selection-search-bar" style="display:none;">
     <input type="text" id="selectionSearchInput" class="selection-search-input" />
     <button type="button" id="selectionSearchGo" class="selection-search-go">🔍 Search</button>
@@ -1356,13 +1359,6 @@
   const linksModalTitle = document.getElementById('linksModalTitle');
   const previewModalTitle = document.getElementById('previewModalTitle');
   const importantLinksBtn = document.getElementById('importantLinksBtn');
-  const uploadFilesBtn = document.getElementById('uploadFilesBtn');
-  const uploadModalOverlay = document.getElementById('uploadModalOverlay');
-  const uploadModalClose = document.getElementById('uploadModalClose');
-  const uploadPasswordInput = document.getElementById('uploadPasswordInput');
-  const uploadFileInput = document.getElementById('uploadFileInput');
-  const uploadStatus = document.getElementById('uploadStatus');
-  const uploadSubmitBtn = document.getElementById('uploadSubmitBtn');
   const testDeconentBtn = document.getElementById('testDeconentBtn');
   const importantInstructionsBtn = document.getElementById('importantInstructionsBtn');
   const previewModalClose = document.getElementById('previewModalClose');
@@ -1417,7 +1413,6 @@
       ocrBtn: '🔎 Scan Number (OCR)',
       testDeconentBtn: '📁 Test Documents',
       importantLinksBtn: '🔗 Links',
-      uploadFilesBtn: '⬆️ Upload Files',
       tabRecent: '🕘 Recent Files',
       tabFavorites: '⭐ Favorites',
       cleanupBtnLabel: '🧹 Clean Up',
@@ -1513,7 +1508,6 @@
       ocrBtn: '🔎 مسح رقم (OCR)',
       testDeconentBtn: '📁 مستندات الاختبار',
       importantLinksBtn: '🔗 Links',
-      uploadFilesBtn: '⬆️ رفع ملفات',
       tabRecent: '🕘 آخر الملفات',
       tabFavorites: '⭐ المفضلة',
       cleanupBtnLabel: '🧹 تنظيف',
@@ -1652,7 +1646,6 @@
     ocrBtn.textContent = t('ocrBtn');
     testDeconentBtn.textContent = t('testDeconentBtn');
     setNavText(importantLinksBtn, t('importantLinksBtn'));
-    uploadFilesBtn.textContent = t('uploadFilesBtn');
     const recentTabBtn = homeTabsEl.querySelector('[data-tab="recent"]');
     if(recentTabBtn) setNavText(recentTabBtn, t('tabRecent'));
     const favTabBtn = homeTabsEl.querySelector('[data-tab="favorites"]');
@@ -3757,53 +3750,6 @@
     if(val){ qInput.value = val; qClear.style.display = 'flex'; runSearch(); }
   });
 
-  function closeUploadModal(){
-    uploadModalOverlay.style.display = 'none';
-    uploadPasswordInput.value = '';
-    uploadFileInput.value = '';
-    uploadStatus.textContent = '';
-    uploadSubmitBtn.disabled = false;
-  }
-  uploadFilesBtn.addEventListener('click', () => {
-    closeAdvancedMenu();
-    uploadModalOverlay.style.display = 'flex';
-    uploadPasswordInput.focus();
-  });
-  uploadModalClose.addEventListener('click', closeUploadModal);
-  uploadModalOverlay.addEventListener('click', e => { if(e.target === uploadModalOverlay) closeUploadModal(); });
-  uploadSubmitBtn.addEventListener('click', async () => {
-    const password = uploadPasswordInput.value;
-    const files = Array.from(uploadFileInput.files || []);
-    if(!password){ uploadStatus.textContent = currentLang === 'ar' ? 'اكتب الرقم السري أولاً.' : 'Enter the upload password first.'; return; }
-    if(!files.length){ uploadStatus.textContent = currentLang === 'ar' ? 'اختار ملف واحد على الأقل.' : 'Choose at least one file.'; return; }
-    uploadSubmitBtn.disabled = true;
-    let completed = 0;
-    try{
-      for(const file of files){
-        uploadStatus.textContent = currentLang === 'ar'
-          ? `جارِ رفع ${file.name} (${completed + 1}/${files.length})...`
-          : `Uploading ${file.name} (${completed + 1}/${files.length})...`;
-        const form = new FormData();
-        form.append('file', file, file.name);
-        form.append('uploadPassword', password);
-        const response = await fetch(PROXY_URL + 'upload', {
-          method: 'POST',
-          body: form
-        });
-        const result = await response.json().catch(() => ({}));
-        if(!response.ok) throw new Error(result.error?.message || `Upload failed (${response.status})`);
-        completed++;
-      }
-      uploadStatus.textContent = currentLang === 'ar'
-        ? `تم رفع ${completed} ملف بنجاح. حدّث الفهرس لمشاهدة الملفات في البحث.`
-        : `${completed} file(s) uploaded. Refresh the index to find them in search.`;
-      uploadPasswordInput.value = '';
-      uploadFileInput.value = '';
-    }catch(err){
-      uploadStatus.textContent = (currentLang === 'ar' ? 'فشل الرفع: ' : 'Upload failed: ') + (err.message || 'Unknown error');
-    }finally{ uploadSubmitBtn.disabled = false; }
-  });
-
   scanBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('scan'); });
   ocrBtn.addEventListener('click', () => { closeAdvancedMenu(); openCamera('ocr'); });
   importantInstructionsBtn.addEventListener('click', () => {
@@ -3818,6 +3764,78 @@
   importantLinksBtn.addEventListener('click', () => { closeAdvancedMenu(); linksModalOverlay.style.display = 'flex'; });
   linksModalClose.addEventListener('click', closeLinksModal);
   linksModalOverlay.addEventListener('click', (e) => { if(e.target === linksModalOverlay) closeLinksModal(); });
+
+  // ===== رفع ملفات للفولدر (PIN بيتفحص في الـ Worker بس) =====
+  (function(){
+    const overlay = document.getElementById('uploadModalOverlay');
+    const btn = document.getElementById('uploadBtn');
+    const closeBtn = document.getElementById('uploadModalClose');
+    const fileInput = document.getElementById('uploadFileInput');
+    const pinInput = document.getElementById('uploadPinInput');
+    const goBtn = document.getElementById('uploadGoBtn');
+    const statusEl = document.getElementById('uploadStatus');
+    const MAX_BYTES = 95 * 1024 * 1024;
+    let busy = false;
+    const ar = () => currentLang === 'ar';
+
+    function applyUploadLang(){
+      btn.textContent = ar() ? '⬆️ رفع' : '⬆️ Upload';
+      document.getElementById('uploadModalTitle').textContent = ar() ? '⬆️ رفع ملفات' : '⬆️ Upload';
+      pinInput.placeholder = ar() ? 'الرقم السري' : 'PIN';
+      goBtn.textContent = ar() ? 'رفع' : 'Upload';
+    }
+    function openModal(){ applyUploadLang(); statusEl.textContent = ''; overlay.style.display = 'flex'; }
+    function closeModal(){ if(busy) return; overlay.style.display = 'none'; pinInput.value = ''; fileInput.value = ''; }
+
+    btn.addEventListener('click', () => { closeAdvancedMenu(); openModal(); });
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
+
+    function uploadOne(file, pin, onProgress){
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', PROXY_URL + 'upload');
+        xhr.setRequestHeader('X-App-Token', APP_TOKEN);
+        xhr.setRequestHeader('X-Upload-Pin', pin);
+        xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.upload.onprogress = (e) => { if(e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100)); };
+        xhr.onload = () => {
+          if(xhr.status >= 200 && xhr.status < 300) return resolve();
+          let msg = '';
+          try{ msg = JSON.parse(xhr.responseText).error.message; }catch(e){ /* ignore */ }
+          reject(new Error(xhr.status === 403 ? (ar() ? 'الرقم السري غلط' : 'Wrong PIN') : (msg || ('HTTP ' + xhr.status))));
+        };
+        xhr.onerror = () => reject(new Error(ar() ? 'خطأ في الاتصال' : 'Network error'));
+        xhr.send(file);
+      });
+    }
+
+    goBtn.addEventListener('click', async () => {
+      if(busy) return;
+      const files = Array.from(fileInput.files || []);
+      const pin = pinInput.value.trim();
+      if(!files.length){ statusEl.textContent = ar() ? 'اختار ملف' : 'Choose a file'; return; }
+      if(!pin){ statusEl.textContent = ar() ? 'اكتب الرقم السري' : 'Enter PIN'; return; }
+      busy = true; goBtn.disabled = true;
+      const lines = [];
+      for(let i = 0; i < files.length; i++){
+        const f = files[i];
+        const label = '(' + (i + 1) + '/' + files.length + ') ' + f.name;
+        if(f.size > MAX_BYTES){ lines.push('❌ ' + f.name + ' — max 95MB'); statusEl.textContent = lines.join('\n'); continue; }
+        try{
+          await uploadOne(f, pin, (p) => { statusEl.textContent = lines.concat(['⏳ ' + label + ' ' + p + '%']).join('\n'); });
+          lines.push('✅ ' + f.name);
+        }catch(err){
+          lines.push('❌ ' + f.name + ' — ' + err.message);
+          if(/PIN|الرقم/.test(err.message)){ statusEl.textContent = lines.join('\n'); break; }
+        }
+        statusEl.textContent = lines.join('\n');
+      }
+      busy = false; goBtn.disabled = false; fileInput.value = '';
+    });
+  })();
 
   // اقتراحات أثناء الكتابة - مبنية على أسماء الملفات في الفهرس المحلي
   // نفسه (من غير أي طلب شبكة إضافي)
