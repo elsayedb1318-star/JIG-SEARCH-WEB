@@ -1706,7 +1706,7 @@
 
   // ===== التحديث اليدوي: تحديث الفهرس مرة واحدة ثم 3 مرات Deep Refresh للصفحة =====
   const DEEP_REFRESH_KEY = 'jigsearch_deep_refresh_count';
-  const DEEP_REFRESH_TOTAL = 3;
+  const DEEP_REFRESH_TOTAL = 1;
   let isRefreshing = false;
 
   async function refreshIndexOnceAndDeepReload(){
@@ -2496,7 +2496,7 @@
   // الفهرس القديم يفضل شغال أثناء إعادة البناء، وبعد نجاح البناء فقط
   // يتم استبدال التخزين المحلي بالفهرس الجديد. ده يضمن إن الملفات التي
   // اتحذفت أو اتنقلت خارج الشجرة القديمة تختفي من البحث بعد إعادة البناء.
-  const INDEX_REBUILD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+  const INDEX_REBUILD_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000;
   const INDEX_REBUILD_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
   let weeklyIndexRebuildRunning = false;
 
@@ -4225,9 +4225,35 @@
   updateOfflineIndicator();
   setTimeout(runAutomaticCleanup, 5000);
 
+  // إعادة بناء الفهرس تلقائيًا كل 3 أيام، وبعدها ريفريش مرة واحدة فقط
+  const AUTO_REBUILD_ATTEMPT_KEY = 'jigsearch_auto_rebuild_attempt_ts';
+  async function autoRebuildIfDue(){
+    try{
+      if(navigator.onLine === false || weeklyIndexRebuildRunning || isRefreshing) return;
+      let lastTry = 0;
+      try{ lastTry = Number(localStorage.getItem(AUTO_REBUILD_ATTEMPT_KEY) || 0); }catch(e){}
+      if(Date.now() - lastTry < INDEX_REBUILD_CHECK_INTERVAL_MS) return;
+      let cached = null;
+      try{ cached = await idbGet(CACHE_KEY); }catch(e){}
+      if(!cached){
+        try{ const raw = localStorage.getItem(CACHE_KEY); cached = raw ? JSON.parse(raw) : null; }catch(e){}
+      }
+      if(!cached || !cached.ts || cached.rootId !== ROOT_FOLDER_ID) return;
+      if(Date.now() - cached.ts < INDEX_REBUILD_INTERVAL_MS) return;
+      try{ localStorage.setItem(AUTO_REBUILD_ATTEMPT_KEY, String(Date.now())); }catch(e){}
+      const ok = await rebuildIndexWeekly(true);
+      if(ok && (document.visibilityState === 'hidden' || !qInput.value.trim())){
+        try{ sessionStorage.setItem(DEEP_REFRESH_KEY, '1'); }catch(e){}
+        deepReloadPage();
+      }
+    }catch(e){ /* صامت */ }
+  }
+
   window.addEventListener('load', () => {
     // لو التحديث العميق بدأ قبل Reload، نكمل باقي مرات الـ Deep Refresh.
     continueDeepRefresh();
+    setTimeout(autoRebuildIfDue, 8000);
+    setInterval(autoRebuildIfDue, INDEX_REBUILD_CHECK_INTERVAL_MS);
     // بنستنى شوية عشان الفحص ده ميأثرش خالص على سرعة أول ظهور للصفحة
     setTimeout(checkForNewFiles, 2000);
     setInterval(checkForNewFiles, NEW_FILES_CHECK_INTERVAL_MS);
