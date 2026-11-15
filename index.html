@@ -3101,8 +3101,7 @@
         try { await navigator.share({ files: [pf] }); recordFileOpen(f); }
         catch (e2) {
           if (e2 && e2.name === 'AbortError') return;
-          try { await navigator.share({ files: [new File([pf], pf.name, { type: 'application/octet-stream' })] }); recordFileOpen(f); }
-          catch (e3) { if (!e3 || e3.name !== 'AbortError') alert('Share error: ' + (e3 && e3.name) + ' - ' + (e3 && e3.message)); }
+          alert('Share error: ' + (e2 && e2.name) + ' - ' + (e2 && e2.message));
         }
         return;
       }
