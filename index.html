@@ -3099,7 +3099,11 @@
         shareBtn._preparedFile = null;
         shareBtn.textContent = '📤';
         try { await navigator.share({ files: [pf] }); recordFileOpen(f); }
-        catch (e2) { if (!e2 || e2.name !== 'AbortError') console.error(e2); }
+        catch (e2) {
+          if (e2 && e2.name === 'AbortError') return;
+          try { await navigator.share({ files: [new File([pf], pf.name, { type: 'application/octet-stream' })] }); recordFileOpen(f); }
+          catch (e3) { if (!e3 || e3.name !== 'AbortError') alert('Share error: ' + (e3 && e3.name) + ' - ' + (e3 && e3.message)); }
+        }
         return;
       }
       let originalIcon = shareBtn.textContent;
@@ -3138,20 +3142,26 @@
         const file = new File([blob], f.name || 'file', { type: mime });
         shareBtn._preparedFile = file;
 
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file] });
-            shareBtn._preparedFile = null;
-          } catch (shErr) {
-            if (shErr && shErr.name === 'AbortError') return;
-            if (shErr && shErr.name === 'NotAllowedError') {
-              // انتهت صلاحية اللمسة بسبب وقت التحميل - الملف جاهز، اللمسة الجاية بتشارك فورًا
-              originalIcon = '✅';
-              return;
+        let shared = false;
+        if (navigator.share) {
+          const attempts = [file, new File([blob], f.name || 'file', { type: 'application/octet-stream' })];
+          for (const cand of attempts) {
+            try {
+              await navigator.share({ files: [cand] });
+              shared = true; break;
+            } catch (shErr) {
+              if (shErr && shErr.name === 'AbortError') return;
+              if (shErr && shErr.name === 'NotAllowedError') {
+                // انتهت صلاحية اللمسة بسبب وقت التحميل - اللمسة الجاية بتشارك فورًا
+                shareBtn._preparedFile = file;
+                originalIcon = '✅';
+                return;
+              }
+              console.warn('share attempt failed', shErr);
             }
-            throw shErr;
           }
-        } else {
+        }
+        if (!shared) {
           const objectUrl = URL.createObjectURL(file);
           const downloadLink = document.createElement('a');
           downloadLink.href = objectUrl;
@@ -3160,8 +3170,8 @@
           downloadLink.click();
           downloadLink.remove();
           setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-          shareBtn._preparedFile = null;
         }
+        shareBtn._preparedFile = null;
         recordFileOpen(f);
       } catch (err) {
         if (err && err.name === 'AbortError') return;
