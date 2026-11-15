@@ -3105,6 +3105,18 @@
         }
         return;
       }
+      // المتصفحات (Chrome/Brave) بتمنع مشاركة ملفات Office كملف - فبنشارك رابط الملف فورًا
+      const shExt = ((f.name || '').split('.').pop() || '').toLowerCase();
+      const fileShareable = ['pdf','csv','txt','jpg','jpeg','png','webp','gif','mp3','mp4','m4a','wav','webm'];
+      if (navigator.share && !fileShareable.includes(shExt)) {
+        try {
+          await navigator.share({ title: f.name || 'file', text: f.name || '', url: getFileUrls(f).share });
+          recordFileOpen(f);
+        } catch (e4) {
+          if (!e4 || e4.name !== 'AbortError') alert('Share error: ' + (e4 && e4.name) + ' - ' + (e4 && e4.message));
+        }
+        return;
+      }
       let originalIcon = shareBtn.textContent;
       shareBtn.disabled = true;
       shareBtn.textContent = '⏳';
