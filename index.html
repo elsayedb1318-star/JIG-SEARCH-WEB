@@ -51,7 +51,8 @@
   html.dark .file-icon{ background:#242a38; }
   html.dark .search-highlight{ background:#5a4a12; color:#ffe9a8; }
   *{box-sizing:border-box;}
-  html,body{ overflow-x:hidden; max-width:100%; }
+  html,body{ max-width:100%; }
+  html{ overflow-x:hidden; }
   body{
     margin:0;
     font-family:system-ui, -apple-system, 'Segoe UI', Tahoma, Arial, sans-serif;
@@ -1130,11 +1131,31 @@
   .upload-box button{ border:0; cursor:pointer; text-align:center; }
   .upload-box button:disabled{ opacity:.6; cursor:default; }
   .upload-status{ font-size:.9rem; white-space:pre-line; min-height:1.2em; }
+
+  /* Sticky top: brand + search form stay pinned while results scroll */
+  .header.sticky-top{
+    position:sticky; top:0; z-index:60;
+    background:var(--card);
+    padding-bottom:14px;
+    border-bottom-left-radius:0; border-bottom-right-radius:0;
+  }
+  .header.header-rest{
+    padding-top:0;
+    margin-top:0;
+  }
+  .header.header-rest .header-tools-row{ margin-top:0; }
+  html.dark .header.sticky-top{
+    background:#131b2b;
+    border-bottom:0;
+    box-shadow:0 8px 20px rgba(0,0,0,.28);
+  }
+  html.dark .header.header-rest{ border-top:0; }
+  .header.sticky-top{ box-shadow:0 6px 16px rgba(15,23,42,.08); }
 </style>
 </head>
 <body>
 
-  <div class="header">
+  <div class="header sticky-top" id="stickyTop">
     <div class="brand">
       <button type="button" id="langToggleBtn" class="header-corner-btn" aria-label="Switch language">AR</button>
       <div class="brand-center">
@@ -1170,6 +1191,8 @@
         <span id="searchGoogleDriveLabel">Search in Files by Google Drive</span>
       </label>
     </form>
+  </div>
+  <div class="header header-rest">
     <div id="headerToolsRow" class="header-tools-row">
       <div class="advanced-search">
         <button type="button" id="advancedSearchBtn" class="tool-btn">🛠️ TOOLS</button>
