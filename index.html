@@ -11,11 +11,11 @@
 <script>
   // بنطبّق الوضع الليلي بدري قبل ما الصفحة تترسم عشان مايحصلش وميض (flash) بلون غلط
   try{
-    if(localStorage.getItem('jigsearchprivate_theme') === 'dark') document.documentElement.classList.add('dark');
+    if(localStorage.getItem('jigsearch_theme') === 'dark') document.documentElement.classList.add('dark');
   }catch(e){ /* تجاهل */ }
   // بنطبّق اللغة المحفوظة بدري قبل ما الصفحة تترسم عشان مايحصلش وميض لغة غلط
   try{
-    var __lang = localStorage.getItem('jigsearchprivate_lang') || 'en';
+    var __lang = localStorage.getItem('jigsearch_lang') || 'en';
     document.documentElement.lang = __lang;
     document.documentElement.dir = __lang === 'ar' ? 'rtl' : 'ltr';
   }catch(e){ /* تجاهل */ }
@@ -1341,18 +1341,14 @@
 
 <script>
   // إعدادات لازم تتظبط قبل ما الصفحة تشتغل:
-  const PROXY_URL = "https://jig-search-private-web.elsayedb1318.workers.dev/";
+  const PROXY_URL = "https://jig-search-web.elsayedb1318.workers.dev/";
   // لازم يتطابق حرفيًا مع APP_TOKEN في worker.js - مش سر حقيقي (ظاهر في
   // كود الموقع)، الهدف بس تصفية أي سكريبت عشوائي بيحاول يضرب endpoint
   // البحث من غير ما يفتح الموقع نفسه أصلًا
   const APP_TOKEN = "jigsearch-2f8a7c1e";
-  const ROOT_FOLDER_IDS = [
-    "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-",
-    "1c2V8ijWzpsCcbXbBekkKZzTRpsi9cwR0"
-  ];
-  const ROOT_FOLDER_ID = ROOT_FOLDER_IDS.join(','); // مفتاح موحد للفولدرات الرئيسية (للمقارنة مع الفهرس المخزن)
+  const ROOT_FOLDER_ID = "1m0jhTeU8PtiaFu9G_mzH_NxLD-IayaR-"; // ID الفولدر الرئيسي
   const PAGE_SIZE = 30;
-  const CACHE_KEY = 'jigsearchprivate_index_v10'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
+  const CACHE_KEY = 'jigsearch_index_v10'; // شامل الفولدرات + أسماء الملفات + الفولدر المباشر لكل ملف (للفلترة)
 
   const qInput = document.getElementById('q');
   const searchForm = document.getElementById('searchForm');
@@ -1617,7 +1613,7 @@
     }
   };
   let currentLang = 'en';
-  try{ currentLang = localStorage.getItem('jigsearchprivate_lang') || 'en'; }catch(e){ /* تجاهل */ }
+  try{ currentLang = localStorage.getItem('jigsearch_lang') || 'en'; }catch(e){ /* تجاهل */ }
 
   function t(key, params){
     let str = (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en[key] || '');
@@ -1653,7 +1649,7 @@
   }
   function applyLanguage(lang){
     currentLang = lang;
-    try{ localStorage.setItem('jigsearchprivate_lang', lang); }catch(e){ /* تجاهل */ }
+    try{ localStorage.setItem('jigsearch_lang', lang); }catch(e){ /* تجاهل */ }
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     langToggleBtn.textContent = lang === 'ar' ? 'EN' : 'AR';
@@ -1719,11 +1715,11 @@
   langToggleBtn.addEventListener('click', () => applyLanguage(currentLang === 'ar' ? 'en' : 'ar'));
 
   // ===== سجل الملفات المفتوحة والمفضلة - كله محليًا في المتصفح =====
-  const RECENT_FILES_KEY = 'jigsearchprivate_recent_files_v1';
-  const FAV_KEY = 'jigsearchprivate_favorites_v1';
+  const RECENT_FILES_KEY = 'jigsearch_recent_files_v1';
+  const FAV_KEY = 'jigsearch_favorites_v1';
   const RECENT_FILES_MAX = 30;
   const RECENT_FILES_TTL_MS = 3 * 24 * 60 * 60 * 1000; // الملفات في "آخر الملفات" بتتحذف بعد 3 أيام
-  const FILES_CACHE_NAME = 'jigsearchprivate-files-v1';
+  const FILES_CACHE_NAME = 'jigsearch-files-v1';
 
   // بنطلب تخزين دائم عشان المتصفح ميمسحش الملفات المحفوظة تلقائيًا لو
   // الجهاز محتاج مساحة - أفضل جهد بس، مش كل المتصفحات بتدعمها
@@ -1732,7 +1728,7 @@
   }
 
   // ===== التحديث اليدوي: تحديث الفهرس مرة واحدة ثم 3 مرات Deep Refresh للصفحة =====
-  const DEEP_REFRESH_KEY = 'jigsearchprivate_deep_refresh_count';
+  const DEEP_REFRESH_KEY = 'jigsearch_deep_refresh_count';
   const DEEP_REFRESH_TOTAL = 1;
   let isRefreshing = false;
 
@@ -1760,7 +1756,7 @@
     try{
       if('caches' in window){
         const keys = await caches.keys();
-        await Promise.all(keys.filter(k => k.startsWith('jigsearchprivate-') && k !== FILES_CACHE_NAME).map(k => caches.delete(k)));
+        await Promise.all(keys.filter(k => k.startsWith('jigsearch-') && k !== FILES_CACHE_NAME).map(k => caches.delete(k)));
       }
       // لا نلغي تسجيل Service Worker هنا؛ تحديث Jig Search يمسح فقط
       // الكاشات ذات البادئة jigsearch- ولا يلمس تخزين التطبيقات الأخرى.
@@ -2010,7 +2006,7 @@
   // تنظيف تلقائي صامت: يفحص Recent + Favorites دوريًا ويحذف الروابط لملفات لم تعد موجودة
   let isCleaningUp = false;
   const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
-  const CLEANUP_LAST_RUN_KEY = 'jigsearchprivate_cleanup_last_run';
+  const CLEANUP_LAST_RUN_KEY = 'jigsearch_cleanup_last_run';
   async function runCleanup(){
     if(isCleaningUp || !navigator.onLine) return;
     isCleaningUp = true;
@@ -2121,7 +2117,7 @@
   applyThemeButtonLabel();
   themeToggleBtn.addEventListener('click', () => {
     const isDark = document.documentElement.classList.toggle('dark');
-    try{ localStorage.setItem('jigsearchprivate_theme', isDark ? 'dark' : 'light'); }catch(e){ /* تجاهل */ }
+    try{ localStorage.setItem('jigsearch_theme', isDark ? 'dark' : 'light'); }catch(e){ /* تجاهل */ }
     applyThemeButtonLabel();
   });
 
@@ -2345,7 +2341,7 @@
   // كل ملف بيتحط عليه "folder" = ID الفولدر المباشر جوه الروت اللي هو تابعله
   // (حتى لو الملف متداخل جوه فولدرات فرعية أعمق)، عشان فلترة النتائج بالفولدر.
   // ملفات الروت نفسه (مش جوه أي فولدر فرعي) بتاخد folder=null.
-  async function crawlSingleRoot(rootId, onProgress){
+  async function crawlAllFoldersAndFiles(rootId, onProgress){
     // الفولدر الرئيسي بيتقرا من غير "ابتلاع" أي خطأ - لو فشل هنا فالمشكلة
     // عامة (نت/صلاحيات/سيرفر) مش مجرد فولدر فرعي، فلازم تبان بوضوح فوق
     const rootResult = await fetchFolderChildrenRaw(rootId);
@@ -2387,28 +2383,9 @@
     return { folderIds, files, topFolders, folderTopMap };
   }
 
-  // بيفهرس كل الفولدرات الرئيسية (ROOT_FOLDER_IDS) ويدمج النتائج في فهرس واحد
-  async function crawlAllFoldersAndFiles(rootIds, onProgress){
-    const roots = Array.isArray(rootIds) ? rootIds : [rootIds];
-    const folderIds = [], files = [], topFolders = [], folderTopMap = {};
-    let baseFolders = 0, baseFiles = 0;
-    for(const rid of roots){
-      const r = await crawlSingleRoot(rid, (fc, fl, level) => {
-        if(onProgress) onProgress(baseFolders + fc, baseFiles + fl, level);
-      });
-      folderIds.push(...r.folderIds);
-      files.push(...r.files);
-      topFolders.push(...r.topFolders);
-      Object.assign(folderTopMap, r.folderTopMap);
-      baseFolders = folderIds.length;
-      baseFiles = files.length;
-    }
-    return { folderIds, files, topFolders, folderTopMap };
-  }
-
   // ===== تخزين الفهرس: IndexedDB (سعة أكبر وأثبت من localStorage)
   // مع fallback تلقائي لـ localStorage لو IndexedDB مش متاح =====
-  const IDB_NAME = 'jigsearchprivate_db';
+  const IDB_NAME = 'jigsearch_db';
   const IDB_STORE = 'kv';
   let idbPromise = null;
 
@@ -2714,7 +2691,7 @@
       skippedByCategory = { permission: 0, network: 0, server: 0, unknown: 0 };
       consecutiveRateErrors = 0;
       CRAWL_CONCURRENCY = CRAWL_CONCURRENCY_DEFAULT;
-      const result = await crawlAllFoldersAndFiles(ROOT_FOLDER_IDS, (folderCount, fileCount, level) => {
+      const result = await crawlAllFoldersAndFiles(ROOT_FOLDER_ID, (folderCount, fileCount, level) => {
         setStatusKey('indexingProgress', { folders: folderCount, files: fileCount, level: level });
       });
       allFolderIds = result.folderIds;
@@ -3297,7 +3274,7 @@
   }
 
   // ===== آخر 5 عمليات بحث (recent searches) - متخزنة محليًا في المتصفح =====
-  const RECENT_SEARCH_KEY = 'jigsearchprivate_recent_searches_v1';
+  const RECENT_SEARCH_KEY = 'jigsearch_recent_searches_v1';
   const RECENT_SEARCH_MAX = 3;
 
   function loadRecentSearches(){
@@ -4206,7 +4183,7 @@
   }
 
   // ===== تنظيف تلقائي خفيف: مرة كل 24 ساعة، ويختبر فقط Recent/Favorites =====
-  const AUTO_CLEANUP_KEY = 'jigsearchprivate_auto_cleanup_ts_v1';
+  const AUTO_CLEANUP_KEY = 'jigsearch_auto_cleanup_ts_v1';
   const AUTO_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
   let autoCleanupRunning = false;
   async function runAutomaticCleanup(){
@@ -4311,7 +4288,7 @@
   setTimeout(runAutomaticCleanup, 5000);
 
   // إعادة بناء الفهرس تلقائيًا كل 3 أيام، وبعدها ريفريش مرة واحدة فقط
-  const AUTO_REBUILD_ATTEMPT_KEY = 'jigsearchprivate_auto_rebuild_attempt_ts';
+  const AUTO_REBUILD_ATTEMPT_KEY = 'jigsearch_auto_rebuild_attempt_ts';
   async function autoRebuildIfDue(){
     try{
       if(navigator.onLine === false || weeklyIndexRebuildRunning || isRefreshing) return;
