@@ -3,7 +3,7 @@
 // حتى من غير إنترنت. البحث نفسه بيتم محليًا على الفهرس المخزن في
 // IndexedDB جوه المتصفح، فمش محتاج إنترنت أصلاً بعد أول فهرسة.
 
-const CACHE_NAME = 'jigsearch-cache-v9';
+const CACHE_NAME = 'jigsearchprivate-cache-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -30,7 +30,7 @@ self.addEventListener('activate', (event) => {
     caches.keys()
       // مهم: نمسح بس كاشات JIG SEARCH القديمة. التطبيقات التانية على نفس الدومين
       // (github.io) بتشارك نفس مخزن الكاش، ومسح كل حاجة بيهدم كاش التطبيقات التانية
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('jigsearch-cache-') && k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('jigsearchprivate-cache-') && k !== CACHE_NAME).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
